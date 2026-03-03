@@ -9,7 +9,7 @@ function buildSheetUrl(path: string): string {
   if (import.meta.env.DEV) {
     return `/sheets-proxy${path}`
   }
-  return `/api/sheets?url=${encodeURIComponent(fullUrl)}`
+  return `/.netlify/functions/sheets?url=${encodeURIComponent(fullUrl)}`
 }
 
 export const SHEET_URLS = {
