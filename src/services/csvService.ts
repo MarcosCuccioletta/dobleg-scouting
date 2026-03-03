@@ -36,17 +36,23 @@ function resolveAliases(rows: RawRow[]): RawRow[] {
 }
 
 async function fetchCSV(url: string): Promise<RawRow[]> {
-  const response = await fetch(url)
-  if (!response.ok) {
-    throw new Error(`Error al cargar datos (HTTP ${response.status})`)
+  try {
+    const response = await fetch(url)
+    if (!response.ok) {
+      console.warn(`Failed to load CSV (HTTP ${response.status}): ${url}`)
+      return []
+    }
+    const text = await response.text()
+    const result = Papa.parse<RawRow>(text, {
+      header: true,
+      skipEmptyLines: true,
+      transformHeader: (h) => h.trim(),
+    })
+    return result.data.map(trimHeaders)
+  } catch (error) {
+    console.warn(`Failed to load CSV: ${url}`, error)
+    return []
   }
-  const text = await response.text()
-  const result = Papa.parse<RawRow>(text, {
-    header: true,
-    skipEmptyLines: true,
-    transformHeader: (h) => h.trim(),
-  })
-  return result.data.map(trimHeaders)
 }
 
 // ─── PARSERS ─────────────────────────────────────────────────────────────────
