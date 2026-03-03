@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Solicitud de Jugador - Doble G Sports</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .container {
+      background: white;
+      border-radius: 20px;
+      padding: 40px 30px;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    .logo {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    .logo h1 {
+      font-size: 24px;
+      color: #1a1a2e;
+      margin-bottom: 5px;
+    }
+    .logo p {
+      color: #666;
+      font-size: 14px;
+    }
+    .form-group {
+      margin-bottom: 20px;
+    }
+    label {
+      display: block;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+    input, textarea, select {
+      width: 100%;
+      padding: 14px 16px;
+      border: 2px solid #e0e0e0;
+      border-radius: 12px;
+      font-size: 16px;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      outline: none;
+    }
+    input:focus, textarea:focus, select:focus {
+      border-color: #00E676;
+      box-shadow: 0 0 0 4px rgba(0,230,118,0.1);
+    }
+    textarea {
+      resize: vertical;
+      min-height: 80px;
+    }
+    button {
+      width: 100%;
+      padding: 16px;
+      background: #00E676;
+      color: #1a1a2e;
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(0,230,118,0.4);
+    }
+    button:active {
+      transform: translateY(0);
+    }
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+    .success {
+      display: none;
+      text-align: center;
+      padding: 40px 20px;
+    }
+    .success svg {
+      width: 80px;
+      height: 80px;
+      color: #00E676;
+      margin-bottom: 20px;
+    }
+    .success h2 {
+      color: #1a1a2e;
+      margin-bottom: 10px;
+    }
+    .success p {
+      color: #666;
+    }
+    .success button {
+      margin-top: 20px;
+      background: #1a1a2e;
+      color: white;
+    }
+    .required {
+      color: #e53935;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div id="form-view">
+      <div class="logo">
+        <h1>Doble G Sports</h1>
+        <p>Solicitud de Jugador</p>
+      </div>
+      <form id="playerForm">
+        <div class="form-group">
+          <label>Nombre del Jugador <span class="required">*</span></label>
+          <input type="text" id="nombre" required placeholder="Ej: Lionel Messi">
+        </div>
+        <div class="form-group">
+          <label>Equipo Actual <span class="required">*</span></label>
+          <input type="text" id="equipo" required placeholder="Ej: Inter Miami">
+        </div>
+        <div class="form-group">
+          <label>Liga</label>
+          <input type="text" id="liga" placeholder="Ej: MLS">
+        </div>
+        <div class="form-group">
+          <label>Posicion</label>
+          <select id="posicion">
+            <option value="">Seleccionar...</option>
+            <option value="Portero">Portero</option>
+            <option value="Defensor Central">Defensor Central</option>
+            <option value="Lateral">Lateral</option>
+            <option value="Mediocampista">Mediocampista</option>
+            <option value="Extremo">Extremo</option>
+            <option value="Delantero">Delantero</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Tipo de solicitud</label>
+          <select id="tipo">
+            <option value="Seguimiento">Agregar a Seguimiento</option>
+            <option value="Base de datos">Agregar a Base de datos</option>
+            <option value="Urgente">Urgente - Evaluar YA</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Notas adicionales</label>
+          <textarea id="notas" placeholder="Cualquier informacion adicional..."></textarea>
+        </div>
+        <div class="form-group">
+          <label>Tu nombre</label>
+          <input type="text" id="solicitante" placeholder="Quien hace la solicitud">
+        </div>
+        <button type="submit" id="submitBtn">Enviar Solicitud</button>
+      </form>
+    </div>
+    <div class="success" id="success-view">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      <h2>Solicitud Enviada</h2>
+      <p>El equipo de scouting recibio tu pedido.</p>
+      <button onclick="resetForm()">Enviar otra solicitud</button>
+    </div>
+  </div>
+
+  <script>
+    // IMPORTANTE: Reemplaza esta URL con tu Google Apps Script Web App URL
+    const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwUGkgKuDZqIL4lRN3j1C7B1vueo3137n1Ily3weDEkvdecCTpf8hRXOs6QdH-w8RDY/exec';
+
+    document.getElementById('playerForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const btn = document.getElementById('submitBtn');
+      btn.disabled = true;
+      btn.textContent = 'Enviando...';
+
+      const data = {
+        nombre: document.getElementById('nombre').value,
+        equipo: document.getElementById('equipo').value,
+        liga: document.getElementById('liga').value,
+        posicion: document.getElementById('posicion').value,
+        tipo: document.getElementById('tipo').value,
+        notas: document.getElementById('notas').value,
+        solicitante: document.getElementById('solicitante').value,
+        fecha: new Date().toLocaleString('es-AR')
+      };
+
+      try {
+        await fetch(GOOGLE_SCRIPT_URL, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+
+        document.getElementById('form-view').style.display = 'none';
+        document.getElementById('success-view').style.display = 'block';
+      } catch (error) {
+        alert('Error al enviar. Intenta de nuevo.');
+        btn.disabled = false;
+        btn.textContent = 'Enviar Solicitud';
+      }
+    });
+
+    function resetForm() {
+      document.getElementById('playerForm').reset();
+      document.getElementById('form-view').style.display = 'block';
+      document.getElementById('success-view').style.display = 'none';
+      document.getElementById('submitBtn').disabled = false;
+      document.getElementById('submitBtn').textContent = 'Enviar Solicitud';
+    }
+  </script>
+</body>
+</html>
