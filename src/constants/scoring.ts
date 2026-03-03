@@ -1,0 +1,479 @@
+// ─── GOOGLE SHEETS CSV URLS ───────────────────────────────────────────────────
+
+// Google Sheets base URLs
+const GOOGLE_BASE = 'https://docs.google.com'
+
+// Helper to build URLs - in production uses serverless proxy, in dev uses Vite proxy
+function buildSheetUrl(path: string): string {
+  const fullUrl = `${GOOGLE_BASE}${path}`
+  if (import.meta.env.DEV) {
+    return `/sheets-proxy${path}`
+  }
+  return `/api/sheets?url=${encodeURIComponent(fullUrl)}`
+}
+
+export const SHEET_URLS = {
+  externo: buildSheetUrl('/spreadsheets/d/e/2PACX-1vSneBjGlw2I3SyXV-uw1V8Cs_O4lbiQw39melKEZJNhunpshakPrn7AZQBN2L8N9Yw_HA-EeVOt3qvf/pub?gid=2002620668&single=true&output=csv'),
+  interno: buildSheetUrl('/spreadsheets/d/e/2PACX-1vSneBjGlw2I3SyXV-uw1V8Cs_O4lbiQw39melKEZJNhunpshakPrn7AZQBN2L8N9Yw_HA-EeVOt3qvf/pub?gid=1089729044&single=true&output=csv'),
+  seguimiento: buildSheetUrl('/spreadsheets/d/e/2PACX-1vSneBjGlw2I3SyXV-uw1V8Cs_O4lbiQw39melKEZJNhunpshakPrn7AZQBN2L8N9Yw_HA-EeVOt3qvf/pub?gid=1608054850&single=true&output=csv'),
+  seguimientoMetricas: buildSheetUrl('/spreadsheets/d/e/2PACX-1vSneBjGlw2I3SyXV-uw1V8Cs_O4lbiQw39melKEZJNhunpshakPrn7AZQBN2L8N9Yw_HA-EeVOt3qvf/pub?gid=1167296651&single=true&output=csv'),
+  normalizado: buildSheetUrl('/spreadsheets/d/e/2PACX-1vSneBjGlw2I3SyXV-uw1V8Cs_O4lbiQw39melKEZJNhunpshakPrn7AZQBN2L8N9Yw_HA-EeVOt3qvf/pub?gid=1398676062&single=true&output=csv'),
+  transfermarkt: buildSheetUrl('/spreadsheets/d/e/2PACX-1vSneBjGlw2I3SyXV-uw1V8Cs_O4lbiQw39melKEZJNhunpshakPrn7AZQBN2L8N9Yw_HA-EeVOt3qvf/pub?gid=1508649688&single=true&output=csv'),
+  masDatos: buildSheetUrl('/spreadsheets/d/e/2PACX-1vSneBjGlw2I3SyXV-uw1V8Cs_O4lbiQw39melKEZJNhunpshakPrn7AZQBN2L8N9Yw_HA-EeVOt3qvf/pub?gid=150864968&single=true&output=csv'),
+  evolucion: buildSheetUrl('/spreadsheets/d/e/2PACX-1vS7cuAywNQtcMc1R7Nzai9vUHHv8ZK09fTcm5GbwWD2_u0pRUeBRsVu_6SjLbdnMIL5SAJy-Liwn1yd/pub?gid=1395066371&single=true&output=csv'),
+  metricas: buildSheetUrl('/spreadsheets/d/e/2PACX-1vS7cuAywNQtcMc1R7Nzai9vUHHv8ZK09fTcm5GbwWD2_u0pRUeBRsVu_6SjLbdnMIL5SAJy-Liwn1yd/pub?gid=2041650226&single=true&output=csv'),
+  valorMercadoHistorico: buildSheetUrl('/spreadsheets/d/e/2PACX-1vSneBjGlw2I3SyXV-uw1V8Cs_O4lbiQw39melKEZJNhunpshakPrn7AZQBN2L8N9Yw_HA-EeVOt3qvf/pub?gid=1121324076&single=true&output=csv'),
+} as const
+
+// ─── COLUMN ALIASES ───────────────────────────────────────────────────────────
+// Maps from source CSV column name → canonical column name
+// Applied at parse time so scoring and radar always use canonical names
+
+export const COLUMN_ALIASES: Record<string, string> = {
+  // Externo uses "Dribling completados/90", Interno uses "Gambetas completadas/90"
+  'Dribling completados/90': 'Gambetas completadas/90',
+  // Interno uses different column names for market value and contract
+  'Valor de mercado': 'Valor de mercado (Transfermarkt)',
+  'Fecha fin de contrato': 'Vencimiento contrato',
+}
+
+// ─── POSITION NORMALIZATION ───────────────────────────────────────────────────
+// Maps raw CSV Posición string → scoring position key (for scoring purposes - grouped)
+
+export const POSITION_MAP: Record<string, string> = {
+  // Spanish names
+  'Defensor central': 'Defensor Central',
+  'Defensor Central': 'Defensor Central',
+  'Lateral derecho': 'Lateral',
+  'Lateral izquierdo': 'Lateral',
+  'Lateral': 'Lateral',
+  'Volante central': 'Volante central',
+  'Mediocentro': 'Volante central',
+  'Mediocentro defensivo': 'Volante central',
+  'Pivote': 'Volante central',
+  'Volante interno': 'Volante interno',
+  'Mediapunta': 'Volante interno',
+  'Interior': 'Volante interno',
+  'Enganche': 'Volante interno',
+  'Extremo derecho': 'Extremo',
+  'Extremo izquierdo': 'Extremo',
+  'Extremo': 'Extremo',
+  'Carrilero': 'Lateral',
+  'Delantero centro': 'Delantero',
+  'Delantero': 'Delantero',
+  'Segundo delantero': 'Delantero',
+  'Ariete': 'Delantero',
+  // Wyscout position codes
+  'RCB': 'Defensor Central',
+  'LCB': 'Defensor Central',
+  'RCB3': 'Defensor Central',
+  'LCB3': 'Defensor Central',
+  'CB': 'Defensor Central',
+  'RB': 'Lateral',
+  'LB': 'Lateral',
+  'RWB': 'Lateral',
+  'LWB': 'Lateral',
+  'RCMF': 'Volante central',
+  'LCMF': 'Volante central',
+  'RCMF3': 'Volante central',
+  'LCMF3': 'Volante central',
+  'DMF': 'Volante central',
+  'RDMF': 'Volante central',
+  'LDMF': 'Volante central',
+  'AMF': 'Volante interno',
+  'RAMF': 'Volante interno',
+  'LAMF': 'Volante interno',
+  'RW': 'Extremo',
+  'LW': 'Extremo',
+  'RWF': 'Extremo',
+  'LWF': 'Extremo',
+  'CF': 'Delantero',
+  'SS': 'Delantero',
+}
+
+// ─── FILTER POSITION MAP ─────────────────────────────────────────────────────
+// Maps raw CSV Posición string → filter-friendly position (keeps left/right separate)
+
+export const FILTER_POSITION_MAP: Record<string, string> = {
+  'Defensor central': 'Defensor Central',
+  'Defensor Central': 'Defensor Central',
+  'Lateral derecho': 'Lateral Derecho',
+  'Lateral izquierdo': 'Lateral Izquierdo',
+  'Lateral': 'Lateral',
+  'Carrilero': 'Lateral',
+  'Volante central': 'Volante Central',
+  'Mediocentro': 'Volante Central',
+  'Mediocentro defensivo': 'Volante Central',
+  'Pivote': 'Volante Central',
+  'Volante interno': 'Volante Interno',
+  'Mediapunta': 'Volante Interno',
+  'Interior': 'Volante Interno',
+  'Extremo derecho': 'Extremo Derecho',
+  'Extremo izquierdo': 'Extremo Izquierdo',
+  'Extremo': 'Extremo',
+  'Delantero centro': 'Delantero',
+  'Delantero': 'Delantero',
+  'Segundo delantero': 'Delantero',
+  'Ariete': 'Delantero',
+}
+
+// ─── DISPLAY POSITION MAP ────────────────────────────────────────────────────
+// Maps Wyscout codes and raw positions → user-friendly Spanish display names
+// Used for displaying in player profiles
+
+export const DISPLAY_POSITION_MAP: Record<string, string> = {
+  // Spanish names
+  'Defensor central': 'Defensor central',
+  'Defensor Central': 'Defensor central',
+  'Lateral derecho': 'Lateral derecho',
+  'Lateral izquierdo': 'Lateral izquierdo',
+  'Lateral': 'Lateral',
+  'Carrilero': 'Carrilero',
+  'Volante central': 'Volante central',
+  'Mediocentro': 'Volante central',
+  'Mediocentro defensivo': 'Volante interno',
+  'Pivote': 'Volante central',
+  'Volante interno': 'Volante interno',
+  'Mediapunta': 'Delantero',
+  'Interior': 'Volante interno',
+  'Enganche': 'Volante interno',
+  'Extremo derecho': 'Extremo',
+  'Extremo izquierdo': 'Extremo',
+  'Extremo': 'Extremo',
+  'Delantero centro': 'Delantero',
+  'Delantero': 'Delantero',
+  'Segundo delantero': 'Delantero',
+  'Ariete': 'Delantero',
+  // Wyscout position codes
+  'RCB': 'Defensor central',
+  'LCB': 'Defensor central',
+  'RCB3': 'Defensor central',
+  'LCB3': 'Defensor central',
+  'CB': 'Defensor central',
+  'RB': 'Lateral derecho',
+  'LB': 'Lateral izquierdo',
+  'RWB': 'Lateral derecho',
+  'LWB': 'Lateral izquierdo',
+  'RCMF': 'Volante central',
+  'LCMF': 'Volante central',
+  'RCMF3': 'Volante central',
+  'LCMF3': 'Volante central',
+  'DMF': 'Volante central',
+  'RDMF': 'Volante central',
+  'LDMF': 'Volante central',
+  'AMF': 'Delantero',
+  'RAMF': 'Delantero',
+  'LAMF': 'Delantero',
+  'RW': 'Extremo',
+  'LW': 'Extremo',
+  'RWF': 'Extremo',
+  'LWF': 'Extremo',
+  'CF': 'Delantero',
+  'SS': 'Delantero',
+}
+
+// ─── SCORING WEIGHTS ──────────────────────────────────────────────────────────
+// All weights per position sum to 100
+
+export interface MetricWeight {
+  column: string
+  weight: number
+}
+
+export const SCORING_CONFIG: Record<string, MetricWeight[]> = {
+  'Defensor Central': [
+    { column: 'Duelos ganados, %',                    weight: 14 },
+    { column: 'Duelos defensivos ganados, %',         weight: 15 },
+    { column: 'Duelos aéreos ganados, %',             weight: 15 },
+    { column: 'Interceptaciones/90',                  weight: 3  },
+    { column: 'Precisión pases largos, %',            weight: 7  },
+    { column: 'Carreras en progresión/90',            weight: 11 },
+    { column: 'Pases hacia adelante/90',              weight: 4  },
+    { column: 'Precisión pases hacia adelante, %',    weight: 6  },
+    { column: 'Pases progresivos exitosos/90',        weight: 13 },
+    { column: 'Pases precisos/90',                    weight: 4  },
+    { column: 'Entradas/90',                          weight: 4  },
+  ],
+  'Lateral': [
+    { column: 'Acciones de ataque exitosas/90',       weight: 7  },
+    { column: 'Duelos ganados, %',                    weight: 8  },
+    { column: 'Duelos defensivos ganados, %',         weight: 7  },
+    { column: 'Duelos aéreos ganados, %',             weight: 4  },
+    { column: 'Pases progresivos exitosos/90',        weight: 4  },
+    { column: 'Remates/90',                           weight: 4  },
+    { column: 'Carreras en progresión/90',            weight: 5  },
+    { column: 'xA/90',                                weight: 8  },
+    { column: 'Centros precisos/90',                  weight: 5  },
+    { column: 'Gambetas completadas/90',              weight: 8  },
+    { column: 'Duelos atacantes ganados/90',          weight: 9  },
+    { column: 'Toques en el área de penalti/90',      weight: 5  },
+    { column: 'Faltas recibidas/90',                  weight: 2  },
+    { column: 'Jugadas claves/90',                    weight: 8  },
+    { column: 'Ataque en profundidad/90',             weight: 5  },
+    { column: 'Duelos atacantes ganados, %',          weight: 4  },
+    { column: 'Gambetas completadas, %',              weight: 3  },
+    { column: 'xG',                                   weight: 4  },
+  ],
+  'Volante central': [
+    { column: 'Duelos ganados, %',                    weight: 12 },
+    { column: 'Duelos defensivos ganados, %',         weight: 12 },
+    { column: 'Duelos aéreos ganados, %',             weight: 6  },
+    { column: 'Pases progresivos exitosos/90',        weight: 18 },
+    { column: 'Pases hacia adelante/90',              weight: 13 },
+    { column: 'Precisión pases hacia adelante, %',    weight: 13 },
+    { column: 'Interceptaciones/90',                  weight: 5  },
+    { column: 'Acciones defensivas realizadas/90',    weight: 6  },
+    { column: 'Precisión pases largos, %',            weight: 7  },
+    { column: 'Entradas/90',                          weight: 8  },
+  ],
+  'Volante interno': [
+    { column: 'Duelos ganados, %',                    weight: 6  },
+    { column: 'Duelos defensivos ganados, %',         weight: 4  },
+    { column: 'Pases progresivos exitosos/90',        weight: 6  },
+    { column: 'Pases hacia adelante/90',              weight: 3  },
+    { column: 'Precisión pases hacia adelante, %',    weight: 5  },
+    { column: 'Interceptaciones/90',                  weight: 1  },
+    { column: 'Acciones defensivas realizadas/90',    weight: 6  },
+    { column: 'Precisión pases largos, %',            weight: 3  },
+    { column: 'Entradas/90',                          weight: 4  },
+    { column: 'Carreras en progresión/90',            weight: 4  },
+    { column: 'xA/90',                                weight: 7  },
+    { column: 'Gambetas completadas/90',              weight: 6  },
+    { column: 'Duelos atacantes ganados/90',          weight: 6  },
+    { column: 'Toques en el área de penalti/90',      weight: 5  },
+    { column: 'Faltas recibidas/90',                  weight: 2  },
+    { column: 'Jugadas claves/90',                    weight: 7  },
+    { column: 'Ataque en profundidad/90',             weight: 4  },
+    { column: 'Acciones de ataque exitosas/90',       weight: 6  },
+    { column: 'xG',                                   weight: 7  },
+    { column: 'Gambetas completadas, %',              weight: 4  },
+    { column: 'Duelos atacantes ganados, %',          weight: 4  },
+  ],
+  'Extremo': [
+    { column: 'Duelos ganados, %',                    weight: 8  },
+    { column: 'Pases progresivos exitosos/90',        weight: 3  },
+    { column: 'Carreras en progresión/90',            weight: 7  },
+    { column: 'xA/90',                                weight: 11 },
+    { column: 'Gambetas completadas/90',              weight: 11 },
+    { column: 'Duelos atacantes ganados/90',          weight: 11 },
+    { column: 'Toques en el área de penalti/90',      weight: 3  },
+    { column: 'Faltas recibidas/90',                  weight: 3  },
+    { column: 'Jugadas claves/90',                    weight: 9  },
+    { column: 'Ataque en profundidad/90',             weight: 2  },
+    { column: 'Acciones de ataque exitosas/90',       weight: 6  },
+    { column: 'xG',                                   weight: 5  },
+    { column: 'Goles',                                weight: 11 },
+    { column: 'Duelos atacantes ganados, %',          weight: 5  },
+    { column: 'Gambetas completadas, %',              weight: 5  },
+  ],
+  'Delantero': [
+    { column: 'Duelos ganados, %',                    weight: 7  },
+    { column: 'xA/90',                                weight: 5  },
+    { column: 'Gambetas completadas/90',              weight: 7  },
+    { column: 'Duelos atacantes ganados/90',          weight: 7  },
+    { column: 'Acciones de ataque exitosas/90',       weight: 7  },
+    { column: 'Goles',                                weight: 37 },
+    { column: 'Duelos aéreos ganados, %',             weight: 17 },
+    { column: 'Duelos atacantes ganados, %',          weight: 7  },
+    { column: 'Gambetas completadas, %',              weight: 6  },
+  ],
+}
+
+// ─── RADAR CHART METRICS ──────────────────────────────────────────────────────
+// 8 representative metrics per position for radar visualization
+
+export const RADAR_METRICS: Record<string, string[]> = {
+  'Defensor Central': [
+    'Duelos ganados, %',
+    'Duelos defensivos ganados, %',
+    'Duelos aéreos ganados, %',
+    'Pases progresivos exitosos/90',
+    'Carreras en progresión/90',
+    'Precisión pases largos, %',
+    'Precisión pases hacia adelante, %',
+    'Pases hacia adelante/90',
+    'Pases al tercer tercio/90',
+    'Interceptaciones/90',
+    'Pases precisos/90',
+  ],
+  'Lateral': [
+    'Acciones de ataque exitosas/90',
+    'xA/90',
+    'Centros precisos/90',
+    'Gambetas completadas/90',
+    'Duelos atacantes ganados/90',
+    'Duelos defensivos ganados, %',
+    'Pases progresivos exitosos/90',
+    'Jugadas claves/90',
+  ],
+  'Volante central': [
+    'Duelos ganados, %',
+    'Duelos defensivos ganados, %',
+    'Pases progresivos exitosos/90',
+    'Pases hacia adelante/90',
+    'Precisión pases hacia adelante, %',
+    'Interceptaciones/90',
+    'Entradas/90',
+    'Precisión pases largos, %',
+  ],
+  'Volante interno': [
+    'Duelos ganados, %',
+    'Pases progresivos exitosos/90',
+    'xA/90',
+    'Gambetas completadas/90',
+    'Duelos atacantes ganados/90',
+    'Jugadas claves/90',
+    'Acciones de ataque exitosas/90',
+    'Interceptaciones/90',
+  ],
+  'Extremo': [
+    'Gambetas completadas/90',
+    'xA/90',
+    'Duelos atacantes ganados/90',
+    'Jugadas claves/90',
+    'Carreras en progresión/90',
+    'Toques en el área de penalti/90',
+    'Acciones de ataque exitosas/90',
+    'Duelos ganados, %',
+  ],
+  'Delantero': [
+    'Goles',
+    'xA/90',
+    'Gambetas completadas/90',
+    'Duelos atacantes ganados/90',
+    'Acciones de ataque exitosas/90',
+    'Duelos ganados, %',
+    'Duelos aéreos ganados, %',
+    'Toques en el área de penalti/90',
+  ],
+}
+
+// ─── METRIC LABEL ABBREVIATIONS ──────────────────────────────────────────────
+
+export const METRIC_ABBREVIATIONS: Record<string, string> = {
+  'Duelos ganados, %': 'Duelos ganados',
+  'Duelos defensivos ganados, %': 'Duelos defensivos',
+  'Duelos aéreos ganados, %': 'Duelos aéreos',
+  'Interceptaciones/90': 'Interceptaciones',
+  'Precisión pases largos, %': 'Pases largos',
+  'Carreras en progresión/90': 'Progresiones',
+  'Pases hacia adelante/90': 'Pases adelante',
+  'Precisión pases hacia adelante, %': 'Prec. adelante',
+  'Pases progresivos exitosos/90': 'Pases progresivos',
+  'Pases al tercer tercio/90': 'Pases ult. tercio',
+  'Pases precisos/90': 'Pases precisos',
+  'Acciones de ataque exitosas/90': 'Acciones ataque',
+  'Remates/90': 'Remates',
+  'xA/90': 'xA (asist. esp.)',
+  'Centros precisos/90': 'Centros precisos',
+  'Gambetas completadas/90': 'Gambetas',
+  'Duelos atacantes ganados/90': 'Duelos ofensivos',
+  'Toques en el área de penalti/90': 'Toques en área',
+  'Faltas recibidas/90': 'Faltas recibidas',
+  'Jugadas claves/90': 'Jugadas claves',
+  'Ataque en profundidad/90': 'Profundidad',
+  'Acciones defensivas realizadas/90': 'Acc. defensivas',
+  'Entradas/90': 'Entradas',
+  'xG': 'xG (goles esp.)',
+  'xG/90': 'xG (goles esp.)',
+  'Goles': 'Goles',
+  'Goles/90': 'Goles',
+  'Asistencias/90': 'Asistencias',
+}
+
+// ─── KEY DISPLAY METRICS BY POSITION (General Tab) ───────────────────────────
+
+export const DISPLAY_METRICS: Record<string, string[]> = {
+  'Defensor Central': [
+    'Partidos jugados', 'Minutos jugados',
+    'Duelos ganados, %', 'Duelos defensivos ganados, %', 'Duelos aéreos ganados, %',
+    'Interceptaciones/90', 'Pases progresivos exitosos/90', 'Carreras en progresión/90',
+    'Precisión pases largos, %', 'Precisión pases hacia adelante, %',
+  ],
+  'Lateral': [
+    'Partidos jugados', 'Minutos jugados',
+    'Acciones de ataque exitosas/90', 'xA/90', 'Centros precisos/90',
+    'Gambetas completadas/90', 'Duelos atacantes ganados/90', 'Jugadas claves/90',
+    'Duelos defensivos ganados, %', 'Pases progresivos exitosos/90',
+  ],
+  'Volante central': [
+    'Partidos jugados', 'Minutos jugados',
+    'Pases progresivos exitosos/90', 'Pases hacia adelante/90',
+    'Precisión pases hacia adelante, %', 'Duelos ganados, %',
+    'Duelos defensivos ganados, %', 'Interceptaciones/90',
+    'Entradas/90', 'Precisión pases largos, %',
+  ],
+  'Volante interno': [
+    'Partidos jugados', 'Minutos jugados',
+    'Pases progresivos exitosos/90', 'xA/90', 'Gambetas completadas/90',
+    'Jugadas claves/90', 'Acciones de ataque exitosas/90',
+    'Duelos atacantes ganados/90', 'Entradas/90', 'Interceptaciones/90',
+  ],
+  'Extremo': [
+    'Partidos jugados', 'Minutos jugados', 'Goles', 'Asistencias',
+    'Gambetas completadas/90', 'xA/90', 'Duelos atacantes ganados/90',
+    'Jugadas claves/90', 'Carreras en progresión/90', 'xG',
+  ],
+  'Delantero': [
+    'Partidos jugados', 'Minutos jugados', 'Goles', 'Asistencias',
+    'xG', 'xA/90', 'Duelos aéreos ganados, %',
+    'Gambetas completadas/90', 'Duelos atacantes ganados/90',
+    'Acciones de ataque exitosas/90',
+  ],
+  '_default': [
+    'Partidos jugados', 'Minutos jugados', 'Goles', 'Asistencias',
+    'xG', 'xA', 'Duelos ganados, %', 'Pases progresivos exitosos/90',
+    'Carreras en progresión/90', 'Interceptaciones/90',
+  ],
+}
+
+// ─── METRIC CATEGORIES FOR CHARTS ────────────────────────────────────────────
+
+export const METRIC_CATEGORIES: Record<string, string[]> = {
+  'Identificacion': [
+    'Jugador', 'Equipo', 'Liga', 'Nacionalidad', 'Posición', 'Posición específica',
+    'Fecha de nacimiento', 'Fin de contrato', 'Pie bueno', 'Imagen',
+  ],
+  'Goles y creacion': [
+    'Goles', 'Asistencias', 'xG', 'xA', 'xG/90', 'xA/90',
+    'Goles de penalti', 'Penaltis ejecutados', 'Goles con la cabeza',
+  ],
+  'Remates': [
+    'Remates/90', 'Remates a portería/90', 'Remates a portería, %',
+    'Precisión de remate, %', 'Toques en el área de penalti/90',
+  ],
+  'Pases': [
+    'Pases/90', 'Pases precisos/90', 'Pases, %',
+    'Pases hacia adelante/90', 'Precisión pases hacia adelante, %',
+    'Pases largos/90', 'Precisión pases largos, %',
+    'Pases progresivos exitosos/90', 'Jugadas claves/90', 'Asistencias de tiro/90',
+    'Segundas asistencias/90', 'Pases al tercio final, %', 'Pases al tercio final/90',
+  ],
+  'Centros': [
+    'Centros/90', 'Centros precisos/90', 'Precisión centros, %',
+  ],
+  'Regates y ataque': [
+    'Gambetas completadas/90', 'Gambetas completadas, %',
+    'Duelos atacantes ganados/90', 'Duelos atacantes ganados, %',
+    'Acciones de ataque exitosas/90', 'Carreras en progresión/90',
+    'Ataque en profundidad/90', 'Faltas recibidas/90',
+  ],
+  'Defensa': [
+    'Duelos ganados, %', 'Duelos defensivos ganados, %', 'Duelos aéreos ganados, %',
+    'Interceptaciones/90', 'Entradas/90', 'Rechaces/90',
+    'Acciones defensivas realizadas/90', 'Bloqueos/90',
+  ],
+  'Porteria': [
+    'Paradas/90', 'Paradas, %', 'Goles en contra', 'Goles en contra/90',
+    'xG en contra', 'xG en contra/90', 'Salidas/90',
+  ],
+  'General': [
+    'ggScore', 'Partidos jugados', 'Minutos jugados', 'minutesPlayed', 'ageNum',
+    'marketValueRaw', 'monthsRemaining',
+  ],
+}
+
+// All available metrics for chart selection (flattened and deduplicated)
+export const ALL_METRICS: string[] = Array.from(new Set(
+  Object.values(METRIC_CATEGORIES).flat()
+))

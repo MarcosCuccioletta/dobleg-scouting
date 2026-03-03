@@ -1,0 +1,1003 @@
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { loadAllData, type MasDatosEntry, type SeguimientoMetricsPlayer } from '@/services/csvService'
+import { computeGGScores, normalizeName, parseMarketValue, formatMarketValue, parseContractDate, monthsBetween, getNumericValue } from '@/utils/scoring'
+import { POSITION_MAP, SCORING_CONFIG } from '@/constants/scoring'
+import type { AppData, EnrichedPlayer, EvolutionEntry, TransfermarktData, MonitoringPlayer, MarketValueHistoryEntry } from '@/types'
+
+const DataContext = createContext<AppData | null>(null)
+
+function buildTransfermarktMap(tmData: TransfermarktData[]): Map<string, TransfermarktData> {
+  const map = new Map<string, TransfermarktData>()
+  for (const tm of tmData) {
+    if (tm.Jugador) {
+      map.set(normalizeName(tm.Jugador), tm)
+    }
+  }
+  return map
+}
+
+// Build a map using Transfermarkt URL as key (more precise for internal players)
+function buildTransfermarktByLinkMap(tmData: TransfermarktData[]): Map<string, TransfermarktData> {
+  const map = new Map<string, TransfermarktData>()
+  for (const tm of tmData) {
+    if (tm.Transfermkt) {
+      // Normalize the URL to handle variations (http/https, www, .es/.com)
+      const normalizedUrl = tm.Transfermkt
+        .toLowerCase()
+        .replace('https://', '')
+        .replace('http://', '')
+        .replace('www.', '')
+        .replace('transfermarkt.es', 'transfermarkt.com')
+        .trim()
+      map.set(normalizedUrl, tm)
+    }
+  }
+  return map
+}
+
+// Enrich internal player using their Transfermarkt link
+function enrichInternalWithTransfermarktLink(
+  player: EnrichedPlayer,
+  tmByLinkMap: Map<string, TransfermarktData>
+): EnrichedPlayer {
+  // Check if player has a Transfermarkt link
+  const playerLink = player.Transfermkt
+  if (!playerLink) return player
+
+  // Normalize the player's link the same way
+  const normalizedUrl = playerLink
+    .toLowerCase()
+    .replace('https://', '')
+    .replace('http://', '')
+    .replace('www.', '')
+    .replace('transfermarkt.es', 'transfermarkt.com')
+    .trim()
+
+  const tm = tmByLinkMap.get(normalizedUrl)
+  if (!tm) return player
+
+  // Get values from Transfermarkt data
+  const marketValueStr = tm['Valor de mercado'] || ''
+  const contractStr = tm['Fin de contrato'] || ''
+  const imagen = tm.Imagen || ''
+  const representante = tm.Representante || ''
+
+  // Parse market value
+  const marketValueRaw = parseMarketValue(marketValueStr)
+
+  // Parse contract date
+  const contractDate = parseContractDate(contractStr)
+  const now = new Date()
+  const monthsRemaining = contractDate ? monthsBetween(now, contractDate) : null
+  const contractStatus: 'ok' | 'warning' | 'critical' =
+    monthsRemaining === null ? 'ok'
+    : monthsRemaining < 7 ? 'critical'
+    : monthsRemaining < 13 ? 'warning'
+    : 'ok'
+
+  return {
+    ...player,
+    'Valor de mercado (Transfermarkt)': marketValueStr,
+    'Vencimiento contrato': contractStr,
+    Imagen: player.Imagen || imagen,  // Prioritize CSV image, fallback to Transfermarkt
+    Representante: representante,
+    marketValueRaw: marketValueRaw > 0 ? marketValueRaw : player.marketValueRaw,
+    marketValueFormatted: marketValueRaw > 0 ? formatMarketValue(marketValueRaw) : player.marketValueFormatted,
+    monthsRemaining: monthsRemaining ?? player.monthsRemaining,
+    contractStatus,
+  }
+}
+
+function buildMasDatosMap(masDatos: MasDatosEntry[]): Map<string, MasDatosEntry> {
+  const map = new Map<string, MasDatosEntry>()
+  for (const entry of masDatos) {
+    if (entry.Jugador && entry['Valor de mercado']) {
+      // Key by player name (normalized)
+      const key = normalizeName(entry.Jugador)
+      map.set(key, entry)
+      // Also add key with team for more precise matching
+      if (entry.Equipo) {
+        const keyWithTeam = `${key}|${normalizeName(entry.Equipo)}`
+        map.set(keyWithTeam, entry)
+      }
+    }
+  }
+  return map
+}
+
+function enrichWithMasDatos(
+  player: EnrichedPlayer,
+  masDatosMap: Map<string, MasDatosEntry>
+): EnrichedPlayer {
+  // Skip if player already has a market value
+  if (player.marketValueRaw > 0) return player
+
+  const nameKey = normalizeName(player.Jugador)
+  const teamKey = normalizeName(player.Equipo)
+
+  // Try exact match with team first
+  let entry = masDatosMap.get(`${nameKey}|${teamKey}`)
+
+  // Try partial team match (team name contains or is contained)
+  if (!entry) {
+    for (const [key, val] of masDatosMap.entries()) {
+      if (!key.includes('|')) continue // Skip name-only keys
+      const [entryName, entryTeam] = key.split('|')
+      if (entryName === nameKey) {
+        // Check if teams partially match
+        if (teamKey.includes(entryTeam) || entryTeam.includes(teamKey)) {
+          entry = val
+          break
+        }
+      }
+    }
+  }
+
+  // NO fallback to name-only match - too risky with common names like Caicedo, López, etc.
+
+  if (!entry || !entry['Valor de mercado']) return player
+
+  const marketValueRaw = parseMarketValue(entry['Valor de mercado'])
+  if (marketValueRaw === 0) return player
+
+  return {
+    ...player,
+    'Valor de mercado (Transfermarkt)': entry['Valor de mercado'],
+    marketValueRaw,
+    marketValueFormatted: formatMarketValue(marketValueRaw),
+  }
+}
+
+// ─── MARKET VALUE ESTIMATION ─────────────────────────────────────────────────
+
+// Argentina 1st Division - Team tiers for value estimation
+const ARGENTINA_TIER_1 = ['river plate', 'boca juniors', 'racing club', 'independiente'] // Top clubs
+const ARGENTINA_TIER_2 = ['san lorenzo', 'velez sarsfield', 'velez', 'estudiantes', 'talleres', 'talleres cordoba',
+  'newell', 'newells', 'rosario central', 'belgrano'] // Big clubs
+const ARGENTINA_TIER_3 = ['lanus', 'argentinos juniors', 'argentinos', 'union santa fe', 'union', 'defensa y justicia',
+  'defensa', 'banfield', 'huracan', 'gimnasia la plata', 'gimnasia', 'godoy cruz', 'central cordoba'] // Mid clubs
+
+// Detect league type for a player
+function getLeagueType(player: EnrichedPlayer): 'argentina1' | 'colombia' | 'other' {
+  const league = normalizeName(player.Liga || '')
+
+  if (league.includes('liga argentina') || league === 'liga argentina') {
+    return 'argentina1'
+  }
+
+  if (league.includes('colombia') || league.includes('betplay') ||
+      league.includes('dimayor') || league === '2° colombia' || league === '2 colombia') {
+    return 'colombia'
+  }
+
+  return 'other'
+}
+
+// Get team tier multiplier for Argentine clubs
+function getArgentinaTeamMultiplier(team: string): number {
+  const normalizedTeam = normalizeName(team)
+
+  if (ARGENTINA_TIER_1.some(t => normalizedTeam.includes(t))) return 1.5  // Top clubs get +50%
+  if (ARGENTINA_TIER_2.some(t => normalizedTeam.includes(t))) return 1.25 // Big clubs get +25%
+  if (ARGENTINA_TIER_3.some(t => normalizedTeam.includes(t))) return 1.1  // Mid clubs get +10%
+  return 1.0 // Others
+}
+
+// Estimate market value based on analyzed patterns
+function estimateMarketValue(player: EnrichedPlayer, leagueType: 'argentina1' | 'colombia'): number {
+  const age = player.ageNum || 25
+  const score = player.ggScore ?? 0
+  const pos = normalizeName(player['Posición'] || '')
+
+  // Different base values per league
+  // Argentina 1st: Values range €250k - €10M based on analysis
+  // Colombia 2nd: Values range €50k - €1M based on analysis
+  const isArgentina = leagueType === 'argentina1'
+
+  let baseValue: number
+
+  // Score-based base value (Argentina values are ~4-5x higher than Colombia)
+  if (isArgentina) {
+    // Liga Argentina base values
+    if (score >= 65) baseValue = 3_000_000      // Elite performers
+    else if (score >= 55) baseValue = 1_800_000 // Very good
+    else if (score >= 45) baseValue = 1_000_000 // Good
+    else if (score >= 35) baseValue = 600_000   // Average
+    else if (score > 0) baseValue = 350_000     // Below average
+    else baseValue = 400_000                     // No score - use age
+  } else {
+    // Colombia 2nd division base values
+    if (score >= 60) baseValue = 400_000
+    else if (score >= 50) baseValue = 250_000
+    else if (score >= 40) baseValue = 175_000
+    else if (score >= 30) baseValue = 125_000
+    else if (score > 0) baseValue = 75_000
+    else baseValue = 100_000
+  }
+
+  // Age multiplier - young players are worth significantly more
+  let ageMultiplier: number
+  if (age <= 18) ageMultiplier = 2.8       // U18 premium
+  else if (age <= 20) ageMultiplier = 2.2  // U21 high potential
+  else if (age <= 22) ageMultiplier = 1.7  // Young with potential
+  else if (age <= 24) ageMultiplier = 1.3  // Developing
+  else if (age <= 26) ageMultiplier = 1.1  // Peak entry
+  else if (age <= 28) ageMultiplier = 0.9  // Peak late
+  else if (age <= 30) ageMultiplier = 0.6  // Declining
+  else if (age <= 33) ageMultiplier = 0.35 // Veteran
+  else ageMultiplier = 0.2                  // 34+
+
+  // Position multiplier - attackers typically worth more
+  let posMultiplier = 1.0
+  if (pos.includes('delantero') || pos.includes('extremo')) {
+    posMultiplier = 1.25
+  } else if (pos.includes('mediapunta') || pos.includes('ofensivo') || pos.includes('interior')) {
+    posMultiplier = 1.15
+  } else if (pos.includes('mediocentro') || pos.includes('volante') || pos.includes('pivote')) {
+    posMultiplier = 1.05
+  } else if (pos.includes('lateral')) {
+    posMultiplier = 0.95
+  } else if (pos.includes('defensa') || pos.includes('central')) {
+    posMultiplier = 0.9
+  } else if (pos.includes('portero')) {
+    posMultiplier = 0.8
+  }
+
+  // Team multiplier (only for Argentina)
+  const teamMultiplier = isArgentina ? getArgentinaTeamMultiplier(player.Equipo) : 1.0
+
+  // Calculate final value
+  let finalValue = baseValue * ageMultiplier * posMultiplier * teamMultiplier
+
+  // Round to nice numbers
+  if (finalValue >= 1_000_000) {
+    finalValue = Math.round(finalValue / 100_000) * 100_000 // €100k increments for millions
+  } else if (finalValue >= 500_000) {
+    finalValue = Math.round(finalValue / 50_000) * 50_000   // €50k increments
+  } else {
+    finalValue = Math.round(finalValue / 25_000) * 25_000   // €25k increments
+  }
+
+  // League-specific caps
+  if (isArgentina) {
+    return Math.max(150_000, Math.min(10_000_000, finalValue)) // €150k - €10M for Argentina
+  } else {
+    return Math.max(50_000, Math.min(1_000_000, finalValue))   // €50k - €1M for Colombia
+  }
+}
+
+function enrichWithEstimatedValue(player: EnrichedPlayer): EnrichedPlayer {
+  // Get league type
+  const leagueType = getLeagueType(player)
+
+  // Only estimate for Argentina 1st or Colombia
+  if (leagueType === 'other') return player
+
+  const estimatedValue = estimateMarketValue(player, leagueType)
+
+  // If player has no value, use estimation
+  if (player.marketValueRaw === 0) {
+    return {
+      ...player,
+      'Valor de mercado (Transfermarkt)': formatMarketValue(estimatedValue),
+      marketValueRaw: estimatedValue,
+      marketValueFormatted: formatMarketValue(estimatedValue),
+    }
+  }
+
+  // If player has a very low Transfermarkt value but our estimation is significantly higher,
+  // use the higher estimation (likely undervalued young talent from reserves)
+  const score = player.ggScore ?? 0
+  const age = player.ageNum || 25
+  const isYoungTalent = age <= 23 && score >= 40
+  const isVeryUndervalued = estimatedValue > player.marketValueRaw * 3 // Estimation is 3x+ higher
+
+  if (isYoungTalent && isVeryUndervalued && player.marketValueRaw < 200_000) {
+    return {
+      ...player,
+      'Valor de mercado (Transfermarkt)': formatMarketValue(estimatedValue),
+      marketValueRaw: estimatedValue,
+      marketValueFormatted: formatMarketValue(estimatedValue),
+    }
+  }
+
+  return player
+}
+
+function enrichWithTransfermarkt(
+  player: EnrichedPlayer,
+  tmMap: Map<string, TransfermarktData>
+): EnrichedPlayer {
+  const key = normalizeName(player.Jugador)
+  const tm = tmMap.get(key)
+
+  if (!tm) return player
+
+  // Get updated values from Transfermarkt
+  const newMarketValueStr = tm['Valor de mercado'] || player['Valor de mercado (Transfermarkt)']
+  const newContractStr = tm['Fin de contrato'] || player['Vencimiento contrato']
+
+  // Recalculate derived values
+  const marketValueRaw = parseMarketValue(newMarketValueStr)
+  const marketValueFormatted = formatMarketValue(marketValueRaw)
+
+  const contractDate = parseContractDate(newContractStr)
+  const now = new Date()
+  const monthsRemaining = contractDate ? monthsBetween(now, contractDate) : null
+  const contractStatus: 'ok' | 'warning' | 'critical' =
+    monthsRemaining === null ? 'ok'
+    : monthsRemaining < 7 ? 'critical'
+    : monthsRemaining < 13 ? 'warning'
+    : 'ok'
+
+  return {
+    ...player,
+    // Override with Transfermarkt data
+    'Valor de mercado (Transfermarkt)': newMarketValueStr,
+    'Vencimiento contrato': newContractStr,
+    Transfermkt: tm.Transfermkt || player.Transfermkt,
+    Representante: tm.Representante || '',
+    Imagen: tm.Imagen || '',
+    // Recalculated derived values
+    marketValueRaw,
+    marketValueFormatted,
+    monthsRemaining,
+    contractStatus,
+  }
+}
+
+// Normalize name for matching: removes dots, extra spaces, accents, lowercase
+function normalizeForMatching(s: string): string {
+  return s
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // Remove accents
+    .replace(/\./g, '') // Remove dots (C. Haydar -> C Haydar)
+    .replace(/\s+/g, ' ') // Multiple spaces to single space
+}
+
+// Extract last name from abbreviated names like "C. Haydar" or "Juan Pérez"
+function extractLastName(name: string): string {
+  const parts = name.trim().split(/\s+/)
+  // If format is "X. LastName", return LastName
+  if (parts.length >= 2 && parts[0].length <= 2) {
+    return normalizeForMatching(parts[parts.length - 1])
+  }
+  // Otherwise return last word
+  return normalizeForMatching(parts[parts.length - 1])
+}
+
+// Extract initial from abbreviated names like "C. Haydar"
+function extractInitial(name: string): string {
+  const parts = name.trim().split(/\s+/)
+  if (parts.length >= 1) {
+    return parts[0].replace('.', '').toLowerCase()[0] || ''
+  }
+  return ''
+}
+
+// STRICT age validation - monitoring players should all be ≤24 years old
+// Returns true ONLY if ages are compatible
+function isAgeCompatible(monitoringAge: number, externalAge: number): boolean {
+  // If monitoring age is unknown, external player MUST be ≤24
+  if (isNaN(monitoringAge)) {
+    return externalAge <= 24
+  }
+  // If monitoring age is known, must match exactly or be within 1 year
+  return Math.abs(monitoringAge - externalAge) <= 1
+}
+
+// Helper to extract last name from player name
+function getLastName(name: string): string {
+  const parts = name.trim().split(/\s+/)
+  return normalizeForMatching(parts[parts.length - 1])
+}
+
+// Helper to extract initial from player name (handles "J. Doe" or "Juan Doe")
+function getInitial(name: string): string {
+  const parts = name.trim().split(/\s+/)
+  return parts[0].replace('.', '').toLowerCase()[0] || ''
+}
+
+// Normalize team name for comparison
+function normalizeTeam(team: string): string {
+  return (team || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/fc|cf|club|deportivo|deportes|atletico|real|cd|sc|ec|ac/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+// Check if two team names are similar
+function teamsMatch(team1: string, team2: string): boolean {
+  const t1 = normalizeTeam(team1)
+  const t2 = normalizeTeam(team2)
+  if (!t1 || !t2) return false
+  // Exact match after normalization
+  if (t1 === t2) return true
+  // One contains the other
+  if (t1.includes(t2) || t2.includes(t1)) return true
+  // Check individual words
+  const words1 = t1.split(' ').filter(w => w.length > 2)
+  const words2 = t2.split(' ').filter(w => w.length > 2)
+  return words1.some(w => words2.includes(w))
+}
+
+function linkMonitoringToMetrics(
+  monitoring: MonitoringPlayer[],
+  seguimientoMetrics: SeguimientoMetricsPlayer[],
+  internal: EnrichedPlayer[],
+  tmMap: Map<string, TransfermarktData>
+): MonitoringPlayer[] {
+  // Build multiple lookup maps for seguimiento metrics
+  const metricsByExactName = new Map<string, SeguimientoMetricsPlayer>()
+  const metricsByLastName = new Map<string, SeguimientoMetricsPlayer[]>()
+  const metricsByInitialAndLastName = new Map<string, SeguimientoMetricsPlayer[]>()
+
+  for (const p of seguimientoMetrics) {
+    const jugador = p.Jugador?.trim()
+    if (!jugador) continue
+
+    // Exact name match
+    const exactKey = normalizeForMatching(jugador)
+    metricsByExactName.set(exactKey, p)
+
+    // Last name lookup
+    const lastName = getLastName(jugador)
+    if (lastName) {
+      if (!metricsByLastName.has(lastName)) {
+        metricsByLastName.set(lastName, [])
+      }
+      metricsByLastName.get(lastName)!.push(p)
+
+      // Initial + last name (can have multiple with same initial+lastName)
+      const initial = getInitial(jugador)
+      const initialLastKey = `${initial}|${lastName}`
+      if (!metricsByInitialAndLastName.has(initialLastKey)) {
+        metricsByInitialAndLastName.set(initialLastKey, [])
+      }
+      metricsByInitialAndLastName.get(initialLastKey)!.push(p)
+    }
+  }
+
+  return monitoring.map(m => {
+    const playerKey = m.Jugador?.trim()
+    if (!playerKey) return m
+
+    let metricsPlayer: SeguimientoMetricsPlayer | undefined
+
+    // Strategy 1: Exact name match
+    const exactKey = normalizeForMatching(playerKey)
+    metricsPlayer = metricsByExactName.get(exactKey)
+
+    // Strategy 2: Initial + last name with team disambiguation
+    if (!metricsPlayer) {
+      const initial = getInitial(playerKey)
+      const lastName = getLastName(playerKey)
+      const initialLastKey = `${initial}|${lastName}`
+      const candidates = metricsByInitialAndLastName.get(initialLastKey) || []
+
+      if (candidates.length === 1) {
+        metricsPlayer = candidates[0]
+      } else if (candidates.length > 1 && m.Club) {
+        // Try to match by team
+        const teamMatch = candidates.find(c => teamsMatch(c.Equipo, m.Club))
+        if (teamMatch) {
+          metricsPlayer = teamMatch
+        } else {
+          // Try matching by age
+          const monAge = parseInt(m.Edad, 10)
+          if (!isNaN(monAge)) {
+            const ageMatch = candidates.find(c => {
+              const metAge = parseInt(c.Edad, 10)
+              return !isNaN(metAge) && Math.abs(metAge - monAge) <= 1
+            })
+            if (ageMatch) metricsPlayer = ageMatch
+          }
+        }
+      }
+    }
+
+    // Strategy 3: Last name only with team/age disambiguation
+    if (!metricsPlayer) {
+      const lastName = getLastName(playerKey)
+      const candidates = metricsByLastName.get(lastName) || []
+
+      if (candidates.length === 1) {
+        metricsPlayer = candidates[0]
+      } else if (candidates.length > 1) {
+        // Try team match
+        if (m.Club) {
+          const teamMatch = candidates.find(c => teamsMatch(c.Equipo, m.Club))
+          if (teamMatch) {
+            metricsPlayer = teamMatch
+          }
+        }
+        // Try age match if still not found
+        if (!metricsPlayer) {
+          const monAge = parseInt(m.Edad, 10)
+          if (!isNaN(monAge)) {
+            const ageMatches = candidates.filter(c => {
+              const metAge = parseInt(c.Edad, 10)
+              return !isNaN(metAge) && Math.abs(metAge - monAge) <= 1
+            })
+            if (ageMatches.length === 1) {
+              metricsPlayer = ageMatches[0]
+            }
+          }
+        }
+      }
+    }
+
+    // Strategy 4: Try full name from "Nombre jugador" field
+    if (!metricsPlayer && m['Nombre jugador']) {
+      const fullNameKey = normalizeForMatching(m['Nombre jugador'])
+      metricsPlayer = metricsByExactName.get(fullNameKey)
+
+      // Also try last name from full name
+      if (!metricsPlayer) {
+        const fullLastName = getLastName(m['Nombre jugador'])
+        const candidates = metricsByLastName.get(fullLastName) || []
+        if (candidates.length === 1) {
+          metricsPlayer = candidates[0]
+        } else if (candidates.length > 1 && m.Club) {
+          const teamMatch = candidates.find(c => teamsMatch(c.Equipo, m.Club))
+          if (teamMatch) metricsPlayer = teamMatch
+        }
+      }
+    }
+
+    if (!metricsPlayer) {
+      // No metrics data found - return with flag
+      return { ...m, hasEnoughData: false }
+    }
+
+    // Score the player using seguimiento metrics
+    const { score, hasEnoughData, enrichedPlayer } = scoreSeguimientoPlayer(
+      metricsPlayer,
+      seguimientoMetrics
+    )
+
+    // Get market value from metrics or Transfermarkt
+    let marketValueRaw = parseMarketValue(metricsPlayer['Valor de mercado'] ?? '')
+    let marketValueFormatted = formatMarketValue(marketValueRaw)
+    let monthsRemaining: number | null = null
+    let contractStatus: 'ok' | 'warning' | 'critical' = 'ok'
+
+    // Try to get TM data from the link
+    const tmLink = metricsPlayer.Transfermkt || m.Transfermkt || m['Ficha técnica']
+    if (tmLink) {
+      const normalizedUrl = tmLink
+        .toLowerCase()
+        .replace('https://', '')
+        .replace('http://', '')
+        .replace('www.', '')
+        .replace('transfermarkt.es', 'transfermarkt.com')
+        .trim()
+
+      // Find TM entry by URL
+      for (const [, tm] of tmMap) {
+        const tmUrl = (tm.Transfermkt || '')
+          .toLowerCase()
+          .replace('https://', '')
+          .replace('http://', '')
+          .replace('www.', '')
+          .replace('transfermarkt.es', 'transfermarkt.com')
+          .trim()
+
+        if (tmUrl === normalizedUrl) {
+          const tmValue = parseMarketValue(tm['Valor de mercado'] || '')
+          if (tmValue > 0) {
+            marketValueRaw = tmValue
+            marketValueFormatted = formatMarketValue(tmValue)
+          }
+          const contractDate = parseContractDate(tm['Fin de contrato'] || '')
+          if (contractDate) {
+            monthsRemaining = monthsBetween(new Date(), contractDate)
+            contractStatus = monthsRemaining < 7 ? 'critical' : monthsRemaining < 13 ? 'warning' : 'ok'
+          }
+          break
+        }
+      }
+    }
+
+    // Calculate opportunity score
+    const opportunityScore = calculateOpportunityScore(score, marketValueRaw)
+
+    // Calculate internal average and difference
+    const avgInternalScore = getInternalAverageByPosition(internal, m['Posición'])
+    const scoreDiff = score !== null && avgInternalScore !== null
+      ? Math.round((score - avgInternalScore) * 10) / 10
+      : null
+
+    return {
+      ...m,
+      ggScore: score,
+      hasEnoughData,
+      metricsPlayer: enrichedPlayer,
+      opportunityScore,
+      marketValueRaw,
+      marketValueFormatted,
+      monthsRemaining,
+      contractStatus,
+      avgInternalScore,
+      scoreDiff,
+      Transfermkt: tmLink || m.Transfermkt,
+    }
+  })
+}
+
+// Legacy function for backward compatibility
+function linkMonitoringToExternal(
+  monitoring: MonitoringPlayer[],
+  external: EnrichedPlayer[]
+): MonitoringPlayer[] {
+  const externalByExactName = new Map<string, EnrichedPlayer[]>()
+
+  for (const p of external) {
+    const exactKey = normalizeForMatching(p.Jugador)
+    if (!externalByExactName.has(exactKey)) {
+      externalByExactName.set(exactKey, [])
+    }
+    externalByExactName.get(exactKey)!.push(p)
+  }
+
+  return monitoring.map(m => {
+    const playerKey = m.Jugador?.trim()
+    if (!playerKey) return m
+
+    const exactKey = normalizeForMatching(playerKey)
+    const monitoringAge = parseInt(m.Edad, 10)
+    const candidates = externalByExactName.get(exactKey) || []
+
+    if (candidates.length === 0) return m
+
+    const validCandidates = candidates.filter(p =>
+      isAgeCompatible(monitoringAge, p.ageNum)
+    )
+
+    if (validCandidates.length === 0) return m
+
+    if (validCandidates.length === 1) {
+      const extPlayer = validCandidates[0]
+      return {
+        ...m,
+        ggScore: extPlayer.ggScore,
+        externalPlayer: extPlayer,
+      }
+    }
+
+    const teamKey = normalizeForMatching(m.Club || '')
+    if (teamKey) {
+      const teamMatch = validCandidates.find(p => {
+        const extTeam = normalizeForMatching(p.Equipo)
+        return extTeam.includes(teamKey) || teamKey.includes(extTeam)
+      })
+      if (teamMatch) {
+        return {
+          ...m,
+          ggScore: teamMatch.ggScore,
+          externalPlayer: teamMatch,
+        }
+      }
+    }
+
+    return m
+  })
+}
+
+// ─── SEGUIMIENTO METRICS SCORING ─────────────────────────────────────────────
+
+// Minimum metrics required for reliable scoring
+const MIN_METRICS_FOR_SCORE = 5
+
+// Get position from player - checks both 'Posición específica' and 'Posición'
+function getPlayerPosition(player: SeguimientoMetricsPlayer): string {
+  // Wyscout uses 'Posición específica' with codes like RCB, LB, CF
+  // Sometimes multiple positions are listed: "RCB , LCB" - take the first one
+  const posEspecifica = player['Posición específica']?.trim()
+  if (posEspecifica) {
+    // Split by comma and try each position
+    const positions = posEspecifica.split(',').map(p => p.trim())
+    for (const pos of positions) {
+      if (POSITION_MAP[pos]) {
+        return pos
+      }
+    }
+  }
+  // Fallback to regular position
+  const posGeneral = player['Posición']?.trim() ?? ''
+  if (POSITION_MAP[posGeneral]) {
+    return posGeneral
+  }
+  return posGeneral
+}
+
+function hasEnoughMetrics(player: SeguimientoMetricsPlayer): boolean {
+  const minutesPlayed = parseInt(player['Minutos jugados'] ?? '0', 10)
+  if (minutesPlayed < 200) return false  // Need at least 200 minutes
+
+  // Count how many scoring metrics have data
+  const rawPos = getPlayerPosition(player)
+  const posKey = POSITION_MAP[rawPos] ?? ''
+  const config = SCORING_CONFIG[posKey]
+  if (!config) return false
+
+  let metricsWithData = 0
+  for (const { column } of config) {
+    const val = getNumericValue(player as Record<string, string>, column)
+    if (val > 0) metricsWithData++
+  }
+
+  return metricsWithData >= MIN_METRICS_FOR_SCORE
+}
+
+function scoreSeguimientoPlayer(
+  player: SeguimientoMetricsPlayer,
+  allSeguimientoPlayers: SeguimientoMetricsPlayer[]
+): { score: number | null; hasEnoughData: boolean; enrichedPlayer: EnrichedPlayer | null } {
+  const hasData = hasEnoughMetrics(player)
+
+  if (!hasData) {
+    return { score: null, hasEnoughData: false, enrichedPlayer: null }
+  }
+
+  const rawPos = getPlayerPosition(player)
+  const posKey = POSITION_MAP[rawPos] ?? ''
+  const config = SCORING_CONFIG[posKey]
+
+  if (!config) {
+    return { score: null, hasEnoughData: false, enrichedPlayer: null }
+  }
+
+  // Get all players in same position with enough data
+  const positionPlayers = allSeguimientoPlayers.filter(p => {
+    const pk = POSITION_MAP[getPlayerPosition(p)] ?? ''
+    return pk === posKey && hasEnoughMetrics(p)
+  })
+
+  // Compute min/max for each metric
+  const stats = new Map<string, { min: number; max: number }>()
+  for (const { column } of config) {
+    const values = positionPlayers.map(p => getNumericValue(p as Record<string, string>, column))
+    const validValues = values.filter(v => v > 0)
+    if (validValues.length > 0) {
+      stats.set(column, { min: Math.min(...validValues), max: Math.max(...validValues) })
+    } else {
+      stats.set(column, { min: 0, max: 1 })
+    }
+  }
+
+  // Calculate score
+  let score = 0
+  for (const { column, weight } of config) {
+    const raw = getNumericValue(player as Record<string, string>, column)
+    const { min, max } = stats.get(column) ?? { min: 0, max: 1 }
+    const normalized = max > min ? ((raw - min) / (max - min)) * 100 : 50
+    score += normalized * (weight / 100)
+  }
+
+  const finalScore = Math.round(score * 10) / 10
+
+  // Create enriched player object
+  const rawValue = player['Valor de mercado'] ?? ''
+  const marketValueRaw = parseMarketValue(rawValue)
+  const contractDate = parseContractDate(player['Vencimiento contrato'] ?? '')
+  const now = new Date()
+  const monthsRemaining = contractDate ? monthsBetween(now, contractDate) : null
+
+  // Spread raw data first, then override with processed values
+  const enrichedPlayer: EnrichedPlayer = {
+    // Spread all raw columns first
+    ...player as unknown as Record<string, string>,
+    // Then override with required fields
+    Jugador: player.Jugador,
+    Liga: player.Liga,
+    Equipo: player.Equipo,
+    'Posición': player['Posición'],
+    Edad: player.Edad,
+    'País de nacimiento': player['País de nacimiento'] ?? '',
+    Pie: player['Pie'] ?? '',
+    Altura: player['Altura'] ?? '',
+    'Valor de mercado (Transfermarkt)': rawValue,
+    'Vencimiento contrato': player['Vencimiento contrato'] ?? '',
+    'Partidos jugados': player['Partidos jugados'] ?? '',
+    'Minutos jugados': player['Minutos jugados'] ?? '',
+    Goles: player['Goles'] ?? '',
+    xG: player['xG'] ?? '',
+    Asistencias: player['Asistencias'] ?? '',
+    xA: player['xA'] ?? '',
+    'Posición específica': player['Posición específica'] ?? player['Posición'],
+    id: '',
+    Transfermkt: player.Transfermkt ?? '',
+    Representante: player['Representante'] ?? '',
+    Imagen: player['Imagen'] ?? '',
+    ggScore: finalScore,
+    source: 'externo',
+    contractStatus: monthsRemaining === null ? 'ok' : monthsRemaining < 7 ? 'critical' : monthsRemaining < 13 ? 'warning' : 'ok',
+    monthsRemaining,
+    marketValueFormatted: formatMarketValue(marketValueRaw),
+    marketValueRaw,
+    minutesPlayed: parseInt(player['Minutos jugados'] ?? '0', 10),
+    ageNum: parseInt(player.Edad ?? '0', 10) || 0,
+  }
+
+  return { score: finalScore, hasEnoughData: true, enrichedPlayer }
+}
+
+// Calculate opportunity score (score / market value ratio, higher = better opportunity)
+function calculateOpportunityScore(ggScore: number | null, marketValue: number): number | null {
+  if (ggScore === null || marketValue <= 0) return null
+  // Normalize: score per €100k of market value
+  return Math.round((ggScore / (marketValue / 100000)) * 10) / 10
+}
+
+// Calculate average internal score by position
+function getInternalAverageByPosition(
+  internal: EnrichedPlayer[],
+  position: string
+): number | null {
+  const posKey = POSITION_MAP[position?.trim() ?? ''] ?? ''
+  if (!posKey) return null
+
+  const positionPlayers = internal.filter(p => {
+    const pk = POSITION_MAP[p['Posición']?.trim() ?? ''] ?? ''
+    return pk === posKey && p.ggScore !== null
+  })
+
+  if (positionPlayers.length === 0) return null
+
+  const sum = positionPlayers.reduce((acc, p) => acc + (p.ggScore ?? 0), 0)
+  return Math.round((sum / positionPlayers.length) * 10) / 10
+}
+
+function matchPlayerToJugadorSK(
+  player: EnrichedPlayer,
+  evolution: EvolutionEntry[]
+): string | null {
+  // Build a map of normalized full-name → JugadorSK from evolution data
+  const uniquePlayers = new Map<string, string>()
+  for (const e of evolution) {
+    if (e.JugadorNombre && e.JugadorSK) {
+      uniquePlayers.set(normalizeName(e.JugadorNombre), e.JugadorSK)
+    }
+  }
+
+  // Try exact abbreviated match: "J. Paradela" → first initial + last name
+  const parts = player.Jugador.trim().split(/\s+/)
+  if (parts.length >= 2) {
+    const initial = parts[0].replace('.', '').toLowerCase()
+    const lastName = normalizeName(parts[parts.length - 1])
+
+    for (const [fullName, sk] of uniquePlayers) {
+      const fullParts = fullName.split(/\s+/)
+      const fullInitial = fullParts[0]?.[0] ?? ''
+      const fullLast = fullParts[fullParts.length - 1] ?? ''
+      if (fullInitial === initial[0] && fullLast === lastName) {
+        return sk
+      }
+    }
+  }
+
+  // Fallback: try to match by last name only
+  const lastName = normalizeName(parts[parts.length - 1])
+  for (const [fullName, sk] of uniquePlayers) {
+    const fullParts = fullName.split(/\s+/)
+    if (normalizeName(fullParts[fullParts.length - 1]) === lastName) {
+      return sk
+    }
+  }
+
+  return null
+}
+
+export function DataProvider({ children }: { children: ReactNode }) {
+  const [data, setData] = useState<AppData>({
+    external: [],
+    internal: [],
+    monitoring: [],
+    normalized: [],
+    evolution: [],
+    subjectiveMetrics: [],
+    marketValueHistory: [],
+    loading: true,
+    error: null,
+    lastUpdated: null,
+  })
+
+  useEffect(() => {
+    let cancelled = false
+
+    loadAllData()
+      .then(raw => {
+        if (cancelled) return
+
+        // Build lookup maps
+        const tmMap = buildTransfermarktMap(raw.transfermarkt)
+        const tmByLinkMap = buildTransfermarktByLinkMap(raw.transfermarkt)
+        const masDatosMap = buildMasDatosMap(raw.masDatos)
+
+        // Compute scores using ALL players as baseline (internal + external together)
+        // This ensures consistent scoring across both sources
+        const allPlayers = [...raw.external, ...raw.internal]
+        const allScored = computeGGScores(allPlayers, 'externo') // source is overwritten below
+
+        // Split back into external and internal, preserving scores
+        const scoreMap = new Map(allScored.map(p => [p.Jugador + '|' + p.Equipo, p.ggScore]))
+
+        // Score and enrich external players with Transfermarkt data + Más Datos + Estimated values
+        const externalScored = computeGGScores(raw.external, 'externo', scoreMap)
+        const external = externalScored
+          .map(p => enrichWithTransfermarkt(p, tmMap))
+          .map(p => enrichWithMasDatos(p, masDatosMap))
+          .map(p => enrichWithEstimatedValue(p)) // Estimate for Colombia 2nd div
+
+        const internalScored = computeGGScores(raw.internal, 'interno', scoreMap)
+
+        // Enrich internal players with:
+        // 1. Transfermarkt data using their TM link (valor de mercado, contrato, imagen)
+        // 2. JugadorSK for linking to evolution/metrics
+        // 3. Más Datos fallback
+        // 4. Estimated value if still missing
+        const internal: EnrichedPlayer[] = internalScored.map(p => {
+          const jsk = matchPlayerToJugadorSK(p, raw.evolution)
+          // First try to enrich using Transfermarkt link (most accurate)
+          let enriched = enrichInternalWithTransfermarktLink(p, tmByLinkMap)
+          // Fallback to MasDatos if no value yet
+          enriched = enrichWithMasDatos(enriched, masDatosMap)
+          // Estimate if still no value
+          enriched = enrichWithEstimatedValue(enriched)
+          // Add jugadorSK
+          return { ...enriched, jugadorSK: jsk ?? '' }
+        })
+
+        // Link monitoring players to seguimiento metrics for ggScore (primary)
+        // This uses the new sheet with Wyscout metrics for monitoring players
+        const monitoring = linkMonitoringToMetrics(
+          raw.monitoring,
+          raw.seguimientoMetrics,
+          internal,
+          tmMap
+        )
+
+        setData({
+          external,
+          internal,
+          monitoring,
+          normalized: raw.normalized,
+          evolution: raw.evolution,
+          subjectiveMetrics: raw.subjectiveMetrics,
+          marketValueHistory: raw.marketValueHistory,
+          loading: false,
+          error: null,
+          lastUpdated: new Date(),
+        })
+      })
+      .catch(err => {
+        if (cancelled) return
+        console.error('Error loading data:', err)
+        setData(prev => ({
+          ...prev,
+          loading: false,
+          error: err instanceof Error ? err.message : 'Error desconocido al cargar los datos',
+        }))
+      })
+
+    return () => { cancelled = true }
+  }, [])
+
+  return (
+    <DataContext.Provider value={data}>
+      {children}
+    </DataContext.Provider>
+  )
+}
+
+export function useData(): AppData {
+  const ctx = useContext(DataContext)
+  if (!ctx) throw new Error('useData must be used within DataProvider')
+  return ctx
+}

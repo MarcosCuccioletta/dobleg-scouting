@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm create vite@latest . -- --template react-ts)",
+      "WebFetch(domain:doc-0k-bs-sheets.googleusercontent.com)",
+      "WebFetch(domain:docs.google.com)",
+      "Bash(curl:*)",
+      "Bash(npm run build:*)",
+      "Bash(cd C:\\\\Users\\\\marcos\\\\Desktop\\\\primer-appcloud:*)",
+      "WebFetch(domain:dataglossary.wyscout.com)",
+      "WebFetch(domain:www.transfermarkt.es)",
+      "Bash(node:*)",
+      "Bash(mv:*)",
+      "WebSearch",
+      "Bash(vercel login:*)",
+      "Bash(npm i:*)"
+    ]
+  }
+}
