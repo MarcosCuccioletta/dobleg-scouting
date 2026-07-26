@@ -32,6 +32,18 @@ describe('renderItem — continuidad', () => {
     const text = renderItem(item('cont.pj', { played: 46, teamMatches: 46, pct: 100 }, 'strong'), 'en')
     expect(text).toBe('Played all 46 official matches: fully available.')
   })
+
+  it('usa el singular cuando el conteo es 1', () => {
+    expect(renderItem(item('cont.lesiones', { missed: 1 }, 'weak'), 'es'))
+      .toBe('Se perdió un partido por lesión.')
+    expect(renderItem(item('cont.pj', { played: 1, teamMatches: 1, pct: 100 }, 'strong'), 'es'))
+      .toBe('Jugó el único partido oficial del equipo.')
+  })
+
+  it('mantiene el plural cuando el conteo es mayor a 1', () => {
+    expect(renderItem(item('cont.lesiones', { missed: 3 }, 'weak'), 'es'))
+      .toBe('Se perdió 3 partidos por lesión.')
+  })
 })
 
 describe('renderItem — peso ofensivo', () => {
@@ -57,9 +69,14 @@ describe('renderItem — plantel', () => {
     expect(text).toBe('Es el que más asistencias dio del plantel: 11 de 40 (27,5% del total).')
   })
 
-  it('segundo puesto', () => {
+  it('segundo puesto usa el sustantivo, no la frase verbal', () => {
     const text = renderItem(item('plantel.keyPasses', { rank: 2, pool: 22, value: 25, teamTotal: 218, pct: 11.5, minMinutes: 400 }), 'es')
     expect(text).toBe('2º del plantel en pases clave: 25 de 218 (11,5% del total).')
+  })
+
+  it('no mezcla las dos formas: "5º del plantel en goles convirtió" es un bug', () => {
+    const text = renderItem(item('plantel.goals', { rank: 5, pool: 22, value: 3, teamTotal: 64, pct: 4.7, minMinutes: 400 }), 'es')
+    expect(text).toBe('5º del plantel en goles: 3 de 64 (4,7% del total).')
   })
 
   it('métrica de eficacia enuncia el umbral', () => {
@@ -74,14 +91,20 @@ describe('renderItem — rendimiento y resultados', () => {
     expect(text).toBe('Viene en alza: 7,4 de promedio en los últimos partidos contra 6,8 antes.')
   })
 
-  it('tendencia sostenida', () => {
+  it('tendencia sostenida, con el decimal forzado para que se lea como promedio', () => {
     const text = renderItem(item('rend.tendencia', { delta: 0.1, direction: 'flat', recent: 7, previous: 6.9 }), 'es')
-    expect(text).toBe('Rendimiento sostenido: 7 de promedio en los últimos partidos contra 6,9 antes.')
+    expect(text).toBe('Rendimiento sostenido: 7,0 de promedio en los últimos partidos contra 6,9 antes.')
   })
 
   it('impacto en resultados', () => {
     const text = renderItem(item('res.conSinEl', { withPpg: 1.9, withoutPpg: 1.1, diff: 0.8, withMatches: 20, withoutMatches: 8 }, 'strong'), 'es')
-    expect(text).toBe('Con él en cancha el equipo saca 1,9 puntos por partido; sin él, 1,1.')
+    expect(text).toBe('Con él en cancha el equipo saca 1,90 puntos por partido; sin él, 1,10.')
+  })
+
+  it('un promedio entero nunca se imprime como conteo', () => {
+    // "saca 1 puntos por partido" era el bug: un promedio sin decimal se lee como total.
+    const text = renderItem(item('res.conSinEl', { withPpg: 1, withoutPpg: 2, diff: -1, withMatches: 10, withoutMatches: 5 }, 'weak'), 'es')
+    expect(text).toContain('1,00 puntos por partido')
   })
 })
 

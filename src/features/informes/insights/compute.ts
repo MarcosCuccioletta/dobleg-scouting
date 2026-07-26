@@ -79,7 +79,7 @@ export function computeInsights(input: InsightsInput): InsightsResult {
       })
     }
 
-    if (played.length > 0) {
+    if (played.length > 1) {
       items.push({
         id: 'cont.titulares',
         values: { starts, played: played.length, pct: round1((starts / played.length) * 100) },
@@ -126,7 +126,9 @@ export function computeInsights(input: InsightsInput): InsightsResult {
       tiles.push({ id: 'tile.ga', render: 'plain', values: { goals, assists, ga } })
     }
 
-    if (teamGoals > 0 && fx.length > 0) {
+    // Sin participaciones no se enuncia el share: "participó en 0 de 25 goles" es
+    // una afirmación negativa que nadie pidió, no una conclusión.
+    if (teamGoals > 0 && fx.length > 0 && ga > 0) {
       const sharePct = round1((ga / teamGoals) * 100)
       items.push({
         id: 'ofe.share',
@@ -157,7 +159,9 @@ export function computeInsights(input: InsightsInput): InsightsResult {
   }
 
   // ── Bloque: su lugar en el plantel ──
-  if (has('plantel') && squad.length > 1) {
+  // Con menos de 3 partidos jugados no se rankea: un jugador con 90 minutos puede
+  // salir "4º del plantel en pases clave" y eso no es una conclusión, es ruido.
+  if (has('plantel') && squad.length > 1 && !shortSample) {
     const items: InsightItem[] = []
     const metrics: { metric: RankMetric; id: string }[] = [
       { metric: 'goals', id: 'plantel.goals' },
@@ -211,7 +215,9 @@ export function computeInsights(input: InsightsInput): InsightsResult {
     const items: InsightItem[] = []
     const scored = played.filter(m => m.match_score != null)
 
-    if (scored.length > 0) {
+    // Un "promedio" de un partido no es un promedio: con muestra corta sólo queda
+    // el percentil, que no depende del período.
+    if (scored.length > 0 && !shortSample) {
       const values = scored.map(m => m.match_score as number)
       const avgScore = round1(values.reduce((a, b) => a + b, 0) / values.length)
       const best = Math.max(...values)

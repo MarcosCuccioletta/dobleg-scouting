@@ -19,6 +19,9 @@ describe('seasonStart', () => {
       fx(2, '2025-08-08T00:00:00Z'),
       fx(3, '2025-12-10T00:00:00Z'), // hueco de 4 meses: acá arranca la temporada
       fx(4, '2025-12-17T00:00:00Z'),
+      fx(5, '2025-12-24T00:00:00Z'),
+      fx(6, '2026-01-07T00:00:00Z'),
+      fx(7, '2026-01-14T00:00:00Z'),
     ]
     expect(seasonStart(fixtures)).toBe('2025-12-10')
   })
@@ -30,6 +33,25 @@ describe('seasonStart', () => {
 
   it('sin partidos devuelve null', () => {
     expect(seasonStart([])).toBeNull()
+  })
+
+  it('retrocede al torneo anterior si el actual recién arrancó', () => {
+    // Clausura con 6 fechas + Apertura que arrancó hace una semana con 1 partido.
+    const fixtures = [
+      fx(1, '2026-01-10T00:00:00Z'), fx(2, '2026-01-17T00:00:00Z'), fx(3, '2026-01-24T00:00:00Z'),
+      fx(4, '2026-02-01T00:00:00Z'), fx(5, '2026-02-08T00:00:00Z'), fx(6, '2026-02-15T00:00:00Z'),
+      fx(7, '2026-07-19T00:00:00Z'),
+    ]
+    expect(seasonStart(fixtures)).toBe('2026-01-10')
+  })
+
+  it('usa el torneo nuevo apenas tiene muestra suficiente', () => {
+    const fixtures = [
+      fx(1, '2026-01-10T00:00:00Z'), fx(2, '2026-01-17T00:00:00Z'),
+      fx(3, '2026-07-19T00:00:00Z'), fx(4, '2026-07-26T00:00:00Z'), fx(5, '2026-08-02T00:00:00Z'),
+      fx(6, '2026-08-09T00:00:00Z'), fx(7, '2026-08-16T00:00:00Z'),
+    ]
+    expect(seasonStart(fixtures)).toBe('2026-07-19')
   })
 })
 

@@ -136,6 +136,39 @@ describe('computeInsights — peso ofensivo', () => {
     expect(itemById(res, 'ofe.promedio')).toBeUndefined()
     expect(itemById(res, 'ofe.participaciones')).toBeDefined()
   })
+
+  it('sin participaciones no enuncia el share', () => {
+    const input = baseInput()
+    input.playerMatches = input.playerMatches.map(m => ({ ...m, goals: 0, assists: 0 }))
+    const res = computeInsights(input)
+    expect(itemById(res, 'ofe.share')).toBeUndefined()
+    expect(res.tiles.map(t => t.id)).not.toContain('tile.share')
+  })
+})
+
+describe('computeInsights — muestra corta', () => {
+  function shortInput(blocks: InsightsInput['blocks']) {
+    const input = baseInput({ blocks, percentile: 78 })
+    input.playerMatches = [mine(1, '2026-02-01T00:00:00Z', { match_score: 9 })]
+    return input
+  }
+
+  it('no rankea en el plantel con menos de 3 partidos', () => {
+    const res = computeInsights(shortInput(['plantel']))
+    expect(res.groups.find(g => g.id === 'plantel')).toBeUndefined()
+  })
+
+  it('no promedia el rendimiento, pero conserva el percentil', () => {
+    const res = computeInsights(shortInput(['rendimiento']))
+    expect(itemById(res, 'rend.promedio')).toBeUndefined()
+    expect(itemById(res, 'rend.percentil')).toBeDefined()
+  })
+
+  it('no enuncia titularidades con un solo partido', () => {
+    const res = computeInsights(shortInput(['continuidad']))
+    expect(itemById(res, 'cont.titulares')).toBeUndefined()
+    expect(itemById(res, 'cont.pj')).toBeDefined()
+  })
 })
 
 describe('computeInsights — tarjetas', () => {

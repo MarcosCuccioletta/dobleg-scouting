@@ -247,6 +247,8 @@ const S: Record<string, Six> = {
   imp_cont_pj: ['Disputó {played} de los {teamMatches} partidos oficiales del equipo ({pct}%).', 'Played {played} of the team’s {teamMatches} official matches ({pct}%).', 'Disputou {played} dos {teamMatches} jogos oficiais da equipa ({pct}%).', 'خاض {played} من أصل {teamMatches} مباراة رسمية ({pct}%).', 'Ha disputato {played} delle {teamMatches} partite ufficiali ({pct}%).', 'A disputé {played} des {teamMatches} matchs officiels ({pct}%).'],
   imp_cont_titulares: ['Fue titular en {starts} de esos {played} partidos ({pct}%).', 'Started {starts} of those {played} matches ({pct}%).', 'Foi titular em {starts} desses {played} jogos ({pct}%).', 'كان أساسياً في {starts} من تلك المباريات الـ{played} ({pct}%).', 'Titolare in {starts} di quelle {played} partite ({pct}%).', 'Titulaire lors de {starts} de ces {played} matchs ({pct}%).'],
   imp_cont_minutos: ['Acumuló {minutes} minutos, el {pct}% de los disponibles.', 'Logged {minutes} minutes, {pct}% of those available.', 'Somou {minutes} minutos, {pct}% dos disponíveis.', 'جمع {minutes} دقيقة، أي {pct}% من الدقائق المتاحة.', 'Ha accumulato {minutes} minuti, il {pct}% di quelli disponibili.', 'A cumulé {minutes} minutes, soit {pct}% du total possible.'],
+  imp_cont_pj_all_one: ['Jugó el único partido oficial del equipo.', 'Played the team’s only official match.', 'Jogou o único jogo oficial da equipa.', 'لعب المباراة الرسمية الوحيدة للفريق.', 'Ha giocato l’unica partita ufficiale della squadra.', 'A joué l’unique match officiel de l’équipe.'],
+  imp_cont_lesiones_one: ['Se perdió un partido por lesión.', 'Missed one match through injury.', 'Falhou um jogo por lesão.', 'غاب عن مباراة واحدة بسبب الإصابة.', 'Ha saltato una partita per infortunio.', 'A manqué un match sur blessure.'],
   imp_cont_lesiones: ['Se perdió {missed} partidos por lesión.', 'Missed {missed} matches through injury.', 'Falhou {missed} jogos por lesão.', 'غاب عن {missed} مباريات بسبب الإصابة.', 'Ha saltato {missed} partite per infortunio.', 'A manqué {missed} matchs sur blessure.'],
 
   // ── Impacto: peso ofensivo ──
@@ -255,6 +257,7 @@ const S: Record<string, Six> = {
   imp_ofe_share_third: ['Participó en {ga} de los {teamGoals} goles del equipo: uno de cada tres ({pct}%).', 'Was involved in {ga} of the team’s {teamGoals} goals: one in three ({pct}%).', 'Participou em {ga} dos {teamGoals} gols da equipa: um em cada três ({pct}%).', 'شارك في {ga} من أصل {teamGoals} هدفاً للفريق: هدف من كل ثلاثة ({pct}%).', 'Ha partecipato a {ga} dei {teamGoals} gol della squadra: uno su tre ({pct}%).', 'A participé à {ga} des {teamGoals} buts de l’équipe : un sur trois ({pct}%).'],
   imp_ofe_share: ['Participó en {ga} de los {teamGoals} goles del equipo ({pct}%).', 'Was involved in {ga} of the team’s {teamGoals} goals ({pct}%).', 'Participou em {ga} dos {teamGoals} gols da equipa ({pct}%).', 'شارك في {ga} من أصل {teamGoals} هدفاً للفريق ({pct}%).', 'Ha partecipato a {ga} dei {teamGoals} gol della squadra ({pct}%).', 'A participé à {ga} des {teamGoals} buts de l’équipe ({pct}%).'],
   imp_ofe_promedio: ['Promedia {perMatch} participaciones de gol por partido ({goalsPerMatch} goles y {assistsPerMatch} asistencias).', 'Averages {perMatch} goal contributions per match ({goalsPerMatch} goals and {assistsPerMatch} assists).', 'Média de {perMatch} participações por jogo ({goalsPerMatch} gols e {assistsPerMatch} assistências).', 'بمعدل {perMatch} مساهمة تهديفية لكل مباراة ({goalsPerMatch} أهداف و{assistsPerMatch} تمريرة حاسمة).', 'Media di {perMatch} partecipazioni a partita ({goalsPerMatch} gol e {assistsPerMatch} assist).', 'Moyenne de {perMatch} contributions par match ({goalsPerMatch} buts et {assistsPerMatch} passes).'],
+  imp_ofe_cada_one: ['Un gol o asistencia por partido.', 'A goal or assist every match.', 'Um gol ou assistência por jogo.', 'هدف أو تمريرة حاسمة في كل مباراة.', 'Un gol o assist a partita.', 'Un but ou une passe décisive par match.'],
   imp_ofe_cada: ['Un gol o asistencia cada {every} partidos.', 'A goal or assist every {every} matches.', 'Um gol ou assistência a cada {every} jogos.', 'هدف أو تمريرة حاسمة كل {every} مباراة.', 'Un gol o assist ogni {every} partite.', 'Un but ou une passe décisive tous les {every} matchs.'],
 
   // ── Impacto: plantel ──
@@ -265,11 +268,18 @@ const S: Record<string, Six> = {
   imp_plantel_score_first: ['Es el mejor Score GG del plantel ({value}) entre los {pool} jugadores con más de {minMinutes} minutos.', 'He has the best Score GG in the squad ({value}) among the {pool} players with over {minMinutes} minutes.', 'Tem o melhor Score GG do plantel ({value}) entre os {pool} jogadores com mais de {minMinutes} minutos.', 'يمتلك أفضل Score GG في الفريق ({value}) بين {pool} لاعبين تجاوزوا {minMinutes} دقيقة.', 'Ha il miglior Score GG della rosa ({value}) tra i {pool} giocatori con più di {minMinutes} minuti.', 'Il a le meilleur Score GG de l’effectif ({value}) parmi les {pool} joueurs de plus de {minMinutes} minutes.'],
   imp_plantel_score: ['{rank}º Score GG del plantel ({value}) entre los {pool} jugadores con más de {minMinutes} minutos.', '{rank}th best Score GG in the squad ({value}) among the {pool} players with over {minMinutes} minutes.', '{rank}º melhor Score GG do plantel ({value}) entre os {pool} jogadores com mais de {minMinutes} minutos.', 'الـ{rank} في Score GG داخل الفريق ({value}) بين {pool} لاعبين تجاوزوا {minMinutes} دقيقة.', '{rank}º Score GG della rosa ({value}) tra i {pool} giocatori con più di {minMinutes} minuti.', '{rank}e Score GG de l’effectif ({value}) parmi les {pool} joueurs de plus de {minMinutes} minutes.'],
   imp_plantel_position: ['{rank}º entre los {pool} {position} del plantel.', '{rank}th among the squad’s {pool} {position}.', '{rank}º entre os {pool} {position} do plantel.', 'الـ{rank} بين {pool} من {position} في الفريق.', '{rank}º tra i {pool} {position} della rosa.', '{rank}e parmi les {pool} {position} de l’effectif.'],
-  imp_m_goals: ['goles convirtió', 'goals', 'gols marcou', 'الأهداف', 'gol', 'buts'],
+  // Dos juegos de etiquetas: frase verbal para "el que más X del plantel" y
+  // sustantivo para "Nº del plantel en X". Mezclarlas da "5º del plantel en goles convirtió".
+  imp_m_goals: ['goles convirtió', 'goals scored', 'gols marcou', 'الأهداف', 'gol', 'buts'],
   imp_m_assists: ['asistencias dio', 'assists', 'assistências deu', 'التمريرات الحاسمة', 'assist', 'passes décisives'],
   imp_m_ga: ['participaciones de gol tuvo', 'goal contributions', 'participações teve', 'المساهمات التهديفية', 'partecipazioni', 'contributions'],
-  imp_m_keyPasses: ['pases clave', 'key passes', 'passes decisivos', 'التمريرات المفتاحية', 'passaggi chiave', 'passes clés'],
-  imp_m_minutes: ['minutos jugó', 'minutes', 'minutos jogou', 'الدقائق', 'minuti', 'minutes'],
+  imp_m_keyPasses: ['pases clave dio', 'key passes', 'passes decisivos deu', 'التمريرات المفتاحية', 'passaggi chiave', 'passes clés'],
+  imp_m_minutes: ['minutos jugó', 'minutes played', 'minutos jogou', 'الدقائق', 'minuti', 'minutes'],
+  imp_n_goals: ['goles', 'goals', 'gols', 'الأهداف', 'gol', 'buts'],
+  imp_n_assists: ['asistencias', 'assists', 'assistências', 'التمريرات الحاسمة', 'assist', 'passes décisives'],
+  imp_n_ga: ['participaciones de gol', 'goal contributions', 'participações de gol', 'المساهمات التهديفية', 'partecipazioni', 'contributions'],
+  imp_n_keyPasses: ['pases clave', 'key passes', 'passes decisivos', 'التمريرات المفتاحية', 'passaggi chiave', 'passes clés'],
+  imp_n_minutes: ['minutos', 'minutes', 'minutos', 'الدقائق', 'minuti', 'minutes'],
   imp_m_duelPct: ['Gana', 'Wins', 'Ganha', 'يفوز بـ', 'Vince', 'Remporte'],
   imp_m_duelPct_suffix: ['de sus duelos', 'of his duels', 'dos seus duelos', 'من ثنائياته', 'dei suoi duelli', 'de ses duels'],
   imp_m_dribblePct: ['Completa', 'Completes', 'Completa', 'ينجح في', 'Completa', 'Réussit'],
@@ -293,6 +303,11 @@ const S: Record<string, Six> = {
 function interp(tpl: string, vars?: Record<string, string | number>): string {
   if (!vars) return tpl
   return tpl.replace(/\{(\w+)\}/g, (_, k) => (vars[k] != null ? String(vars[k]) : `{${k}}`))
+}
+
+/** ¿Existe la clave? Sirve para probar variantes (p. ej. singulares en `_one`). */
+export function hasKey(key: string): boolean {
+  return key in S
 }
 
 /** Traduce una clave fija del informe al idioma dado (fallback: es). */

@@ -12,16 +12,29 @@ export function toISODate(d: string | Date): string {
   return (typeof d === 'string' ? new Date(d) : d).toISOString().slice(0, 10)
 }
 
-/** Primer partido posterior al último hueco de 45+ días. Null si no hay partidos. */
-export function seasonStart(fixtures: TeamFixture[]): string | null {
+/**
+ * Inicio de la temporada actual: el partido siguiente al último hueco de 45+ días.
+ *
+ * Si ese tramo todavía tiene menos de `minMatches` partidos —un torneo que recién
+ * arrancó, como el Apertura mexicano en julio— se retrocede al tramo anterior. Un
+ * informe con una muestra de un partido no le sirve a nadie.
+ */
+export function seasonStart(fixtures: TeamFixture[], minMatches = 5): string | null {
   const sorted = [...fixtures].sort((a, b) => +new Date(a.date) - +new Date(b.date))
   if (sorted.length === 0) return null
-  let start = sorted[0].date
+
+  // Índice de inicio de cada tramo separado por un hueco largo.
+  const starts = [0]
   for (let i = 1; i < sorted.length; i++) {
     const gap = +new Date(sorted[i].date) - +new Date(sorted[i - 1].date)
-    if (gap >= SEASON_GAP_DAYS * DAY_MS) start = sorted[i].date
+    if (gap >= SEASON_GAP_DAYS * DAY_MS) starts.push(i)
   }
-  return toISODate(start)
+
+  for (let s = starts.length - 1; s >= 0; s--) {
+    const played = sorted.length - starts[s]
+    if (played >= minMatches || s === 0) return toISODate(sorted[starts[s]].date)
+  }
+  return toISODate(sorted[0].date)
 }
 
 export function resolvePeriod(

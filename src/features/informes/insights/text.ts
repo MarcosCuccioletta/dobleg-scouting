@@ -2,16 +2,36 @@
 // distinto según el número ("más de uno de cada cuatro" vs el porcentaje pelado).
 // Todo pasa por el diccionario de i18n para que el informe siga siendo multiidioma.
 
-import { t, type Lang } from '@/features/informes/i18n'
+import { hasKey, t, type Lang } from '@/features/informes/i18n'
 import type { InsightItem, InsightTile } from './types'
+
+/**
+ * Traduce con variante singular: si el conteo es 1 y existe `<clave>_one`, usa esa.
+ * Evita el "Se perdió 1 partidos por lesión" sin duplicar todo el diccionario.
+ */
+function tn(lang: Lang, key: string, count: number, vars: Record<string, string | number>): string {
+  const one = `${key}_one`
+  return count === 1 && hasKey(one) ? t(lang, one, vars) : t(lang, key, vars)
+}
+
+const COMMA_LANGS: Lang[] = ['es', 'pt', 'it', 'fr']
+
+function decimalSep(s: string, lang: Lang): string {
+  return COMMA_LANGS.includes(lang) ? s.replace('.', ',') : s
+}
 
 /** Formatea números respetando el separador decimal del idioma. */
 export function formatNum(n: number, lang: Lang): string {
   if (Number.isInteger(n)) return String(n)
-  const fixed = String(Math.round(n * 100) / 100)
-  return lang === 'es' || lang === 'pt' || lang === 'it' || lang === 'fr'
-    ? fixed.replace('.', ',')
-    : fixed
+  return decimalSep(String(Math.round(n * 100) / 100), lang)
+}
+
+/**
+ * Promedios con decimales fijos. Un promedio que dice "1 puntos por partido" o
+ * "7 de Score GG" se lee como un conteo, no como una media.
+ */
+export function formatAvg(n: number, lang: Lang, decimals = 1): string {
+  return decimalSep(n.toFixed(decimals), lang)
 }
 
 function vars(values: InsightItem['values'], lang: Lang): Record<string, string | number> {
@@ -22,12 +42,13 @@ function vars(values: InsightItem['values'], lang: Lang): Record<string, string 
   return out
 }
 
-const CUMULATIVE_LABEL: Record<string, string> = {
-  'plantel.goals': 'imp_m_goals',
-  'plantel.assists': 'imp_m_assists',
-  'plantel.ga': 'imp_m_ga',
-  'plantel.keyPasses': 'imp_m_keyPasses',
-  'plantel.minutes': 'imp_m_minutes',
+/** Frase verbal ("el que más goles convirtió") y sustantivo ("2º en goles"). */
+const CUMULATIVE_LABEL: Record<string, { verb: string; noun: string }> = {
+  'plantel.goals': { verb: 'imp_m_goals', noun: 'imp_n_goals' },
+  'plantel.assists': { verb: 'imp_m_assists', noun: 'imp_n_assists' },
+  'plantel.ga': { verb: 'imp_m_ga', noun: 'imp_n_ga' },
+  'plantel.keyPasses': { verb: 'imp_m_keyPasses', noun: 'imp_n_keyPasses' },
+  'plantel.minutes': { verb: 'imp_m_minutes', noun: 'imp_n_minutes' },
 }
 
 const RATE_LABEL: Record<string, { prefix: string; suffix: string }> = {
@@ -40,13 +61,15 @@ export function renderItem(item: InsightItem, lang: Lang): string {
 
   switch (item.id) {
     case 'cont.pj':
-      return Number(item.values.pct) >= 100 ? t(lang, 'imp_cont_pj_all', v) : t(lang, 'imp_cont_pj', v)
+      return Number(item.values.pct) >= 100
+        ? tn(lang, 'imp_cont_pj_all', Number(item.values.teamMatches), v)
+        : t(lang, 'imp_cont_pj', v)
     case 'cont.titulares':
       return t(lang, 'imp_cont_titulares', v)
     case 'cont.minutos':
       return t(lang, 'imp_cont_minutos', v)
     case 'cont.lesiones':
-      return t(lang, 'imp_cont_lesiones', v)
+      return tn(lang, 'imp_cont_lesiones', Number(item.values.missed), v)
 
     case 'ofe.participaciones':
       return t(lang, 'imp_ofe_participaciones', v)
@@ -57,9 +80,14 @@ export function renderItem(item: InsightItem, lang: Lang): string {
       return t(lang, 'imp_ofe_share', v)
     }
     case 'ofe.promedio':
-      return t(lang, 'imp_ofe_promedio', v)
+      return t(lang, 'imp_ofe_promedio', {
+        ...v,
+        perMatch: formatAvg(Number(item.values.perMatch), lang, 2),
+        goalsPerMatch: formatAvg(Number(item.values.goalsPerMatch), lang, 2),
+        assistsPerMatch: formatAvg(Number(item.values.assistsPerMatch), lang, 2),
+      })
     case 'ofe.cada':
-      return t(lang, 'imp_ofe_cada', v)
+      return tn(lang, 'imp_ofe_cada', Number(item.values.every), v)
 
     case 'plantel.score':
       return item.values.rank === 1 ? t(lang, 'imp_plantel_score_first', v) : t(lang, 'imp_plantel_score', v)
@@ -67,14 +95,18 @@ export function renderItem(item: InsightItem, lang: Lang): string {
       return t(lang, 'imp_plantel_position', v)
 
     case 'rend.promedio':
-      return t(lang, 'imp_rend_promedio', v)
+      return t(lang, 'imp_rend_promedio', { ...v, avg: formatAvg(Number(item.values.avg), lang) })
     case 'rend.mejor':
-      return t(lang, 'imp_rend_mejor', v)
+      return t(lang, 'imp_rend_mejor', { ...v, best: formatAvg(Number(item.values.best), lang) })
     case 'rend.tendencia': {
       const key = item.values.direction === 'up' ? 'imp_rend_up'
         : item.values.direction === 'down' ? 'imp_rend_down'
         : 'imp_rend_flat'
-      return t(lang, key, v)
+      return t(lang, key, {
+        ...v,
+        recent: formatAvg(Number(item.values.recent), lang),
+        previous: formatAvg(Number(item.values.previous), lang),
+      })
     }
     case 'rend.sobrePromedio':
       return t(lang, 'imp_rend_sobre', v)
@@ -84,13 +116,20 @@ export function renderItem(item: InsightItem, lang: Lang): string {
     case 'res.record':
       return t(lang, 'imp_res_record', v)
     case 'res.conSinEl':
-      return t(lang, 'imp_res_conSinEl', v)
+      return t(lang, 'imp_res_conSinEl', {
+        ...v,
+        withPpg: formatAvg(Number(item.values.withPpg), lang, 2),
+        withoutPpg: formatAvg(Number(item.values.withoutPpg), lang, 2),
+      })
   }
 
   if (CUMULATIVE_LABEL[item.id]) {
-    const metric = t(lang, CUMULATIVE_LABEL[item.id])
-    const key = item.values.rank === 1 ? 'imp_plantel_first' : 'imp_plantel_rank'
-    return t(lang, key, { ...v, metric })
+    const { verb, noun } = CUMULATIVE_LABEL[item.id]
+    const first = item.values.rank === 1
+    return t(lang, first ? 'imp_plantel_first' : 'imp_plantel_rank', {
+      ...v,
+      metric: t(lang, first ? verb : noun),
+    })
   }
 
   if (RATE_LABEL[item.id]) {
@@ -114,7 +153,7 @@ export function renderTile(tile: InsightTile, lang: Lang): { value: string; sub:
     case 'tile.share':
       return { value: `${v.pct}%`, sub: t(lang, 'imp_tile_share') }
     case 'tile.score':
-      return { value: String(v.avg), sub: t(lang, 'imp_tile_score') }
+      return { value: formatAvg(Number(tile.values.avg), lang), sub: t(lang, 'imp_tile_score') }
     default:
       return { value: '', sub: '' }
   }

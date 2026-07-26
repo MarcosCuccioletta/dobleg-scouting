@@ -336,3 +336,93 @@ export async function fetchMarketValueHistory(
   if (error) throw error;
   return data ?? [];
 }
+
+// ── Informes / pestaña Impacto ────────────────────────────────────────────────
+// fetchPlayerMatchHistory filtra por posición detectada y por match_score no nulo,
+// lo que subcuenta partidos. Para contar continuidad hacen falta todas las filas.
+
+export async function fetchPlayerAllMatches(playerId: number): Promise<PlayerMatchStat[]> {
+  const { data, error } = await supabase
+    .from('player_match_stats')
+    .select(`
+      *,
+      fixture:fixtures(
+        id, date, home_team_id, away_team_id, score_home, score_away, league_id
+      )
+    `)
+    .eq('player_id', playerId)
+    .order('fixture(date)', { ascending: true });
+
+  if (error) throw error;
+  return data ?? [];
+}
+
+export interface TeamFixtureRow {
+  id: number;
+  date: string;
+  league_id: number;
+  home_team_id: number;
+  away_team_id: number;
+  score_home: number | null;
+  score_away: number | null;
+}
+
+export async function fetchTeamFixtures(
+  teamId: number,
+  fromISO: string,
+  toISO?: string,
+): Promise<TeamFixtureRow[]> {
+  let query = supabase
+    .from('fixtures')
+    .select('id, date, league_id, home_team_id, away_team_id, score_home, score_away')
+    .or(`home_team_id.eq.${teamId},away_team_id.eq.${teamId}`)
+    .gte('date', fromISO)
+    .order('date', { ascending: true });
+
+  if (toISO) query = query.lte('date', `${toISO}T23:59:59`);
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return data ?? [];
+}
+
+export interface SquadStatRow {
+  player_id: number;
+  minutes: number;
+  goals: number;
+  assists: number;
+  passes_key: number;
+  duels_won: number;
+  duels_total: number;
+  dribbles_success: number;
+  dribbles_attempted: number;
+  match_score: number | null;
+  detected_position: string | null;
+  fixture_id: number;
+  player?: { name: string } | null;
+  fixture?: { date: string } | null;
+}
+
+export async function fetchSquadMatchStats(
+  teamId: number,
+  fromISO: string,
+  toISO?: string,
+): Promise<SquadStatRow[]> {
+  let query = supabase
+    .from('player_match_stats')
+    .select(`
+      player_id, fixture_id, minutes, goals, assists, passes_key,
+      duels_won, duels_total, dribbles_success, dribbles_attempted,
+      match_score, detected_position,
+      player:players(name),
+      fixture:fixtures!inner(date)
+    `)
+    .eq('team_id', teamId)
+    .gte('fixture.date', fromISO);
+
+  if (toISO) query = query.lte('fixture.date', `${toISO}T23:59:59`);
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return (data ?? []) as unknown as SquadStatRow[];
+}
