@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildInformeHtml, ratingColor, comparePercentile } from './exportInformeHTML'
+import { buildInformeHtml, ratingColor, comparePercentile, type InsightsExport } from './exportInformeHTML'
 import { translateTransferType } from './i18n'
 import type { Informe, MetricDef, MetricStat } from './types'
 import type { InformeEnrichment } from './useInformeEnrichment'
@@ -277,5 +277,83 @@ describe('translateTransferType', () => {
     expect(translateTransferType('€ 5M', 'es')).toBe('€ 5M')
     expect(translateTransferType('N/A', 'es')).toBe('—')
     expect(translateTransferType('', 'en')).toBe('—')
+  })
+})
+
+describe('buildInformeHtml — pestaña Impacto', () => {
+  function insightsFixture(): InsightsExport {
+    return {
+      config: {
+        enabled: true,
+        period: { mode: 'season' as const },
+        blocks: ['continuidad' as const, 'ofensivo' as const],
+        hiddenItems: ['cont.minutos'],
+        overrides: { 'cont.titulares': 'Texto escrito a mano.' },
+      },
+      result: {
+        period: { mode: 'season' as const, from: '2026-01-01', to: null, anchorDate: null },
+        tiles: [
+          { id: 'tile.pj', render: 'dots' as const, values: { played: 15, teamMatches: 18, pct: 83.3 }, dots: { filled: 15, total: 18 } },
+          { id: 'tile.share', render: 'donut' as const, values: { pct: 28, ga: 7, teamGoals: 25 }, pct: 28 },
+        ],
+        groups: [
+          {
+            id: 'continuidad' as const,
+            items: [
+              { id: 'cont.pj', values: { played: 15, teamMatches: 18, pct: 83.3 }, tone: 'neutral' as const },
+              { id: 'cont.titulares', values: { starts: 12, played: 15, pct: 80 }, tone: 'strong' as const },
+              { id: 'cont.minutos', values: { minutes: 1136, pct: 70 }, tone: 'neutral' as const },
+            ],
+          },
+          {
+            id: 'ofensivo' as const,
+            items: [{ id: 'ofe.share', values: { ga: 7, teamGoals: 25, pct: 28 }, tone: 'strong' as const }],
+          },
+        ],
+        warnings: [],
+        minMinutes: 400,
+        qualifiedCount: 14,
+      },
+    }
+  }
+
+  const baseArgs = () => ({
+    informe: makeInforme(),
+    stats: emptyStats,
+    matrix: emptyMatrix,
+    defs: emptyDefs,
+  })
+
+  it('agrega la pestaña cuando hay insights habilitados', () => {
+    const html = buildInformeHtml({ ...baseArgs(), insights: insightsFixture() })
+    expect(html).toContain('data-tab="impacto"')
+    expect(html).toContain('data-panel="impacto"')
+  })
+
+  it('no agrega la pestaña si está deshabilitada', () => {
+    const ins = insightsFixture()
+    ins.config.enabled = false
+    const html = buildInformeHtml({ ...baseArgs(), insights: ins })
+    expect(html).not.toContain('data-panel="impacto"')
+  })
+
+  it('respeta las frases ocultas y los textos reescritos', () => {
+    const html = buildInformeHtml({ ...baseArgs(), insights: insightsFixture() })
+    expect(html).toContain('Texto escrito a mano.')
+    expect(html).not.toContain('1136')
+  })
+
+  it('dibuja el donut del share', () => {
+    const html = buildInformeHtml({ ...baseArgs(), insights: insightsFixture() })
+    expect(html).toContain('28%')
+    expect(html).toContain('stroke-dasharray')
+  })
+
+  it('no filtra bloques desactivados en la config', () => {
+    const ins = insightsFixture()
+    ins.config.blocks = ['continuidad']
+    const html = buildInformeHtml({ ...baseArgs(), insights: ins })
+    expect(html).toContain('Texto escrito a mano.')
+    expect(html).not.toContain('de los 25 goles del equipo')
   })
 })

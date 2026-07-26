@@ -278,6 +278,10 @@ export default function Step4Preview({ informe, stats, matrix, defs, onBack, onS
         .filter(g => g.items.some(i => !insightsConfig.hiddenItems.includes(i.id)))
     : []
   const showImpacto = insightsConfig.enabled && visibleInsightGroups.length > 0
+  // Lo que viaja al export: se congela acá, igual que las evolutivas.
+  const insightsArg = showImpacto && insightsResult
+    ? { result: insightsResult, config: insightsConfig }
+    : undefined
 
   // ── Métricas evolutivas (Wyscout) — solo internos con jugador en la planilla ──
   const [evoCharts, setEvoCharts] = useState<EvoChart[]>([])
@@ -828,7 +832,7 @@ export default function Step4Preview({ informe, stats, matrix, defs, onBack, onS
     setSharing(true)
     try {
       const logoDataUrl = await loadLogoDataUrl('/brand/logo-white.png')
-      exportInformeHTML({ informe, stats, matrix, defs, logoDataUrl, enrichment, evolution: evoToExport(evoCharts), transfers })
+      exportInformeHTML({ informe, stats, matrix, defs, logoDataUrl, enrichment, evolution: evoToExport(evoCharts), transfers, insights: insightsArg })
       showExportMsg({ ok: true, text: 'HTML descargado ✓ (se abre sin internet)' })
     } catch (e) {
       console.error('Export HTML error:', e)
@@ -845,7 +849,7 @@ export default function Step4Preview({ informe, stats, matrix, defs, onBack, onS
     setSharing(true)
     try {
       const logoDataUrl = await loadLogoDataUrl('/brand/logo-white.png')
-      const html = buildInformeHtml({ informe, stats, matrix, defs, logoDataUrl, enrichment, evolution: evoToExport(evoCharts), transfers })
+      const html = buildInformeHtml({ informe, stats, matrix, defs, logoDataUrl, enrichment, evolution: evoToExport(evoCharts), transfers, insights: insightsArg })
       const url = await uploadInformeHtml(html, informe.id, content.nombre || 'informe')
       setShareUrl(url)
       try { await navigator.clipboard.writeText(url) } catch { /* el portapapeles puede fallar sin https/gesto */ }
