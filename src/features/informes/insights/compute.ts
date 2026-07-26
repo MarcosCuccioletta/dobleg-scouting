@@ -3,7 +3,7 @@
 // tarjetas y frases con sus valores. Acá no se arma texto: sólo números y tono.
 
 import { inPeriod } from './period'
-import { aggregateSquad, defaultMinMinutes } from './squad'
+import { aggregateSquad, defaultMinMinutes, isRankNoteworthy, rankInSquad, type RankMetric } from './squad'
 import type {
   InjuryWindow, InsightBlockId, InsightGroup, InsightItem, InsightTile, InsightWarning,
   InsightsResult, PlayerMatchRow, ResolvedPeriod, SquadMatchRow, TeamFixture,
@@ -154,6 +154,175 @@ export function computeInsights(input: InsightsInput): InsightsResult {
     }
 
     if (items.length) groups.push({ id: 'ofensivo', items })
+  }
+
+  // ── Bloque: su lugar en el plantel ──
+  if (has('plantel') && squad.length > 1) {
+    const items: InsightItem[] = []
+    const metrics: { metric: RankMetric; id: string }[] = [
+      { metric: 'goals', id: 'plantel.goals' },
+      { metric: 'assists', id: 'plantel.assists' },
+      { metric: 'ga', id: 'plantel.ga' },
+      { metric: 'keyPasses', id: 'plantel.keyPasses' },
+      { metric: 'minutes', id: 'plantel.minutes' },
+      { metric: 'duelPct', id: 'plantel.duelPct' },
+      { metric: 'dribblePct', id: 'plantel.dribblePct' },
+      { metric: 'scoreAvg', id: 'plantel.score' },
+    ]
+
+    for (const { metric, id } of metrics) {
+      const r = rankInSquad(squad, playerId, metric, { minMinutes })
+      if (!r || r.value === 0 || !isRankNoteworthy(r)) continue
+      items.push({
+        id,
+        values: {
+          rank: r.rank,
+          pool: r.poolSize,
+          value: r.value,
+          teamTotal: r.teamTotal ?? 0,
+          pct: r.sharePct ?? 0,
+          minMinutes,
+        },
+        tone: r.rank === 1 ? 'strong' : r.rank <= 3 ? 'neutral' : 'weak',
+      })
+    }
+
+    // Línea extra por posición, sólo si hay competencia real en ese puesto.
+    const me = squad.find(s => s.playerId === playerId)
+    if (me?.position) {
+      const samePos = squad.filter(s => s.position === me.position)
+      if (samePos.length >= 4) {
+        const r = rankInSquad(samePos, playerId, 'scoreAvg', { minMinutes: 0 })
+        if (r && r.rank <= 2) {
+          items.push({
+            id: 'plantel.position',
+            values: { rank: r.rank, pool: samePos.length, position: me.position },
+            tone: r.rank === 1 ? 'strong' : 'neutral',
+          })
+        }
+      }
+    }
+
+    if (items.length) groups.push({ id: 'plantel', items })
+  }
+
+  // ── Bloque: rendimiento ──
+  if (has('rendimiento')) {
+    const items: InsightItem[] = []
+    const scored = played.filter(m => m.match_score != null)
+
+    if (scored.length > 0) {
+      const values = scored.map(m => m.match_score as number)
+      const avgScore = round1(values.reduce((a, b) => a + b, 0) / values.length)
+      const best = Math.max(...values)
+
+      items.push({
+        id: 'rend.promedio',
+        values: { avg: avgScore, matches: scored.length },
+        tone: avgScore >= 7 ? 'strong' : avgScore >= 6.3 ? 'neutral' : 'weak',
+      })
+      tiles.push({ id: 'tile.score', render: 'plain', values: { avg: avgScore, matches: scored.length } })
+
+      const bestMatch = scored.find(m => m.match_score === best)
+      items.push({
+        id: 'rend.mejor',
+        values: { best, date: bestMatch ? bestMatch.date.slice(0, 10) : '' },
+        tone: 'neutral',
+      })
+
+      if (!shortSample && scored.length >= 6) {
+        const recent = values.slice(-5)
+        const previous = values.slice(0, -5)
+        if (previous.length > 0) {
+          const recentAvg = recent.reduce((a, b) => a + b, 0) / recent.length
+          const prevAvg = previous.reduce((a, b) => a + b, 0) / previous.length
+          const delta = round1(recentAvg - prevAvg)
+          const direction = Math.abs(delta) < 0.3 ? 'flat' : delta > 0 ? 'up' : 'down'
+          items.push({
+            id: 'rend.tendencia',
+            values: { delta: Math.abs(delta), direction, recent: round1(recentAvg), previous: round1(prevAvg) },
+            tone: direction === 'up' ? 'strong' : direction === 'flat' ? 'neutral' : 'weak',
+          })
+        }
+      } else if (scored.length >= 4) {
+        // Muestra corta: se compara la última mitad contra la primera.
+        const half = Math.floor(scored.length / 2)
+        const prevAvg = values.slice(0, half).reduce((a, b) => a + b, 0) / half
+        const recentAvg = values.slice(half).reduce((a, b) => a + b, 0) / (values.length - half)
+        const delta = round1(recentAvg - prevAvg)
+        const direction = Math.abs(delta) < 0.3 ? 'flat' : delta > 0 ? 'up' : 'down'
+        items.push({
+          id: 'rend.tendencia',
+          values: { delta: Math.abs(delta), direction, recent: round1(recentAvg), previous: round1(prevAvg) },
+          tone: direction === 'up' ? 'strong' : direction === 'flat' ? 'neutral' : 'weak',
+        })
+      }
+
+      if (!shortSample) {
+        const above = values.filter(v => v > avgScore).length
+        items.push({
+          id: 'rend.sobrePromedio',
+          values: { above, matches: values.length, pct: round1((above / values.length) * 100) },
+          tone: 'neutral',
+        })
+      }
+    }
+
+    if (input.percentile != null) {
+      items.push({
+        id: 'rend.percentil',
+        values: { pct: Math.round(input.percentile) },
+        tone: input.percentile >= 75 ? 'strong' : input.percentile >= 50 ? 'neutral' : 'weak',
+      })
+    }
+
+    if (items.length) groups.push({ id: 'rendimiento', items })
+  }
+
+  // ── Bloque: impacto en resultados ──
+  if (has('resultados') && fx.length > 0) {
+    const items: InsightItem[] = []
+    const playedIds = new Set(played.map(m => m.fixture_id))
+    const outcome = (f: TeamFixture) => {
+      const own = (f.home_team_id === teamId ? f.score_home : f.score_away) ?? 0
+      const opp = (f.home_team_id === teamId ? f.score_away : f.score_home) ?? 0
+      return own > opp ? 3 : own === opp ? 1 : 0
+    }
+    const withHim = fx.filter(f => playedIds.has(f.id))
+    const withoutHim = fx.filter(f => !playedIds.has(f.id))
+
+    if (withHim.length > 0) {
+      items.push({
+        id: 'res.record',
+        values: {
+          wins: withHim.filter(f => outcome(f) === 3).length,
+          draws: withHim.filter(f => outcome(f) === 1).length,
+          losses: withHim.filter(f => outcome(f) === 0).length,
+          matches: withHim.length,
+        },
+        tone: 'neutral',
+      })
+    }
+
+    // Comparar contra 1 o 2 partidos sin él no dice nada: hace falta muestra.
+    if (withHim.length > 0 && withoutHim.length >= 3) {
+      const ppg = (list: TeamFixture[]) => round2(list.reduce((s, f) => s + outcome(f), 0) / list.length)
+      const withPpg = ppg(withHim)
+      const withoutPpg = ppg(withoutHim)
+      items.push({
+        id: 'res.conSinEl',
+        values: {
+          withPpg,
+          withoutPpg,
+          diff: round2(withPpg - withoutPpg),
+          withMatches: withHim.length,
+          withoutMatches: withoutHim.length,
+        },
+        tone: withPpg - withoutPpg >= 0.3 ? 'strong' : withPpg - withoutPpg <= -0.3 ? 'weak' : 'neutral',
+      })
+    }
+
+    if (items.length) groups.push({ id: 'resultados', items })
   }
 
   return { period, tiles, groups, warnings, minMinutes, qualifiedCount }

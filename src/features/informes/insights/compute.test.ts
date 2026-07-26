@@ -155,3 +155,109 @@ describe('computeInsights — tarjetas', () => {
     expect(res.tiles.map(t => t.id)).not.toContain('tile.share')
   })
 })
+
+describe('computeInsights — lugar en el plantel', () => {
+  function planteInput() {
+    const input = baseInput({ blocks: ['plantel'] })
+    // Protagonista: 3 asistencias de 5 del equipo, 20 pases clave de 50.
+    input.squadRows = [
+      squadRow(PLAYER, 1, { assists: 2, passes_key: 10, minutes: 90, duels_won: 6, duels_total: 10, match_score: 7.5 }),
+      squadRow(PLAYER, 2, { assists: 1, passes_key: 10, minutes: 90, duels_won: 6, duels_total: 10, match_score: 7.5 }),
+      squadRow(PLAYER, 3, { passes_key: 0, minutes: 300, duels_won: 0, duels_total: 0, match_score: 7.5 }),
+      squadRow(2, 1, { assists: 2, passes_key: 20, minutes: 480, match_score: 6.0 }),
+      squadRow(3, 1, { passes_key: 10, minutes: 480, match_score: 6.0 }),
+      squadRow(4, 1, { minutes: 90, match_score: 9.9 }),
+    ]
+    input.minMinutes = 400
+    return input
+  }
+
+  it('emite puesto y share en asistencias', () => {
+    const res = computeInsights(planteInput())
+    expect(itemById(res, 'plantel.assists')!.values).toMatchObject({ rank: 1, value: 3, teamTotal: 5, pct: 60 })
+  })
+
+  it('no emite líneas de ranking irrelevantes', () => {
+    const input = planteInput()
+    // 20 goles del equipo, ninguno del protagonista: no debe salir la línea de goles.
+    input.squadRows.push(squadRow(5, 2, { goals: 20, minutes: 480 }))
+    const res = computeInsights(input)
+    expect(itemById(res, 'plantel.goals')).toBeUndefined()
+  })
+
+  it('el suplente con 9.9 de score no aparece en el ranking de eficacia', () => {
+    const res = computeInsights(planteInput())
+    expect(itemById(res, 'plantel.score')!.values).toMatchObject({ rank: 1, pool: 3 })
+  })
+
+  it('reporta el umbral usado para que el informe lo pueda enunciar', () => {
+    const res = computeInsights(planteInput())
+    expect(res.minMinutes).toBe(400)
+    expect(itemById(res, 'plantel.score')!.values.minMinutes).toBe(400)
+  })
+})
+
+describe('computeInsights — rendimiento', () => {
+  function rendInput() {
+    const input = baseInput({ blocks: ['rendimiento'], percentile: 82 })
+    input.playerMatches = [
+      mine(1, '2026-02-01T00:00:00Z', { match_score: 6.0 }),
+      mine(2, '2026-02-08T00:00:00Z', { match_score: 6.0 }),
+      mine(3, '2026-02-15T00:00:00Z', { match_score: 7.0 }),
+      mine(4, '2026-02-22T00:00:00Z', { match_score: 8.0 }),
+    ]
+    return input
+  }
+
+  it('promedia el Score GG y marca el mejor partido', () => {
+    const res = computeInsights(rendInput())
+    expect(itemById(res, 'rend.promedio')!.values).toMatchObject({ avg: 6.8, matches: 4 })
+    expect(itemById(res, 'rend.mejor')!.values).toMatchObject({ best: 8 })
+  })
+
+  it('detecta subida cuando los últimos partidos superan a los anteriores', () => {
+    const res = computeInsights(rendInput())
+    expect(itemById(res, 'rend.tendencia')!.values.direction).toBe('up')
+  })
+
+  it('llama sostenido a una diferencia menor a 0,3', () => {
+    const input = rendInput()
+    input.playerMatches = input.playerMatches.map(m => ({ ...m, match_score: 7 }))
+    const res = computeInsights(input)
+    expect(itemById(res, 'rend.tendencia')!.values.direction).toBe('flat')
+  })
+
+  it('incluye el percentil de la posición cuando el informe lo tiene', () => {
+    const res = computeInsights(rendInput())
+    expect(itemById(res, 'rend.percentil')!.values).toMatchObject({ pct: 82 })
+  })
+
+  it('arma la tarjeta de score', () => {
+    const res = computeInsights(rendInput())
+    expect(res.tiles.find(t => t.id === 'tile.score')!.values).toMatchObject({ avg: 6.8 })
+  })
+})
+
+describe('computeInsights — impacto en resultados', () => {
+  it('compara puntos por partido con y sin él', () => {
+    const input = baseInput({ blocks: ['resultados'] })
+    input.fixtures = [
+      fixture(1, '2026-02-01T00:00:00Z', 2, 0), // con él, ganó
+      fixture(2, '2026-02-08T00:00:00Z', 1, 1), // con él, empató
+      fixture(3, '2026-02-15T00:00:00Z', 0, 2), // con él, perdió
+      fixture(4, '2026-02-22T00:00:00Z', 0, 1), // sin él, perdió
+      fixture(5, '2026-03-01T00:00:00Z', 0, 3), // sin él, perdió
+      fixture(6, '2026-03-08T00:00:00Z', 1, 2), // sin él, perdió
+    ]
+    const res = computeInsights(input)
+    expect(itemById(res, 'res.record')!.values).toMatchObject({ wins: 1, draws: 1, losses: 1 })
+    expect(itemById(res, 'res.conSinEl')!.values).toMatchObject({ withPpg: 1.33, withoutPpg: 0 })
+    expect(itemById(res, 'res.conSinEl')!.tone).toBe('strong')
+  })
+
+  it('no compara si hay menos de 3 partidos sin él', () => {
+    const res = computeInsights(baseInput({ blocks: ['resultados'] }))
+    expect(itemById(res, 'res.record')).toBeDefined()
+    expect(itemById(res, 'res.conSinEl')).toBeUndefined()
+  })
+})
