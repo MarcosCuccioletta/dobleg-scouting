@@ -1,4 +1,5 @@
-import type { InformeContent, MatchRow, Comparable } from '@/features/informes/types'
+import type { Informe, InformeContent, MatchRow, Comparable } from '@/features/informes/types'
+import Step3Impacto from './Step3Impacto'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -63,13 +64,15 @@ function CheckboxField({ label, checked, onChange }: { label: string; checked: b
 // ─── Props ──────────────────────────────────────────────────────────────────
 
 interface Step3ContenidoProps {
+  informe: Informe
   content: InformeContent
   onChange: (content: InformeContent) => void
+  onChangeInforme: (informe: Informe) => void
   onBack: () => void
   onNext: () => void
 }
 
-export default function Step3Contenido({ content, onChange, onBack, onNext }: Step3ContenidoProps) {
+export default function Step3Contenido({ informe, content, onChange, onChangeInforme, onBack, onNext }: Step3ContenidoProps) {
   const set = <K extends keyof InformeContent>(key: K, value: InformeContent[K]) =>
     onChange({ ...content, [key]: value })
 
@@ -226,6 +229,8 @@ export default function Step3Contenido({ content, onChange, onBack, onNext }: St
               className={`${inputClass} resize-y mt-1`}
             />
           </div>
+
+          <Step3Impacto informe={informe} onChange={onChangeInforme} />
         </div>
       </div>
 
