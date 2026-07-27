@@ -3,7 +3,7 @@ import type { Informe, InformeContent, MetricStat, MetricDef, ScatterAssignment 
 import { exportInformePDF } from '@/features/informes/exportInformePDF'
 import { exportInformeHTML, buildInformeHtml, ratingColor, comparePercentile, type EvolutionChartExport } from '@/features/informes/exportInformeHTML'
 import { fetchPlayerTransfers, type PlayerTransfer } from '@/services/footballApiService'
-import { uploadInformeHtml, uploadInformeOgImage, informeShareUrl } from '@/features/informes/shareInforme'
+import { uploadInformeHtml, uploadInformeOgImage, informeShareUrl, shareVersionToken } from '@/features/informes/shareInforme'
 import { buildOgImageBlob } from '@/features/informes/ogImage'
 import MetricEvolutionChart from '@/components/charts/MetricEvolutionChart'
 import { lineSvg } from '@/features/informes/chartSvg'
@@ -852,8 +852,13 @@ export default function Step4Preview({ informe, stats, matrix, defs, onBack, onS
       const logoDataUrl = await loadLogoDataUrl('/brand/logo-white.png')
       const nombreKey = content.nombre || 'informe'
 
-      // La tarjeta de preview se sube primero: su URL tiene que estar adentro
-      // del HTML (og:image), y la URL final del informe es calculable de antemano.
+      // Una sola versión para el link, la imagen y el og:url. Tienen que coincidir:
+      // si el og:url apuntara al link sin versión, WhatsApp lo canonicaliza a ese
+      // y vuelve a servir la preview vieja que tenía cacheada.
+      const version = shareVersionToken(Date.now())
+      const shareLink = informeShareUrl(informe.id, nombreKey, version)
+
+      // La tarjeta se sube primero: su URL tiene que estar adentro del HTML.
       let imageUrl: string | null = null
       try {
         const og = await buildOgImageBlob({
@@ -865,7 +870,7 @@ export default function Step4Preview({ informe, stats, matrix, defs, onBack, onS
           fotoDataUrl: informe.fotoDataUrl,
           logoDataUrl,
         })
-        if (og) imageUrl = await uploadInformeOgImage(og, informe.id, nombreKey)
+        if (og) imageUrl = await uploadInformeOgImage(og, informe.id, nombreKey, version)
       } catch (e) {
         // Sin imagen se comparte igual: el link sigue mostrando título y descripción.
         console.warn('No se pudo generar la imagen de preview:', e)
@@ -874,9 +879,9 @@ export default function Step4Preview({ informe, stats, matrix, defs, onBack, onS
       const html = buildInformeHtml({
         informe, stats, matrix, defs, logoDataUrl, enrichment,
         evolution: evoToExport(evoCharts), transfers, insights: insightsArg,
-        share: { url: informeShareUrl(informe.id, nombreKey), imageUrl },
+        share: { url: shareLink, imageUrl },
       })
-      const url = await uploadInformeHtml(html, informe.id, nombreKey)
+      const url = await uploadInformeHtml(html, informe.id, nombreKey, version)
       setShareUrl(url)
       try { await navigator.clipboard.writeText(url) } catch { /* el portapapeles puede fallar sin https/gesto */ }
       showExportMsg({ ok: true, text: 'Link generado y copiado ✓' })
