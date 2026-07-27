@@ -35,6 +35,7 @@ const S: Record<string, Six> = {
   tab_carrera: ['Carrera', 'Career', 'Carreira', 'المسيرة', 'Carriera', 'Carrière'],
   tab_comparaciones: ['Comparaciones', 'Comparison', 'Comparações', 'مقارنات', 'Confronti', 'Comparaisons'],
   tab_evolutivas: ['Evolutivas', 'Trends', 'Evolutivas', 'التطور', 'Evolutive', 'Évolutives'],
+  tab_impacto: ['Impacto', 'Impact', 'Impacto', 'التأثير', 'Impatto', 'Impact'],
   // Section titles
   t_radar: ['Radar comparativo', 'Comparative radar', 'Radar comparativo', 'رادار مقارن', 'Radar comparativo', 'Radar comparatif'],
   t_bars: ['Barras comparativas', 'Comparative bars', 'Barras comparativas', 'أعمدة مقارنة', 'Barre comparative', 'Barres comparatives'],
@@ -215,12 +216,98 @@ const S: Record<string, Six> = {
     'A joué {n} des {t} derniers matchs',
   ],
   m_avg: ['promedio', 'average', 'média', 'المتوسط', 'media', 'moyenne'],
+
+  // ── Impacto: títulos ──
+  imp_since: ['Desde su llegada — {date}', 'Since joining — {date}', 'Desde a sua chegada — {date}', 'منذ انضمامه — {date}', "Dall'arrivo — {date}", 'Depuis son arrivée — {date}'],
+  imp_season: ['Temporada actual', 'Current season', 'Temporada atual', 'الموسم الحالي', 'Stagione in corso', 'Saison en cours'],
+  imp_last10: ['Últimos 10 partidos', 'Last 10 matches', 'Últimos 10 jogos', 'آخر 10 مباريات', 'Ultime 10 partite', '10 derniers matchs'],
+  imp_range: ['{from} a {to}', '{from} to {to}', '{from} a {to}', '{from} إلى {to}', '{from} a {to}', '{from} au {to}'],
+  imp_g_continuidad: ['Continuidad', 'Availability', 'Continuidade', 'الاستمرارية', 'Continuità', 'Continuité'],
+  imp_g_ofensivo: ['Peso ofensivo', 'Attacking weight', 'Peso ofensivo', 'الوزن الهجومي', 'Peso offensivo', 'Poids offensif'],
+  imp_g_plantel: ['Su lugar en el plantel', 'His place in the squad', 'O seu lugar no plantel', 'مكانته في الفريق', 'Il suo posto in rosa', 'Sa place dans l’effectif'],
+  imp_g_rendimiento: ['Rendimiento', 'Performance', 'Rendimento', 'الأداء', 'Rendimento', 'Performance'],
+  imp_g_resultados: ['Impacto en resultados', 'Impact on results', 'Impacto nos resultados', 'التأثير على النتائج', 'Impatto sui risultati', 'Impact sur les résultats'],
+  imp_note_coverage: [
+    'Datos de las competencias con cobertura estadística.',
+    'Data from competitions with statistical coverage.',
+    'Dados das competições com cobertura estatística.',
+    'بيانات من المسابقات ذات التغطية الإحصائية.',
+    'Dati delle competizioni con copertura statistica.',
+    'Données des compétitions avec couverture statistique.',
+  ],
+
+  // ── Impacto: tarjetas ──
+  imp_tile_pj: ['Partidos jugados', 'Matches played', 'Jogos disputados', 'المباريات المُلعوبة', 'Partite giocate', 'Matchs joués'],
+  imp_tile_ga: ['{goals} goles · {assists} asistencias', '{goals} goals · {assists} assists', '{goals} gols · {assists} assistências', '{goals} أهداف · {assists} تمريرات حاسمة', '{goals} gol · {assists} assist', '{goals} buts · {assists} passes décisives'],
+  imp_tile_share: ['De los goles del equipo', 'Of the team’s goals', 'Dos gols da equipa', 'من أهداف الفريق', 'Dei gol della squadra', 'Des buts de l’équipe'],
+  imp_tile_score: ['Score GG promedio', 'Average Score GG', 'Score GG médio', 'متوسط Score GG', 'Score GG medio', 'Score GG moyen'],
+
+  // ── Impacto: continuidad ──
+  imp_cont_pj_all: ['Jugó los {teamMatches} partidos oficiales del equipo: disponibilidad total.', 'Played all {teamMatches} official matches: fully available.', 'Jogou os {teamMatches} jogos oficiais da equipa: disponibilidade total.', 'لعب جميع مباريات الفريق الرسمية البالغة {teamMatches}: جاهزية تامة.', 'Ha giocato tutte le {teamMatches} partite ufficiali: sempre disponibile.', 'A joué les {teamMatches} matchs officiels de l’équipe : disponibilité totale.'],
+  imp_cont_pj: ['Disputó {played} de los {teamMatches} partidos oficiales del equipo ({pct}%).', 'Played {played} of the team’s {teamMatches} official matches ({pct}%).', 'Disputou {played} dos {teamMatches} jogos oficiais da equipa ({pct}%).', 'خاض {played} من أصل {teamMatches} مباراة رسمية ({pct}%).', 'Ha disputato {played} delle {teamMatches} partite ufficiali ({pct}%).', 'A disputé {played} des {teamMatches} matchs officiels ({pct}%).'],
+  imp_cont_titulares: ['Fue titular en {starts} de esos {played} partidos ({pct}%).', 'Started {starts} of those {played} matches ({pct}%).', 'Foi titular em {starts} desses {played} jogos ({pct}%).', 'كان أساسياً في {starts} من تلك المباريات الـ{played} ({pct}%).', 'Titolare in {starts} di quelle {played} partite ({pct}%).', 'Titulaire lors de {starts} de ces {played} matchs ({pct}%).'],
+  imp_cont_minutos: ['Acumuló {minutes} minutos, el {pct}% de los disponibles.', 'Logged {minutes} minutes, {pct}% of those available.', 'Somou {minutes} minutos, {pct}% dos disponíveis.', 'جمع {minutes} دقيقة، أي {pct}% من الدقائق المتاحة.', 'Ha accumulato {minutes} minuti, il {pct}% di quelli disponibili.', 'A cumulé {minutes} minutes, soit {pct}% du total possible.'],
+  imp_cont_pj_all_one: ['Jugó el único partido oficial del equipo.', 'Played the team’s only official match.', 'Jogou o único jogo oficial da equipa.', 'لعب المباراة الرسمية الوحيدة للفريق.', 'Ha giocato l’unica partita ufficiale della squadra.', 'A joué l’unique match officiel de l’équipe.'],
+  imp_cont_lesiones_one: ['Se perdió un partido por lesión.', 'Missed one match through injury.', 'Falhou um jogo por lesão.', 'غاب عن مباراة واحدة بسبب الإصابة.', 'Ha saltato una partita per infortunio.', 'A manqué un match sur blessure.'],
+  imp_cont_lesiones: ['Se perdió {missed} partidos por lesión.', 'Missed {missed} matches through injury.', 'Falhou {missed} jogos por lesão.', 'غاب عن {missed} مباريات بسبب الإصابة.', 'Ha saltato {missed} partite per infortunio.', 'A manqué {missed} matchs sur blessure.'],
+
+  // ── Impacto: peso ofensivo ──
+  imp_ofe_participaciones: ['Sumó {goals} goles y {assists} asistencias: {ga} participaciones directas en gol.', 'Scored {goals} and assisted {assists}: {ga} direct goal contributions.', 'Somou {goals} gols e {assists} assistências: {ga} participações diretas.', 'سجل {goals} أهداف وصنع {assists}: {ga} مساهمة تهديفية مباشرة.', 'Ha realizzato {goals} gol e {assists} assist: {ga} partecipazioni dirette.', 'A inscrit {goals} buts et délivré {assists} passes décisives : {ga} contributions directes.'],
+  imp_ofe_share_strong: ['Participó en {ga} de los {teamGoals} goles del equipo: más de uno de cada cuatro ({pct}%).', 'Was involved in {ga} of the team’s {teamGoals} goals: more than one in four ({pct}%).', 'Participou em {ga} dos {teamGoals} gols da equipa: mais de um em cada quatro ({pct}%).', 'شارك في {ga} من أصل {teamGoals} هدفاً للفريق: أكثر من هدف من كل أربعة ({pct}%).', 'Ha partecipato a {ga} dei {teamGoals} gol della squadra: più di uno su quattro ({pct}%).', 'A participé à {ga} des {teamGoals} buts de l’équipe : plus d’un sur quatre ({pct}%).'],
+  imp_ofe_share_third: ['Participó en {ga} de los {teamGoals} goles del equipo: uno de cada tres ({pct}%).', 'Was involved in {ga} of the team’s {teamGoals} goals: one in three ({pct}%).', 'Participou em {ga} dos {teamGoals} gols da equipa: um em cada três ({pct}%).', 'شارك في {ga} من أصل {teamGoals} هدفاً للفريق: هدف من كل ثلاثة ({pct}%).', 'Ha partecipato a {ga} dei {teamGoals} gol della squadra: uno su tre ({pct}%).', 'A participé à {ga} des {teamGoals} buts de l’équipe : un sur trois ({pct}%).'],
+  imp_ofe_share: ['Participó en {ga} de los {teamGoals} goles del equipo ({pct}%).', 'Was involved in {ga} of the team’s {teamGoals} goals ({pct}%).', 'Participou em {ga} dos {teamGoals} gols da equipa ({pct}%).', 'شارك في {ga} من أصل {teamGoals} هدفاً للفريق ({pct}%).', 'Ha partecipato a {ga} dei {teamGoals} gol della squadra ({pct}%).', 'A participé à {ga} des {teamGoals} buts de l’équipe ({pct}%).'],
+  imp_ofe_promedio: ['Promedia {perMatch} participaciones de gol por partido ({goalsPerMatch} goles y {assistsPerMatch} asistencias).', 'Averages {perMatch} goal contributions per match ({goalsPerMatch} goals and {assistsPerMatch} assists).', 'Média de {perMatch} participações por jogo ({goalsPerMatch} gols e {assistsPerMatch} assistências).', 'بمعدل {perMatch} مساهمة تهديفية لكل مباراة ({goalsPerMatch} أهداف و{assistsPerMatch} تمريرة حاسمة).', 'Media di {perMatch} partecipazioni a partita ({goalsPerMatch} gol e {assistsPerMatch} assist).', 'Moyenne de {perMatch} contributions par match ({goalsPerMatch} buts et {assistsPerMatch} passes).'],
+  imp_ofe_cada_one: ['Un gol o asistencia por partido.', 'A goal or assist every match.', 'Um gol ou assistência por jogo.', 'هدف أو تمريرة حاسمة في كل مباراة.', 'Un gol o assist a partita.', 'Un but ou une passe décisive par match.'],
+  imp_ofe_cada: ['Un gol o asistencia cada {every} partidos.', 'A goal or assist every {every} matches.', 'Um gol ou assistência a cada {every} jogos.', 'هدف أو تمريرة حاسمة كل {every} مباراة.', 'Un gol o assist ogni {every} partite.', 'Un but ou une passe décisive tous les {every} matchs.'],
+
+  // ── Impacto: plantel ──
+  imp_plantel_first: ['Es el que más {metric} del plantel: {value} de {teamTotal} ({pct}% del total).', 'He leads the squad in {metric}: {value} of {teamTotal} ({pct}% of the total).', 'É o que mais {metric} do plantel: {value} de {teamTotal} ({pct}% do total).', 'هو الأول في الفريق في {metric}: {value} من {teamTotal} ({pct}% من الإجمالي).', 'È il primo della rosa per {metric}: {value} su {teamTotal} ({pct}% del totale).', 'Il est le premier de l’effectif en {metric} : {value} sur {teamTotal} ({pct}% du total).'],
+  imp_plantel_rank: ['{rank}º del plantel en {metric}: {value} de {teamTotal} ({pct}% del total).', '{rank}th in the squad in {metric}: {value} of {teamTotal} ({pct}% of the total).', '{rank}º do plantel em {metric}: {value} de {teamTotal} ({pct}% do total).', 'الـ{rank} في الفريق في {metric}: {value} من {teamTotal} ({pct}% من الإجمالي).', '{rank}º della rosa per {metric}: {value} su {teamTotal} ({pct}% del totale).', '{rank}e de l’effectif en {metric} : {value} sur {teamTotal} ({pct}% du total).'],
+  imp_plantel_rate_first: ['{metric} el {value}% {what}: el mejor entre los {pool} jugadores con más de {minMinutes} minutos.', '{metric} {value}% {what}: the best among the {pool} players with over {minMinutes} minutes.', '{metric} {value}% {what}: o melhor entre os {pool} jogadores com mais de {minMinutes} minutos.', '{metric} {value}% {what}: الأفضل بين {pool} لاعبين تجاوزوا {minMinutes} دقيقة.', '{metric} il {value}% {what}: il migliore tra i {pool} giocatori con più di {minMinutes} minuti.', '{metric} {value}% {what} : le meilleur parmi les {pool} joueurs de plus de {minMinutes} minutes.'],
+  imp_plantel_rate: ['{metric} el {value}% {what}: {rank}º entre los {pool} jugadores con más de {minMinutes} minutos.', '{metric} {value}% {what}: {rank}th among the {pool} players with over {minMinutes} minutes.', '{metric} {value}% {what}: {rank}º entre os {pool} jogadores com mais de {minMinutes} minutos.', '{metric} {value}% {what}: الـ{rank} بين {pool} لاعبين تجاوزوا {minMinutes} دقيقة.', '{metric} il {value}% {what}: {rank}º tra i {pool} giocatori con più di {minMinutes} minuti.', '{metric} {value}% {what} : {rank}e parmi les {pool} joueurs de plus de {minMinutes} minutes.'],
+  imp_plantel_score_first: ['Es el mejor Score GG del plantel ({value}) entre los {pool} jugadores con más de {minMinutes} minutos.', 'He has the best Score GG in the squad ({value}) among the {pool} players with over {minMinutes} minutes.', 'Tem o melhor Score GG do plantel ({value}) entre os {pool} jogadores com mais de {minMinutes} minutos.', 'يمتلك أفضل Score GG في الفريق ({value}) بين {pool} لاعبين تجاوزوا {minMinutes} دقيقة.', 'Ha il miglior Score GG della rosa ({value}) tra i {pool} giocatori con più di {minMinutes} minuti.', 'Il a le meilleur Score GG de l’effectif ({value}) parmi les {pool} joueurs de plus de {minMinutes} minutes.'],
+  imp_plantel_score: ['{rank}º Score GG del plantel ({value}) entre los {pool} jugadores con más de {minMinutes} minutos.', '{rank}th best Score GG in the squad ({value}) among the {pool} players with over {minMinutes} minutes.', '{rank}º melhor Score GG do plantel ({value}) entre os {pool} jogadores com mais de {minMinutes} minutos.', 'الـ{rank} في Score GG داخل الفريق ({value}) بين {pool} لاعبين تجاوزوا {minMinutes} دقيقة.', '{rank}º Score GG della rosa ({value}) tra i {pool} giocatori con più di {minMinutes} minuti.', '{rank}e Score GG de l’effectif ({value}) parmi les {pool} joueurs de plus de {minMinutes} minutes.'],
+  imp_plantel_position: ['{rank}º entre los {pool} {position} del plantel.', '{rank}th among the squad’s {pool} {position}.', '{rank}º entre os {pool} {position} do plantel.', 'الـ{rank} بين {pool} من {position} في الفريق.', '{rank}º tra i {pool} {position} della rosa.', '{rank}e parmi les {pool} {position} de l’effectif.'],
+  // Dos juegos de etiquetas: frase verbal para "el que más X del plantel" y
+  // sustantivo para "Nº del plantel en X". Mezclarlas da "5º del plantel en goles convirtió".
+  imp_m_goals: ['goles convirtió', 'goals scored', 'gols marcou', 'الأهداف', 'gol', 'buts'],
+  imp_m_assists: ['asistencias dio', 'assists', 'assistências deu', 'التمريرات الحاسمة', 'assist', 'passes décisives'],
+  imp_m_ga: ['participaciones de gol tuvo', 'goal contributions', 'participações teve', 'المساهمات التهديفية', 'partecipazioni', 'contributions'],
+  imp_m_keyPasses: ['pases clave dio', 'key passes', 'passes decisivos deu', 'التمريرات المفتاحية', 'passaggi chiave', 'passes clés'],
+  imp_m_minutes: ['minutos jugó', 'minutes played', 'minutos jogou', 'الدقائق', 'minuti', 'minutes'],
+  imp_n_goals: ['goles', 'goals', 'gols', 'الأهداف', 'gol', 'buts'],
+  imp_n_assists: ['asistencias', 'assists', 'assistências', 'التمريرات الحاسمة', 'assist', 'passes décisives'],
+  imp_n_ga: ['participaciones de gol', 'goal contributions', 'participações de gol', 'المساهمات التهديفية', 'partecipazioni', 'contributions'],
+  imp_n_keyPasses: ['pases clave', 'key passes', 'passes decisivos', 'التمريرات المفتاحية', 'passaggi chiave', 'passes clés'],
+  imp_n_minutes: ['minutos', 'minutes', 'minutos', 'الدقائق', 'minuti', 'minutes'],
+  imp_m_duelPct: ['Gana', 'Wins', 'Ganha', 'يفوز بـ', 'Vince', 'Remporte'],
+  imp_m_duelPct_suffix: ['de sus duelos', 'of his duels', 'dos seus duelos', 'من ثنائياته', 'dei suoi duelli', 'de ses duels'],
+  imp_m_dribblePct: ['Completa', 'Completes', 'Completa', 'ينجح في', 'Completa', 'Réussit'],
+  imp_m_dribblePct_suffix: ['de sus regates', 'of his dribbles', 'dos seus dribles', 'من مراوغاته', 'dei suoi dribbling', 'de ses dribbles'],
+
+  // ── Impacto: rendimiento ──
+  imp_rend_promedio: ['Promedia {avg} de Score GG en {matches} partidos.', 'Averages {avg} Score GG across {matches} matches.', 'Média de {avg} de Score GG em {matches} jogos.', 'بمعدل {avg} في Score GG خلال {matches} مباراة.', 'Media di {avg} di Score GG in {matches} partite.', 'Moyenne de {avg} de Score GG sur {matches} matchs.'],
+  imp_rend_mejor: ['Su mejor partido del período: {best}.', 'His best match of the period: {best}.', 'O seu melhor jogo do período: {best}.', 'أفضل مباراة له في الفترة: {best}.', 'La sua miglior partita del periodo: {best}.', 'Son meilleur match de la période : {best}.'],
+  imp_rend_up: ['Viene en alza: {recent} de promedio en los últimos partidos contra {previous} antes.', 'Trending up: {recent} on average in recent matches against {previous} before.', 'Em alta: {recent} de média nos últimos jogos contra {previous} antes.', 'في تصاعد: {recent} كمعدل في المباريات الأخيرة مقابل {previous} قبلها.', 'In crescita: {recent} di media nelle ultime partite contro {previous} prima.', 'En hausse : {recent} de moyenne sur les derniers matchs contre {previous} avant.'],
+  imp_rend_down: ['Viene en baja: {recent} de promedio en los últimos partidos contra {previous} antes.', 'Trending down: {recent} on average in recent matches against {previous} before.', 'Em baixa: {recent} de média nos últimos jogos contra {previous} antes.', 'في تراجع: {recent} كمعدل في المباريات الأخيرة مقابل {previous} قبلها.', 'In calo: {recent} di media nelle ultime partite contro {previous} prima.', 'En baisse : {recent} de moyenne sur les derniers matchs contre {previous} avant.'],
+  imp_rend_flat: ['Rendimiento sostenido: {recent} de promedio en los últimos partidos contra {previous} antes.', 'Steady output: {recent} on average in recent matches against {previous} before.', 'Rendimento sustentado: {recent} de média nos últimos jogos contra {previous} antes.', 'أداء ثابت: {recent} كمعدل في المباريات الأخيرة مقابل {previous} قبلها.', 'Rendimento costante: {recent} di media nelle ultime partite contro {previous} prima.', 'Rendement constant : {recent} de moyenne sur les derniers matchs contre {previous} avant.'],
+  imp_rend_sobre: ['Superó su propio promedio en {above} de {matches} partidos ({pct}%).', 'Beat his own average in {above} of {matches} matches ({pct}%).', 'Superou a sua média em {above} de {matches} jogos ({pct}%).', 'تجاوز معدله الشخصي في {above} من {matches} مباراة ({pct}%).', 'Ha superato la propria media in {above} partite su {matches} ({pct}%).', 'A dépassé sa propre moyenne dans {above} des {matches} matchs ({pct}%).'],
+  imp_rend_percentil: ['Su Score GG lo ubica mejor que el {pct}% de los jugadores de su posición.', 'His Score GG places him above {pct}% of players in his position.', 'O seu Score GG coloca-o acima de {pct}% dos jogadores da sua posição.', 'يضعه Score GG أفضل من {pct}% من لاعبي مركزه.', 'Il suo Score GG lo colloca meglio del {pct}% dei giocatori nel suo ruolo.', 'Son Score GG le place devant {pct}% des joueurs à son poste.'],
+
+  // ── Impacto: resultados ──
+  imp_res_record: ['Con él en cancha el equipo ganó {wins}, empató {draws} y perdió {losses}.', 'With him on the pitch the team won {wins}, drew {draws} and lost {losses}.', 'Com ele em campo a equipa venceu {wins}, empatou {draws} e perdeu {losses}.', 'بوجوده في الملعب فاز الفريق {wins} وتعادل {draws} وخسر {losses}.', 'Con lui in campo la squadra ha vinto {wins}, pareggiato {draws} e perso {losses}.', 'Avec lui sur le terrain, l’équipe a gagné {wins}, fait {draws} nuls et perdu {losses}.'],
+  imp_res_conSinEl: ['Con él en cancha el equipo saca {withPpg} puntos por partido; sin él, {withoutPpg}.', 'With him the team takes {withPpg} points per match; without him, {withoutPpg}.', 'Com ele a equipa soma {withPpg} pontos por jogo; sem ele, {withoutPpg}.', 'بوجوده يحصد الفريق {withPpg} نقطة في المباراة؛ وبدونه {withoutPpg}.', 'Con lui la squadra ottiene {withPpg} punti a partita; senza di lui, {withoutPpg}.', 'Avec lui l’équipe prend {withPpg} points par match ; sans lui, {withoutPpg}.'],
 }
 
 /** Interpolación simple de {var}. */
 function interp(tpl: string, vars?: Record<string, string | number>): string {
   if (!vars) return tpl
   return tpl.replace(/\{(\w+)\}/g, (_, k) => (vars[k] != null ? String(vars[k]) : `{${k}}`))
+}
+
+/** ¿Existe la clave? Sirve para probar variantes (p. ej. singulares en `_one`). */
+export function hasKey(key: string): boolean {
+  return key in S
 }
 
 /** Traduce una clave fija del informe al idioma dado (fallback: es). */

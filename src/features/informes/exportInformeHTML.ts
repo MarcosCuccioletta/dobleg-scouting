@@ -1,4 +1,6 @@
-import { radarSvg, barsSvg, scatterSvg, gaugeSvg, lineChartSvg, lineSvg } from './chartSvg'
+import { radarSvg, barsSvg, scatterSvg, gaugeSvg, lineChartSvg, lineSvg, donutSvg, dotsSvg } from './chartSvg'
+import { renderItem, renderTile } from './insights/text'
+import type { InsightsConfig, InsightsResult } from './insights/types'
 import { radarData, radarComparisonData, barsData, scatterData, comparisonTable, comparisonWinCounts, parseRating, ratingMax } from './chartData'
 import { t, translateMetric, translateInjury, translateTransferType, isRtl } from './i18n'
 import type { Informe, MetricStat, MetricDef } from './types'
@@ -105,6 +107,12 @@ export interface EvolutionChartExport {
   points: { label: string; value: number }[]
 }
 
+/** Conclusiones ya resueltas por el llamador (igual que `evolution`). */
+export interface InsightsExport {
+  result: InsightsResult
+  config: InsightsConfig
+}
+
 // ---------------------------------------------------------------------------
 // buildInformeHtml: construye el string HTML completo (puro, testeable)
 // ---------------------------------------------------------------------------
@@ -118,6 +126,7 @@ export function buildInformeHtml(opts: {
   enrichment?: InformeEnrichment
   evolution?: EvolutionChartExport[]
   transfers?: PlayerTransfer[]
+  insights?: InsightsExport
 }): string {
   const { informe, stats, matrix, defs, enrichment } = opts
   const { content } = informe
@@ -593,8 +602,68 @@ export function buildInformeHtml(opts: {
        </div>`
     : ''
 
+  // ── Impacto (conclusiones desde la API) — sólo si el llamador resolvió la data ──
+  const insights = opts.insights
+  const insightGroups = insights && insights.config.enabled
+    ? insights.result.groups
+        .filter(g => insights.config.blocks.includes(g.id))
+        .map(g => ({ ...g, items: g.items.filter(i => !insights.config.hiddenItems.includes(i.id)) }))
+        .filter(g => g.items.length > 0)
+    : []
+  const showImpacto = insightGroups.length > 0
+
+  const impactoPanel = showImpacto && insights
+    ? (() => {
+        const { result, config } = insights
+        const period = result.period
+        const periodText =
+          period.mode === 'signing' && period.anchorDate ? t(lang, 'imp_since', { date: period.anchorDate })
+          : period.mode === 'last10' ? t(lang, 'imp_last10')
+          : period.mode === 'custom' ? t(lang, 'imp_range', { from: period.from, to: period.to ?? '' })
+          : t(lang, 'imp_season')
+
+        const tilesHtml = result.tiles
+          .filter(tile => !config.hiddenItems.includes(tile.id))
+          .map(tile => {
+            const { value, sub } = renderTile(tile, lang)
+            const valueHtml = `<span class="dg-imp-value">${escapeHtml(value)}</span>`
+            // Donut: al lado del número. Dots: debajo, ocupando el ancho.
+            const head = tile.render === 'donut' && tile.pct != null
+              ? `<div class="dg-imp-head">${valueHtml}<div class="dg-imp-art">${donutSvg({ pct: tile.pct })}</div></div>`
+              : tile.render === 'dots' && tile.dots
+                ? `${valueHtml}<div class="dg-imp-art">${dotsSvg(tile.dots)}</div>`
+                : valueHtml
+            return `<div class="dg-imp-tile">
+                ${head}
+                <span class="dg-imp-sub">${escapeHtml(sub)}</span>
+              </div>`
+          })
+          .join('')
+
+        const groupsHtml = insightGroups
+          .map(g => `<h4 class="dg-panel-title dg-mt">${escapeHtml(t(lang, `imp_g_${g.id}`))}</h4>
+            <ul class="dg-imp-list">${g.items
+              .map(i => `<li>${escapeHtml(config.overrides[i.id] ?? renderItem(i, lang))}</li>`)
+              .join('')}</ul>`)
+          .join('')
+
+        const note = result.warnings.includes('goalsMismatch')
+          ? `<p class="dg-muted dg-subtitle">${escapeHtml(t(lang, 'imp_note_coverage'))}</p>`
+          : ''
+
+        return `<div class="dg-panel-inner">
+            <h3 class="dg-panel-title">${escapeHtml(t(lang, 'tab_impacto'))}</h3>
+            <p class="dg-muted dg-subtitle">${escapeHtml(periodText)}</p>
+            ${tilesHtml ? `<div class="dg-imp-tiles">${tilesHtml}</div>` : ''}
+            ${groupsHtml}
+            ${note}
+          </div>`
+      })()
+    : ''
+
   const tabs = [
     ...(showGeneral ? [{ id: 'general', html: generalPanel }] : []),
+    ...(showImpacto ? [{ id: 'impacto', html: impactoPanel }] : []),
     { id: 'radar', html: radarPanel },
     { id: 'bars', html: barsPanel },
     { id: 'scatter', html: scatterPanel },
@@ -1083,6 +1152,34 @@ const css = `
     .dg-bars-narrow { display: block; }
   }
   .dg-chart { width: 100%; max-width: 100%; overflow-x: auto; }
+
+  /* Impacto */
+  .dg-imp-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin: 14px 0 4px; }
+  .dg-imp-tile { border: 1px solid rgba(255,255,255,0.08); background: #14171B; border-radius: 14px; padding: 12px; }
+  .dg-imp-value { display: block; font-size: 22px; font-weight: 700; color: #F5F7FA; }
+  /* El donut va al lado del número (no debajo): así la tarjeta no crece el doble
+     que sus vecinas y la fila queda pareja. Los dots sí van debajo, son una tira. */
+  .dg-imp-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .dg-imp-head .dg-imp-value { margin: 0; }
+  .dg-imp-art { margin: 6px 0 2px; }
+  .dg-imp-head .dg-imp-art { margin: 0; flex-shrink: 0; }
+  .dg-imp-art svg { display: block; max-width: 100%; height: auto; }
+  .dg-imp-sub { display: block; font-size: 11px; color: #8A9099; margin-top: 4px; }
+  .dg-imp-list { margin: 6px 0 0; padding-left: 18px; }
+  .dg-imp-list li { font-size: 13px; color: #F5F7FA; margin-bottom: 5px; }
+  /* Mobile del panel Impacto. Va DESPUÉS de las reglas base: si se declara antes,
+     la base le gana por orden y el celular termina con el layout de escritorio. */
+  @media (max-width: 560px) {
+    .dg-imp-tiles { grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0 4px; }
+    .dg-imp-tile { padding: 10px; }
+    .dg-imp-value { font-size: 19px; }
+    .dg-imp-head .dg-imp-art svg { width: 46px; height: 46px; }
+    .dg-imp-list { padding-left: 16px; }
+    .dg-imp-list li { font-size: 12.5px; margin-bottom: 6px; }
+  }
+  @media (max-width: 340px) {
+    .dg-imp-tiles { grid-template-columns: 1fr; }
+  }
   .dg-chart svg { display: block; max-width: 100%; height: auto; }
   .dg-numbers { margin-top: 24px; }
   .dg-numbers h4 {
@@ -1263,6 +1360,7 @@ export function exportInformeHTML(opts: {
   enrichment?: InformeEnrichment
   evolution?: EvolutionChartExport[]
   transfers?: PlayerTransfer[]
+  insights?: InsightsExport
 }): void {
   const html = buildInformeHtml(opts)
   const nombre = opts.informe.content.nombre || 'informe'

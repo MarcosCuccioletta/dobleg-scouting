@@ -17,6 +17,8 @@ import InformeScatter from './charts/InformeScatter'
 import InformeNumberCard from './charts/InformeNumberCard'
 import { comparisonTable, comparisonWinCounts, topStrengths, parseRating } from '@/features/informes/chartData'
 import { useInformeEnrichment, type InformeEnrichment } from '@/features/informes/useInformeEnrichment'
+import { useInformeInsights, DEFAULT_INSIGHTS_CONFIG } from '@/features/informes/useInformeInsights'
+import InformeImpacto from './InformeImpacto'
 import { t, translateMetric, translateInjury, translateTransferType, isRtl, LANGS, type Lang } from '@/features/informes/i18n'
 import { normalizeForSearch } from '@/lib/search'
 
@@ -56,7 +58,7 @@ function initials(name: string): string {
   return parts.join('') || '?'
 }
 
-const TAB_IDS = ['general', 'radar', 'bars', 'scatter', 'fisico', 'evolutivas', 'video', 'carrera', 'comparaciones'] as const
+const TAB_IDS = ['general', 'impacto', 'radar', 'bars', 'scatter', 'fisico', 'evolutivas', 'video', 'carrera', 'comparaciones'] as const
 type TabId = typeof TAB_IDS[number]
 
 // Serie Wyscout ya resuelta para una métrica del informe (label/unidad + puntos).
@@ -267,6 +269,20 @@ export default function Step4Preview({ informe, stats, matrix, defs, onBack, onS
   const showFisico = enrichment.hasPhysical && !content.hideFisicoTab
   const showMarketEvo = enrichment.marketEvolution.length >= 2
 
+  // ── Impacto (conclusiones desde la API) ──
+  const insightsConfig = informe.insights ?? DEFAULT_INSIGHTS_CONFIG
+  const { result: insightsResult } = useInformeInsights(informe)
+  const visibleInsightGroups = insightsResult
+    ? insightsResult.groups
+        .filter(g => insightsConfig.blocks.includes(g.id))
+        .filter(g => g.items.some(i => !insightsConfig.hiddenItems.includes(i.id)))
+    : []
+  const showImpacto = insightsConfig.enabled && visibleInsightGroups.length > 0
+  // Lo que viaja al export: se congela acá, igual que las evolutivas.
+  const insightsArg = showImpacto && insightsResult
+    ? { result: insightsResult, config: insightsConfig }
+    : undefined
+
   // ── Métricas evolutivas (Wyscout) — solo internos con jugador en la planilla ──
   const [evoCharts, setEvoCharts] = useState<EvoChart[]>([])
   const showEvolutivas = evoCharts.length > 0
@@ -322,7 +338,10 @@ export default function Step4Preview({ informe, stats, matrix, defs, onBack, onS
     .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))
 
   const visibleTabs = TAB_IDS.filter(id =>
-    id === 'fisico' ? showFisico : id === 'evolutivas' ? showEvolutivas : true,
+    id === 'fisico' ? showFisico
+      : id === 'evolutivas' ? showEvolutivas
+      : id === 'impacto' ? showImpacto
+      : true,
   )
 
   // ── Renders ──
@@ -748,6 +767,10 @@ export default function Step4Preview({ informe, stats, matrix, defs, onBack, onS
   function renderTab(id: TabId) {
     switch (id) {
       case 'general': return renderGeneral()
+      case 'impacto':
+        return insightsResult
+          ? <InformeImpacto result={insightsResult} config={insightsConfig} lang={lang} />
+          : null
       case 'radar': return renderRadar()
       case 'bars': return renderBars()
       case 'scatter':
@@ -809,7 +832,7 @@ export default function Step4Preview({ informe, stats, matrix, defs, onBack, onS
     setSharing(true)
     try {
       const logoDataUrl = await loadLogoDataUrl('/brand/logo-white.png')
-      exportInformeHTML({ informe, stats, matrix, defs, logoDataUrl, enrichment, evolution: evoToExport(evoCharts), transfers })
+      exportInformeHTML({ informe, stats, matrix, defs, logoDataUrl, enrichment, evolution: evoToExport(evoCharts), transfers, insights: insightsArg })
       showExportMsg({ ok: true, text: 'HTML descargado ✓ (se abre sin internet)' })
     } catch (e) {
       console.error('Export HTML error:', e)
@@ -826,7 +849,7 @@ export default function Step4Preview({ informe, stats, matrix, defs, onBack, onS
     setSharing(true)
     try {
       const logoDataUrl = await loadLogoDataUrl('/brand/logo-white.png')
-      const html = buildInformeHtml({ informe, stats, matrix, defs, logoDataUrl, enrichment, evolution: evoToExport(evoCharts), transfers })
+      const html = buildInformeHtml({ informe, stats, matrix, defs, logoDataUrl, enrichment, evolution: evoToExport(evoCharts), transfers, insights: insightsArg })
       const url = await uploadInformeHtml(html, informe.id, content.nombre || 'informe')
       setShareUrl(url)
       try { await navigator.clipboard.writeText(url) } catch { /* el portapapeles puede fallar sin https/gesto */ }

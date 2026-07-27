@@ -154,8 +154,10 @@ export default function InformesPage() {
           )}
           {step === 2 && informe && (
             <Step3Contenido
+              informe={informe}
               content={informe.content}
               onChange={(c) => setInforme({ ...informe, content: c })}
+              onChangeInforme={setInforme}
               onBack={() => setStep(1)}
               onNext={() => setStep(3)}
             />

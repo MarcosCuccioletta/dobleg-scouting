@@ -795,3 +795,35 @@ export function scatterSvg(opts: {
   parts.push('</svg>')
   return parts.join('')
 }
+
+// ---------------------------------------------------------------------------
+// donutSvg / dotsSvg (tarjetas de la pestaña Impacto)
+// ---------------------------------------------------------------------------
+
+/** Aro de porcentaje. El número del centro lo pone el HTML, no el SVG. */
+export function donutSvg(opts: { pct: number; size?: number }): string {
+  const size = opts.size ?? 72
+  const r = size / 2 - 10
+  const c = 2 * Math.PI * r
+  const filled = Math.max(0, Math.min(100, opts.pct))
+  const cx = size / 2
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+    <circle cx="${cx}" cy="${cx}" r="${round2(r)}" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="7"/>
+    <circle cx="${cx}" cy="${cx}" r="${round2(r)}" fill="none" stroke="${COLOR_GREEN}" stroke-width="7" stroke-linecap="round"
+      stroke-dasharray="${round2((c * filled) / 100)} ${round2(c)}" transform="rotate(-90 ${cx} ${cx})"/>
+  </svg>`
+}
+
+/** Fila de puntos: partidos jugados sobre partidos del club. Máximo 20 puntos. */
+export function dotsSvg(opts: { filled: number; total: number; width?: number }): string {
+  const total = Math.max(1, opts.total)
+  const shown = Math.min(total, 20)
+  const filledShown = Math.round((opts.filled / total) * shown)
+  const gap = 7
+  const r = 2.5
+  const W = opts.width ?? shown * gap
+  const dots = Array.from({ length: shown }, (_, i) =>
+    `<circle cx="${round2(i * gap + r)}" cy="${r}" r="${r}" fill="${i < filledShown ? COLOR_GREEN : 'rgba(255,255,255,0.18)'}"/>`,
+  ).join('')
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${r * 2}" viewBox="0 0 ${W} ${r * 2}">${dots}</svg>`
+}
