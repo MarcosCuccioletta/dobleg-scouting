@@ -82,10 +82,12 @@ describe('buildInformeHtml', () => {
     // Una sola fila: se desliza en vez de envolverse en varias.
     expect(html).toContain('overflow-x: auto')
     expect(html).not.toMatch(/\.dg-tabbar \{[^}]*flex-wrap/)
-    // La activa se distingue sola (verde macizo) y las otras leen como botones.
+    // Un solo riel con las secciones adentro, no botones sueltos.
+    expect(html).toMatch(/\.dg-tabbar \{[^}]*border-radius: 13px/)
+    expect(html).toMatch(/\.dg-tab \{[^}]*border: none/)
+    // La activa se distingue sola: verde macizo sobre el riel.
     expect(html).toContain('.dg-tab.active')
     expect(html).toContain('background: #22C55E')
-    expect(html).toMatch(/\.dg-tab \{[^}]*border-radius: 999px/)
     // Estado accesible para lectores de pantalla.
     expect(html).toContain('aria-selected="true"')
     expect(html).toContain('aria-selected="false"')

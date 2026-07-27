@@ -915,9 +915,7 @@ const css = `
     .dg-photo-fallback { font-size: 22px; }
     .dg-header { margin-bottom: 14px; gap: 10px; }
     .dg-tabbar-wrap { margin: -16px -14px 14px; padding: 10px 14px; }
-    .dg-tabbar-wrap::after { top: 10px; bottom: 10px; width: 28px; }
-    .dg-tabbar { gap: 6px; }
-    .dg-tab { padding: 9px 13px; font-size: 12.5px; }
+    .dg-tab { padding: 8px 12px; font-size: 12.5px; }
     .dg-cards-2col { grid-template-columns: 1fr; }
     .dg-wins { grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 8px; }
     .dg-mainstats-grid { gap: 8px; }
@@ -1066,37 +1064,31 @@ const css = `
     border-bottom: 1px solid rgba(255,255,255,0.07);
     border-radius: 18px 18px 0 0;
   }
-  /* Degradé al borde derecho: avisa que la fila sigue. */
-  .dg-tabbar-wrap::after {
-    content: '';
-    position: absolute;
-    top: 12px;
-    bottom: 12px;
-    right: 0;
-    width: 36px;
-    pointer-events: none;
-    background: linear-gradient(90deg, rgba(15,17,20,0), rgba(15,17,20,0.95));
-    border-radius: 0 18px 0 0;
-  }
+  /* Un solo riel con las secciones adentro (control segmentado), no botones
+     sueltos. El riel es el que se desliza cuando no entran: las de las puntas
+     se cortan contra su borde, que es lo que avisa que hay más. */
   .dg-tabbar {
     display: flex;
     align-items: center;
-    gap: 7px;
+    gap: 2px;
+    padding: 4px;
+    border-radius: 13px;
+    background: rgba(255,255,255,0.045);
+    border: 1px solid rgba(255,255,255,0.07);
     overflow-x: auto;
     scroll-snap-type: x proximity;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
-    padding-bottom: 2px;
   }
   .dg-tabbar::-webkit-scrollbar { display: none; }
   .dg-tab {
     appearance: none;
     flex: 0 0 auto;
     scroll-snap-align: center;
-    padding: 9px 15px;
-    border-radius: 999px;
-    border: 1px solid rgba(255,255,255,0.10);
-    background: rgba(255,255,255,0.035);
+    padding: 8px 14px;
+    border-radius: 9px;
+    border: none;
+    background: transparent;
     font: inherit;
     font-size: 13px;
     font-weight: 600;
@@ -1104,18 +1096,17 @@ const css = `
     color: #A8AEB6;
     cursor: pointer;
     white-space: nowrap;
-    transition: background .16s ease, color .16s ease, border-color .16s ease, transform .16s ease;
+    transition: background .16s ease, color .16s ease;
   }
-  .dg-tab:hover { color: #F5F7FA; border-color: rgba(255,255,255,0.22); background: rgba(255,255,255,0.07); }
-  .dg-tab:focus-visible { outline: 2px solid rgba(34,197,94,0.7); outline-offset: 2px; }
+  .dg-tab:hover { color: #F5F7FA; background: rgba(255,255,255,0.07); }
+  .dg-tab:focus-visible { outline: 2px solid rgba(34,197,94,0.7); outline-offset: -2px; }
   .dg-tab.active {
     background: #22C55E;
-    border-color: #22C55E;
     color: #08090B;
     font-weight: 700;
-    box-shadow: 0 3px 14px rgba(34,197,94,0.30);
+    box-shadow: 0 2px 10px rgba(34,197,94,0.25);
   }
-  .dg-tab.active:hover { background: #22C55E; color: #08090B; border-color: #22C55E; }
+  .dg-tab.active:hover { background: #22C55E; color: #08090B; }
   @media (prefers-reduced-motion: reduce) {
     .dg-tab { transition: none; }
   }

@@ -1015,42 +1015,43 @@ export default function Step4Preview({ informe, stats, matrix, defs, onBack, onS
 
           <div className="rounded-[18px] border p-5 min-w-0" style={{ borderColor: DG.border, backgroundColor: DG.card }}>
             {/* ── Tabs ──
-                Pastillas en una sola fila que se desliza, pegadas arriba: se ve
-                en cuál estás (verde macizo) y que las otras se tocan (contorno
-                propio). Mismo diseño que el informe publicado. */}
+                Un solo riel con las secciones adentro (control segmentado), no
+                botones sueltos. Queda pegado arriba mientras se lee y, cuando no
+                entran todas, se desliza: las de las puntas se cortan contra el
+                borde del riel, que es lo que avisa que hay más. Mismo diseño que
+                el informe publicado. */}
             <div
               className="sticky top-0 z-20 -mx-5 -mt-5 mb-5 px-5 py-3 rounded-t-[18px]"
               style={{ backgroundColor: 'rgba(15,17,20,0.92)', backdropFilter: 'blur(10px)', borderBottom: `1px solid ${DG.border}` }}
             >
-              <div className="relative">
-                <div ref={tabBarRef} className="flex items-center gap-1.5 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
-                  {visibleTabs.map(id => {
-                    const active = tab === id
-                    return (
-                      <button
-                        key={id}
-                        type="button"
-                        onClick={() => setTab(id)}
-                        aria-selected={active}
-                        data-tab={id}
-                        className="flex-none px-4 py-2 rounded-full text-[13px] whitespace-nowrap border transition-colors"
-                        style={{
-                          backgroundColor: active ? DG.green : 'rgba(255,255,255,0.035)',
-                          borderColor: active ? DG.green : 'rgba(255,255,255,0.10)',
-                          color: active ? '#08090B' : '#A8AEB6',
-                          fontWeight: active ? 700 : 600,
-                          boxShadow: active ? '0 3px 14px rgba(34,197,94,0.30)' : 'none',
-                        }}
-                        onMouseEnter={e => { if (!active) { e.currentTarget.style.color = DG.text; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.22)' } }}
-                        onMouseLeave={e => { if (!active) { e.currentTarget.style.color = '#A8AEB6'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.10)' } }}
-                      >
-                        {t(lang, `tab_${id}`)}
-                      </button>
-                    )
-                  })}
-                </div>
-                {/* Degradé al borde derecho: avisa que la fila sigue. */}
-                <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-9" style={{ background: 'linear-gradient(90deg, rgba(15,17,20,0), rgba(15,17,20,0.95))' }} />
+              <div
+                ref={tabBarRef}
+                className="flex items-center gap-0.5 overflow-x-auto p-1 rounded-[13px] border"
+                style={{ scrollbarWidth: 'none', backgroundColor: 'rgba(255,255,255,0.045)', borderColor: 'rgba(255,255,255,0.07)' }}
+              >
+                {visibleTabs.map(id => {
+                  const active = tab === id
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => setTab(id)}
+                      aria-selected={active}
+                      data-tab={id}
+                      className="flex-none px-3.5 py-2 rounded-[9px] text-[13px] whitespace-nowrap transition-colors"
+                      style={{
+                        backgroundColor: active ? DG.green : 'transparent',
+                        color: active ? '#08090B' : '#A8AEB6',
+                        fontWeight: active ? 700 : 600,
+                        boxShadow: active ? '0 2px 10px rgba(34,197,94,0.25)' : 'none',
+                      }}
+                      onMouseEnter={e => { if (!active) { e.currentTarget.style.color = DG.text; e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.07)' } }}
+                      onMouseLeave={e => { if (!active) { e.currentTarget.style.color = '#A8AEB6'; e.currentTarget.style.backgroundColor = 'transparent' } }}
+                    >
+                      {t(lang, `tab_${id}`)}
+                    </button>
+                  )
+                })}
               </div>
             </div>
             {renderTab(visibleTabs.includes(tab) ? tab : 'general')}
