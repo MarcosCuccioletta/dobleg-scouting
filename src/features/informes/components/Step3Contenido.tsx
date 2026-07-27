@@ -227,21 +227,21 @@ export default function Step3Contenido({ informe, content, onChange, onChangeInf
                           title="Mostrar esta tarjeta"
                           className="rounded border-apple-gray-300 dark:border-apple-gray-600 text-brand-green focus:ring-brand-green/40"
                         />
+                        {/* Se editan igual estando destildadas: se puede dejar el
+                            texto listo y volver a mostrarlas después. */}
                         <input
                           type="text"
                           value={cont.labels?.[key] ?? ''}
                           onChange={e => setContLabel(key, e.target.value)}
                           placeholder={defaultContinuityLabel(key, lang)}
-                          disabled={!shown}
-                          className={`${smallInputClass} disabled:opacity-40`}
+                          className={`${smallInputClass} ${shown ? '' : 'opacity-60'}`}
                         />
                         <input
                           type="text"
                           value={cont[key] ?? ''}
                           onChange={e => setCont(key, e.target.value)}
                           placeholder={autoCont[key] || 'auto'}
-                          disabled={!shown}
-                          className={`${smallInputClass} disabled:opacity-40`}
+                          className={`${smallInputClass} ${shown ? '' : 'opacity-60'}`}
                         />
                       </div>
                     )

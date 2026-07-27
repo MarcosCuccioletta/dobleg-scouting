@@ -176,7 +176,7 @@ export default function Step3Impacto({ informe, onChange }: Props) {
                   const over = config.tileOverrides?.[tile.id] ?? {}
                   const hidden = config.hiddenItems.includes(tile.id)
                   return (
-                    <div key={tile.id} className={`grid grid-cols-[auto_90px_1fr] items-center gap-2 ${hidden ? 'opacity-40' : ''}`}>
+                    <div key={tile.id} className="grid grid-cols-[auto_90px_1fr] items-center gap-2">
                       <input
                         type="checkbox"
                         checked={!hidden}
@@ -184,21 +184,21 @@ export default function Step3Impacto({ informe, onChange }: Props) {
                         title="Mostrar esta tarjeta"
                         className="rounded border-apple-gray-300 dark:border-apple-gray-600 text-brand-green focus:ring-brand-green/40"
                       />
+                      {/* Se editan igual estando destildadas: quien la sacó puede
+                          querer dejarla escrita y volver a mostrarla después. */}
                       <input
                         type="text"
                         value={over.value ?? ''}
                         onChange={e => setTileOverride(tile.id, { value: e.target.value })}
                         placeholder={auto.value}
-                        disabled={hidden}
-                        className={`${smallInputClass} font-semibold disabled:opacity-50`}
+                        className={`${smallInputClass} font-semibold ${hidden ? 'opacity-60' : ''}`}
                       />
                       <input
                         type="text"
                         value={over.sub ?? ''}
                         onChange={e => setTileOverride(tile.id, { sub: e.target.value })}
                         placeholder={auto.sub}
-                        disabled={hidden}
-                        className={`${smallInputClass} disabled:opacity-50`}
+                        className={`${smallInputClass} ${hidden ? 'opacity-60' : ''}`}
                       />
                     </div>
                   )
