@@ -5,6 +5,7 @@ import { radarData, radarComparisonData, barsData, scatterData, comparisonTable,
 import { t, translateMetric, translateInjury, translateTransferType, isRtl } from './i18n'
 import type { Informe, MetricStat, MetricDef } from './types'
 import type { InformeEnrichment, Last5Row } from './useInformeEnrichment'
+import { continuityTiles } from './continuity'
 import type { PlayerTransfer } from '@/services/footballApiService'
 
 // ---------------------------------------------------------------------------
@@ -211,11 +212,13 @@ export function buildInformeHtml(opts: {
 
   // Evolución de nivel con toggle Partido / Semanal / Mensual. Se renderizan las
   // vistas disponibles (≥2 puntos) y el JB del HTML alterna cuál se muestra.
-  const evoViews = ([
-    { id: 'match', label: t(lang, 'evo_match'), points: levelByMatch },
-    { id: 'week', label: t(lang, 'evo_week'), points: levelByWeek },
-    { id: 'month', label: t(lang, 'evo_month'), points: levelByMonth },
-  ] as const).filter(v => v.points.length >= 2)
+  const evoViews = content.hideLevelEvo
+    ? []
+    : ([
+        { id: 'match', label: t(lang, 'evo_match'), points: levelByMatch },
+        { id: 'week', label: t(lang, 'evo_week'), points: levelByWeek },
+        { id: 'month', label: t(lang, 'evo_month'), points: levelByMonth },
+      ] as const).filter(v => v.points.length >= 2)
   const levelEvoBlock = evoViews.length
     ? `<div class="dg-evo-head">
          <h3 class="dg-panel-title">${escapeHtml(t(lang, 't_levelEvo'))}</h3>
@@ -243,14 +246,14 @@ export function buildInformeHtml(opts: {
   // ── General: evolución de nivel + continuidad + lesiones ──
   const minStat = stats.find(s => s.def.label.toLowerCase().includes('minutos'))
   const minPct = minStat?.percentile ?? null
-  const continuityHtml = continuity
+  // Continuidad: lo que el usuario escribió en el paso 3 pisa lo de la API.
+  const contTiles = continuityTiles(content, continuity, lang)
+  const continuityHtml = contTiles.length
     ? `<h3 class="dg-panel-title${levelEvoBlock ? ' dg-mt' : ''}">${escapeHtml(t(lang, 't_continuity'))}</h3>
        <div class="dg-wins">
-         <div class="dg-win-card"><p class="dg-win-value">${continuity.matches}</p><p class="dg-win-label">${escapeHtml(t(lang, 's_matches'))}</p></div>
-         <div class="dg-win-card"><p class="dg-win-value">${continuity.starts}</p><p class="dg-win-label">${escapeHtml(t(lang, 's_starts'))}</p></div>
-         <div class="dg-win-card"><p class="dg-win-value">${continuity.minutes}</p><p class="dg-win-label">${escapeHtml(t(lang, 's_minutes'))}</p></div>
-         <div class="dg-win-card"><p class="dg-win-value">${continuity.last5Played}/${continuity.last5Total}</p><p class="dg-win-label">${escapeHtml(t(lang, 's_last5'))}</p></div>
-         <div class="dg-win-card"><p class="dg-win-value">${continuity.last10Played}/${continuity.last10Total}</p><p class="dg-win-label">${escapeHtml(t(lang, 's_last10'))}</p></div>
+         ${contTiles
+           .map(tl => `<div class="dg-win-card"><p class="dg-win-value">${escapeHtml(tl.value)}</p><p class="dg-win-label">${escapeHtml(tl.label)}</p></div>`)
+           .join('')}
        </div>
        ${minPct != null ? `<p class="dg-note">▲ ${escapeHtml(t(lang, 'm_playedMoreThan', { pct: minPct }))}</p>` : ''}`
     : ''
@@ -560,6 +563,13 @@ export function buildInformeHtml(opts: {
         </table></div>`
     : ''
 
+  const showCarrera = !content.hideCarreraTab
+  // Sin comparación de jugadores, sin comparables y sin notas, la pestaña queda
+  // vacía: no se emite.
+  const showComparaciones =
+    !content.hideComparacionesTab &&
+    (hasPlayerComparison || (!content.hideComparables && comparables.length > 0) || !!content.comparaciones.trim())
+
   const comparacionesPanel = `
     <div class="dg-panel-inner">
       ${playerComparisonHtml}
@@ -678,8 +688,8 @@ export function buildInformeHtml(opts: {
     ...(showFisico ? [{ id: 'fisico', html: fisicoPanel }] : []),
     ...(showEvolutivas ? [{ id: 'evolutivas', html: evolutivasPanel }] : []),
     { id: 'video', html: videoPanel },
-    { id: 'carrera', html: carreraPanel },
-    { id: 'comparaciones', html: comparacionesPanel },
+    ...(showCarrera ? [{ id: 'carrera', html: carreraPanel }] : []),
+    ...(showComparaciones ? [{ id: 'comparaciones', html: comparacionesPanel }] : []),
   ]
 
   const tabBarHtml = tabs

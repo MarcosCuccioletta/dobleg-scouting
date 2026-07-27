@@ -337,6 +337,49 @@ export async function fetchMarketValueHistory(
   return data ?? [];
 }
 
+// ── Jugadores duplicados (API-Football vs Sofascore) ──────────────────────────
+// La base tiene el mismo jugador cargado dos veces: la fila de API-Football (foto
+// media.api-sports.io) y la de Sofascore (foto api.sofascore.com). La de Sofascore
+// tiene muchos menos partidos y su id NO existe en API-Football, así que traspasos
+// y lesiones vuelven vacíos. Para todo lo que se lee por id conviene la de
+// API-Football; se resuelve el "gemelo" por transfermarkt_id o por nombre+fecha.
+
+export function isApiFootballPlayer(p: { photo?: string | null }): boolean {
+  return (p.photo ?? '').includes('media.api-sports.io');
+}
+
+const preferredIdCache = new Map<number, number>();
+
+export async function resolvePreferredPlayerId(playerId: number): Promise<number> {
+  const cached = preferredIdCache.get(playerId);
+  if (cached != null) return cached;
+
+  const { data: me } = await supabase
+    .from('players')
+    .select('id, name, birth_date, transfermarkt_id, photo')
+    .eq('id', playerId)
+    .maybeSingle();
+
+  let resolved = playerId;
+
+  if (me && !isApiFootballPlayer(me)) {
+    let query = supabase.from('players').select('id, photo');
+    if (me.transfermarkt_id) {
+      query = query.eq('transfermarkt_id', me.transfermarkt_id);
+    } else if (me.name && me.birth_date) {
+      query = query.eq('name', me.name).eq('birth_date', me.birth_date);
+    } else {
+      query = query.eq('id', playerId); // sin forma de identificarlo: se queda como está
+    }
+    const { data: twins } = await query;
+    const twin = (twins ?? []).find(t => t.id !== playerId && isApiFootballPlayer(t));
+    if (twin) resolved = twin.id;
+  }
+
+  preferredIdCache.set(playerId, resolved);
+  return resolved;
+}
+
 // ── Informes / pestaña Impacto ────────────────────────────────────────────────
 // fetchPlayerMatchHistory filtra por posición detectada y por match_score no nulo,
 // lo que subcuenta partidos. Para contar continuidad hacen falta todas las filas.
@@ -347,7 +390,9 @@ export async function fetchPlayerAllMatches(playerId: number): Promise<PlayerMat
     .select(`
       *,
       fixture:fixtures(
-        id, date, home_team_id, away_team_id, score_home, score_away, league_id
+        id, date, home_team_id, away_team_id, score_home, score_away, league_id,
+        home_team:teams!fixtures_home_team_id_fkey(name),
+        away_team:teams!fixtures_away_team_id_fkey(name)
       )
     `)
     .eq('player_id', playerId)
@@ -403,26 +448,42 @@ export interface SquadStatRow {
   fixture?: { date: string } | null;
 }
 
+// PostgREST corta en 1000 filas. Un plantel de una temporada ya anda por las 900
+// y el corte es silencioso: los rankings del informe saldrían con datos a medias.
+// Por eso se pagina hasta traer todo.
+const SQUAD_PAGE = 1000;
+
 export async function fetchSquadMatchStats(
   teamId: number,
   fromISO: string,
   toISO?: string,
 ): Promise<SquadStatRow[]> {
-  let query = supabase
-    .from('player_match_stats')
-    .select(`
-      player_id, fixture_id, minutes, goals, assists, passes_key,
-      duels_won, duels_total, dribbles_success, dribbles_attempted,
-      match_score, detected_position,
-      player:players(name),
-      fixture:fixtures!inner(date)
-    `)
-    .eq('team_id', teamId)
-    .gte('fixture.date', fromISO);
+  const out: SquadStatRow[] = [];
 
-  if (toISO) query = query.lte('fixture.date', `${toISO}T23:59:59`);
+  for (let page = 0; ; page++) {
+    let query = supabase
+      .from('player_match_stats')
+      .select(`
+        player_id, fixture_id, minutes, goals, assists, passes_key,
+        duels_won, duels_total, dribbles_success, dribbles_attempted,
+        match_score, detected_position,
+        player:players(name),
+        fixture:fixtures!inner(date)
+      `)
+      .eq('team_id', teamId)
+      .gte('fixture.date', fromISO)
+      .order('fixture_id', { ascending: true })
+      .range(page * SQUAD_PAGE, (page + 1) * SQUAD_PAGE - 1);
 
-  const { data, error } = await query;
-  if (error) throw error;
-  return (data ?? []) as unknown as SquadStatRow[];
+    if (toISO) query = query.lte('fixture.date', `${toISO}T23:59:59`);
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    const rows = (data ?? []) as unknown as SquadStatRow[];
+    out.push(...rows);
+    if (rows.length < SQUAD_PAGE) break;
+  }
+
+  return out;
 }

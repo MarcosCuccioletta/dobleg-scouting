@@ -86,7 +86,7 @@ export interface InsightGroup {
   items: InsightItem[]
 }
 
-export type InsightWarning = 'goalsMismatch' | 'shortSample' | 'noTeamFixtures'
+export type InsightWarning = 'goalsMismatch' | 'shortSample' | 'noTeamFixtures' | 'partialCoverage'
 
 export interface InsightsResult {
   period: ResolvedPeriod

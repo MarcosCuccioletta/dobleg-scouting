@@ -26,6 +26,7 @@ const WARNING_TEXT: Record<string, string> = {
   goalsMismatch: 'Los goles del club no coinciden entre fixtures y planilla del plantel: probablemente falte una competencia. Podés pisar el total a mano.',
   shortSample: 'Muestra corta (menos de 3 partidos): no se calculan promedios ni rankings del plantel.',
   noTeamFixtures: 'No hay partidos del club en este período: los bloques que dependen del equipo quedan afuera.',
+  partialCoverage: 'El club jugó competencias que no están en la base (ej. Champions o Copa): esos partidos no se cuentan en el total del equipo. Podés pisar el total a mano.',
 }
 
 interface Props {
@@ -159,21 +160,27 @@ export default function Step3Impacto({ informe, onChange }: Props) {
           {/* Tarjetas */}
           {result.tiles.length > 0 && (
             <div>
-              <span className={labelClass}>Tarjetas (clic para incluir o sacar)</span>
+              <span className={labelClass}>Tarjetas: destildá la que no quieras mostrar</span>
               <div className="flex flex-wrap gap-2">
                 {result.tiles.map(tile => {
                   const { value, sub } = renderTile(tile, lang)
                   const hidden = config.hiddenItems.includes(tile.id)
                   return (
-                    <button
+                    <label
                       key={tile.id}
-                      type="button"
-                      onClick={() => toggleItem(tile.id)}
-                      className={`px-3 py-2 rounded-xl border text-left transition-opacity ${hidden ? 'opacity-40' : ''} border-apple-gray-200 dark:border-apple-gray-700`}
+                      className={`flex items-start gap-2 px-3 py-2 rounded-xl border cursor-pointer select-none transition-opacity ${hidden ? 'opacity-40' : ''} border-apple-gray-200 dark:border-apple-gray-700`}
                     >
-                      <span className="block text-base font-bold text-apple-gray-900 dark:text-white">{value}</span>
-                      <span className="block text-[10px] text-apple-gray-500 dark:text-apple-gray-400">{sub}</span>
-                    </button>
+                      <input
+                        type="checkbox"
+                        checked={!hidden}
+                        onChange={() => toggleItem(tile.id)}
+                        className="mt-1 rounded border-apple-gray-300 dark:border-apple-gray-600 text-brand-green focus:ring-brand-green/40"
+                      />
+                      <span>
+                        <span className="block text-base font-bold text-apple-gray-900 dark:text-white">{value}</span>
+                        <span className="block text-[10px] text-apple-gray-500 dark:text-apple-gray-400">{sub}</span>
+                      </span>
+                    </label>
                   )
                 })}
               </div>

@@ -18,6 +18,8 @@ import InformeScatter from './charts/InformeScatter'
 import InformeNumberCard from './charts/InformeNumberCard'
 import { comparisonTable, comparisonWinCounts, topStrengths, parseRating } from '@/features/informes/chartData'
 import { useInformeEnrichment, type InformeEnrichment } from '@/features/informes/useInformeEnrichment'
+import { usePreferredPlayerId } from '@/hooks/usePlayerStats'
+import { continuityTiles } from '@/features/informes/continuity'
 import { useInformeInsights, DEFAULT_INSIGHTS_CONFIG } from '@/features/informes/useInformeInsights'
 import InformeImpacto from './InformeImpacto'
 import { t, translateMetric, translateInjury, translateTransferType, isRtl, LANGS, type Lang } from '@/features/informes/i18n'
@@ -313,16 +315,19 @@ export default function Step4Preview({ informe, stats, matrix, defs, onBack, onS
   }, [evoKeysSig, informe.dbPlayerName])
 
   // ── Historial de traspasos (API-Football, por id de la DB) ──
+  // Ojo: el id tiene que ser el de API-Football. Con el duplicado de Sofascore la
+  // API devuelve 0 traspasos y la pestaña Carrera queda vacía.
+  const transfersPlayerId = usePreferredPlayerId(informe.dbPlayerId ?? null)
   const [transfers, setTransfers] = useState<PlayerTransfer[]>([])
   useEffect(() => {
-    const id = informe.dbPlayerId
+    const id = transfersPlayerId
     if (!id) { setTransfers([]); return }
     let alive = true
     fetchPlayerTransfers(id)
       .then(rows => { if (alive) setTransfers(rows) })
       .catch(() => { if (alive) setTransfers([]) })
     return () => { alive = false }
-  }, [informe.dbPlayerId])
+  }, [transfersPlayerId])
 
   useEffect(() => () => { if (exportMsgTimer.current) clearTimeout(exportMsgTimer.current) }, [])
 
@@ -338,10 +343,19 @@ export default function Step4Preview({ informe, stats, matrix, defs, onBack, onS
     .filter(tr => tr.teams?.in?.name || tr.teams?.out?.name)
     .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))
 
+  // Comparaciones sólo aparece si hay algo cargado: comparación de jugadores,
+  // comparables a mano o notas. Una pestaña vacía en el informe no suma nada.
+  const hasComparaciones =
+    (informe.comparePlayerIndices?.length ?? 0) > 0 ||
+    (!content.hideComparables && comparables.length > 0) ||
+    !!content.comparaciones.trim()
+
   const visibleTabs = TAB_IDS.filter(id =>
     id === 'fisico' ? showFisico
       : id === 'evolutivas' ? showEvolutivas
       : id === 'impacto' ? showImpacto
+      : id === 'carrera' ? !content.hideCarreraTab
+      : id === 'comparaciones' ? !content.hideComparacionesTab && hasComparaciones
       : true,
   )
 
@@ -372,6 +386,7 @@ export default function Step4Preview({ informe, stats, matrix, defs, onBack, onS
 
   function renderGeneral() {
     const c = enrichment.continuity
+    const contTiles = continuityTiles(content, c, lang)
     const minStat = stats.find(s => normalizeForSearch(s.def.label) === 'minutos jugados')
       ?? stats.find(s => normalizeForSearch(s.def.label).includes('minutos'))
     const minPct = minStat?.percentile ?? null
@@ -380,7 +395,7 @@ export default function Step4Preview({ informe, stats, matrix, defs, onBack, onS
     const hasAny = enrichment.levelEvolution.length >= 2 || !!c || enrichment.injuries.length > 0 || last5.length > 0
     return (
       <div className="space-y-6">
-        {enrichment.levelByMatch.length >= 2 && (() => {
+        {!content.hideLevelEvo && enrichment.levelByMatch.length >= 2 && (() => {
           const evoOptions = ([
             { id: 'match' as const, points: enrichment.levelByMatch },
             { id: 'week' as const, points: enrichment.levelByWeek },
@@ -409,15 +424,13 @@ export default function Step4Preview({ informe, stats, matrix, defs, onBack, onS
             </div>
           )
         })()}
-        {c && (
+        {contTiles.length > 0 && (
           <div data-informe-section>
             <SectionTitle>{t(lang, 't_continuity')}</SectionTitle>
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-              <StatTile label={t(lang, 's_matches')} value={String(c.matches)} />
-              <StatTile label={t(lang, 's_starts')} value={String(c.starts)} />
-              <StatTile label={t(lang, 's_minutes')} value={c.minutes.toLocaleString('es-AR')} />
-              <StatTile label={t(lang, 's_last5')} value={`${c.last5Played}/${c.last5Total}`} />
-              <StatTile label={t(lang, 's_last10')} value={`${c.last10Played}/${c.last10Total}`} />
+              {contTiles.map(tl => (
+                <StatTile key={tl.key} label={tl.label} value={tl.value} />
+              ))}
             </div>
             {minPct != null && (
               <p className="text-sm mt-3" style={{ color: DG.text }}>
@@ -1003,8 +1016,8 @@ export default function Step4Preview({ informe, stats, matrix, defs, onBack, onS
           )}
           {showFisico && renderFisico()}
           {showEvolutivas && renderEvolutivas(true)}
-          {renderCarrera()}
-          {renderComparaciones()}
+          {visibleTabs.includes('carrera') && renderCarrera()}
+          {visibleTabs.includes('comparaciones') && renderComparaciones()}
         </div>
       </div>
     </div>

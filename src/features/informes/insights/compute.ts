@@ -44,8 +44,14 @@ export function computeInsights(input: InsightsInput): InsightsResult {
   const has = (b: InsightBlockId) => blocks.includes(b)
 
   // ── Datos del período ──
-  const fx = input.fixtures.filter(f => inPeriod(f.date, period) && f.score_home != null && f.score_away != null)
   const squadRows = input.squadRows.filter(r => inPeriod(r.date, period))
+  const fxAll = input.fixtures.filter(f => inPeriod(f.date, period) && f.score_home != null && f.score_away != null)
+  // Sólo cuentan los partidos del club de los que la base tiene datos de jugadores.
+  // Si una competencia no está cargada (típico: Champions, Copa Argentina), sumarla
+  // al denominador diría "jugó 31 de 46" y mandaría esos partidos al lado "sin él".
+  const covered = new Set(squadRows.map(r => r.fixture_id))
+  const fx = covered.size > 0 ? fxAll.filter(f => covered.has(f.id)) : fxAll
+  if (fx.length < fxAll.length) warnings.push('partialCoverage')
   const myMatches = input.playerMatches.filter(m => inPeriod(m.date, period))
   const played = myMatches.filter(m => m.minutes > 0)
 

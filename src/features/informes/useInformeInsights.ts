@@ -10,6 +10,7 @@ import {
   type SquadStatRow,
 } from '@/services/playerStatsService'
 import { usePlayerInjuries, usePlayerTransfers } from '@/hooks/usePlayerApiData'
+import { usePreferredPlayerId } from '@/hooks/usePlayerStats'
 import type { PlayerMatchStat } from '@/types/scoring'
 import { computeInsights } from './insights/compute'
 import { resolvePeriod, toISODate } from './insights/period'
@@ -94,7 +95,8 @@ function toSquadRows(rows: SquadStatRow[]): SquadMatchRow[] {
 }
 
 export function useInformeInsights(informe: Informe | null): InformeInsights {
-  const playerId = informe?.dbPlayerId ?? null
+  // Si el informe quedó linkeado al duplicado de Sofascore, se lee el de API-Football.
+  const playerId = usePreferredPlayerId(informe?.dbPlayerId ?? null)
   const config = informe?.insights ?? DEFAULT_INSIGHTS_CONFIG
 
   const [matches, setMatches] = useState<PlayerMatchStat[]>([])

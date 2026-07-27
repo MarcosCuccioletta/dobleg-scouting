@@ -7,6 +7,8 @@ import {
   fetchLeagues,
   fetchDistinctAgents,
   fetchPlayerMatchHistory,
+  fetchPlayerAllMatches,
+  resolvePreferredPlayerId,
   fetchScoreLookup,
   fetchMarketValueHistory,
   fetchRecentForm,
@@ -196,6 +198,56 @@ export function usePlayerMatchHistory(playerId: number | null, position?: Positi
 
     return () => { cancelled = true; };
   }, [playerId, position]);
+
+  return { matches, loading };
+}
+
+/**
+ * Id del jugador a usar para leer datos: si el informe quedó linkeado a la fila
+ * duplicada de Sofascore (menos partidos, sin traspasos ni lesiones), devuelve la
+ * de API-Football. Mientras resuelve devuelve el id original.
+ */
+export function usePreferredPlayerId(playerId: number | null): number | null {
+  const [resolved, setResolved] = useState<number | null>(playerId);
+
+  useEffect(() => {
+    setResolved(playerId);
+    if (!playerId) return;
+    let cancelled = false;
+    resolvePreferredPlayerId(playerId)
+      .then(id => { if (!cancelled) setResolved(id); })
+      .catch(() => { /* se queda con el original */ });
+    return () => { cancelled = true; };
+  }, [playerId]);
+
+  return resolved;
+}
+
+/**
+ * Todos los partidos del jugador, sin filtrar por posición ni por score cargado.
+ * `usePlayerMatchHistory` sirve para el scoring (compara dentro de una posición),
+ * pero para listar "sus últimos partidos" ese filtro se come partidos reales:
+ * los que jugó en otro puesto o los que todavía no tienen Score GG calculado.
+ */
+export function usePlayerAllMatches(playerId: number | null) {
+  const [matches, setMatches] = useState<PlayerMatchStat[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!playerId) { setMatches([]); setLoading(false); return; }
+    const key = `allMatches:${playerId}`;
+    const cached = getCached<PlayerMatchStat[]>(key, 10);
+    if (cached) { setMatches(cached); setLoading(false); return; }
+
+    let cancelled = false;
+    setLoading(true);
+    fetchPlayerAllMatches(playerId)
+      .then(data => { if (!cancelled) { setMatches(data); setCache(key, data); } })
+      .catch(() => { if (!cancelled) setMatches([]); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+
+    return () => { cancelled = true; };
+  }, [playerId]);
 
   return { matches, loading };
 }

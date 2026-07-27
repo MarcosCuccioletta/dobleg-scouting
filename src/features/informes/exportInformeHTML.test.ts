@@ -186,6 +186,65 @@ describe('buildInformeHtml', () => {
     expect(html).toContain('dg-result-dot')
   })
 
+  it('no emite la pestaña Comparaciones si no hay comparación, comparables ni notas', () => {
+    const html = buildInformeHtml({ informe: makeInforme(), stats: emptyStats, matrix: emptyMatrix, defs: emptyDefs })
+    expect(html).not.toContain('data-panel="comparaciones"')
+  })
+
+  it('emite Comparaciones cuando hay comparables cargados y la saca si el usuario la oculta', () => {
+    const base = makeInforme().content
+    const conComparables = makeInforme({
+      content: { ...base, comparables: [{ jugador: 'Otro', club: 'Club Y', rating: '7.0', delta: '+0.2' }] },
+    })
+    const html = buildInformeHtml({ informe: conComparables, stats: emptyStats, matrix: emptyMatrix, defs: emptyDefs })
+    expect(html).toContain('data-panel="comparaciones"')
+
+    const oculta = makeInforme({
+      content: { ...conComparables.content, hideComparacionesTab: true },
+    })
+    const htmlOculto = buildInformeHtml({ informe: oculta, stats: emptyStats, matrix: emptyMatrix, defs: emptyDefs })
+    expect(htmlOculto).not.toContain('data-panel="comparaciones"')
+  })
+
+  it('saca la pestaña Carrera cuando está tildado ocultarla', () => {
+    const html = buildInformeHtml({ informe: makeInforme(), stats: emptyStats, matrix: emptyMatrix, defs: emptyDefs })
+    expect(html).toContain('data-panel="carrera"')
+
+    const oculta = makeInforme({ content: { ...makeInforme().content, hideCarreraTab: true } })
+    const htmlOculto = buildInformeHtml({ informe: oculta, stats: emptyStats, matrix: emptyMatrix, defs: emptyDefs })
+    expect(htmlOculto).not.toContain('data-panel="carrera"')
+  })
+
+  it('oculta la evolución de nivel (y su ayuda) cuando el usuario la saca', () => {
+    const enrichment: InformeEnrichment = {
+      ...emptyEnrichment,
+      levelByMatch: [{ label: '01/03', value: 6.5 }, { label: '08/03', value: 7.1 }],
+    }
+    const visible = buildInformeHtml({ informe: makeInforme(), stats: emptyStats, matrix: emptyMatrix, defs: emptyDefs, enrichment })
+    expect(visible).toContain('Evolución de nivel (Score GG)')
+
+    const informe = makeInforme({ content: { ...makeInforme().content, hideLevelEvo: true } })
+    const oculto = buildInformeHtml({ informe, stats: emptyStats, matrix: emptyMatrix, defs: emptyDefs, enrichment })
+    expect(oculto).not.toContain('Evolución de nivel (Score GG)')
+  })
+
+  it('la continuidad escrita a mano pisa la de la API y "-" saca la tarjeta', () => {
+    const enrichment: InformeEnrichment = {
+      ...emptyEnrichment,
+      continuity: { matches: 8, starts: 6, minutes: 640, last5Played: 5, last5Total: 5, last10Played: 8, last10Total: 10 },
+    }
+    const informe = makeInforme({
+      content: { ...makeInforme().content, continuidad: { matches: '46/46', last10: '-' } },
+    })
+    const html = buildInformeHtml({ informe, stats: emptyStats, matrix: emptyMatrix, defs: emptyDefs, enrichment })
+    expect(html).toContain('46/46')
+    expect(html).not.toContain('>8/10<')
+
+    const sinContinuidad = makeInforme({ content: { ...makeInforme().content, hideContinuity: true } })
+    const htmlSin = buildInformeHtml({ informe: sinContinuidad, stats: emptyStats, matrix: emptyMatrix, defs: emptyDefs, enrichment })
+    expect(htmlSin).not.toContain('Continuidad')
+  })
+
   it('embebe el escudo de liga solo si es un data URL de imagen', () => {
     const ok = buildInformeHtml({ informe: makeInforme({ ligaCrestDataUrl: 'data:image/png;base64,AAAA' }), stats: emptyStats, matrix: emptyMatrix, defs: emptyDefs })
     expect(ok).toContain('class="dg-liga-crest"')

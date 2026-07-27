@@ -3,6 +3,7 @@ import { parseInformeFile } from '@/features/informes/parseFile'
 import { newInformeId } from '@/features/informes/informesStore'
 import type { ParsedFile, Informe, InformeContent, Row } from '@/features/informes/types'
 import { usePlayersList } from '@/hooks/usePlayerStats'
+import { dedupePlayers } from '@/features/informes/dedupePlayers'
 import type { PlayerWithScore } from '@/types/scoring'
 import { displayPosition } from '@/types/scoring'
 import { normalizeForSearch } from '@/lib/search'
@@ -142,7 +143,11 @@ export default function Step1Archivo({ parsed, informe, onParsed, onChange, onNe
     () => (dbQuery.trim().length >= 2 ? { search: dbQuery.trim(), pageSize: 8 } : { pageSize: 0 }),
     [dbQuery]
   )
-  const { players: dbPlayers, loading: dbLoading } = usePlayersList(dbFilters)
+  const { players: rawDbPlayers, loading: dbLoading } = usePlayersList(dbFilters)
+  // El mismo jugador está cargado dos veces (API-Football y Sofascore). Se muestra
+  // uno solo y gana el de API-Football: tiene todos los partidos y es el id con el
+  // que la API devuelve traspasos y lesiones.
+  const dbPlayers = useMemo(() => dedupePlayers(rawDbPlayers), [rawDbPlayers])
 
   const cols = useMemo(() => (parsed ? detectColumns(parsed.headers, parsed.rows) : null), [parsed])
 

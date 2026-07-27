@@ -1,9 +1,8 @@
 import { useMemo } from 'react'
 import { useData } from '@/context/DataContext'
-import { usePlayerMatchHistory, useMarketValueHistory } from '@/hooks/usePlayerStats'
+import { usePlayerAllMatches, useMarketValueHistory, usePreferredPlayerId } from '@/hooks/usePlayerStats'
 import { usePlayerInjuries } from '@/hooks/usePlayerApiData'
 import { normalizeForSearch } from '@/lib/search'
-import type { Position } from '@/types/scoring'
 import type { Informe } from './types'
 import type { LinePoint } from './chartSvg'
 
@@ -118,12 +117,12 @@ function fmtMeters(n: number): string {
  */
 export function useInformeEnrichment(informe: Informe | null): InformeEnrichment {
   const { internal, gpsData, marketValueHistory } = useData()
-  const { matches, loading: matchesLoading } = usePlayerMatchHistory(
-    informe?.dbPlayerId ?? null,
-    (informe?.dbPosition as Position | undefined) ?? undefined,
-  )
-  const { data: mvRows, loading: mvLoading } = useMarketValueHistory(informe?.dbPlayerId ?? null)
-  const { injuries: rawInjuries, loading: injLoading } = usePlayerInjuries(informe?.dbPlayerId ?? null)
+  const playerId = usePreferredPlayerId(informe?.dbPlayerId ?? null)
+  // Todos sus partidos: filtrar por posición o por "score ya calculado" hacía
+  // desaparecer partidos reales de Últimos 5 y de Continuidad.
+  const { matches, loading: matchesLoading } = usePlayerAllMatches(playerId)
+  const { data: mvRows, loading: mvLoading } = useMarketValueHistory(playerId)
+  const { injuries: rawInjuries, loading: injLoading } = usePlayerInjuries(playerId)
 
   return useMemo<InformeEnrichment>(() => {
     if (!informe) return EMPTY
@@ -160,8 +159,9 @@ export function useInformeEnrichment(informe: Informe | null): InformeEnrichment
     const last5 = dated.slice(-5)
     const last10 = dated.slice(-10)
 
-    // Últimos 5 partidos desde la API (rival, resultado, outcome, rating, minutos, fecha).
-    const last5Rows: Last5Row[] = last5.map(m => {
+    // Últimos 5 partidos desde la API (rival, resultado, outcome, rating, minutos,
+    // fecha). El más reciente va primero: es lo primero que se mira.
+    const last5Rows: Last5Row[] = [...last5].reverse().map(m => {
       const fx = m.fixture!
       const isHome = m.team_id === fx.home_team_id
       const rival = (isHome ? fx.away_team?.name : fx.home_team?.name) || '—'

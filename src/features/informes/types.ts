@@ -41,6 +41,15 @@ export interface ChartAssignments {
 
 // Contenido editorial
 export interface MatchRow { rival: string; resultado: string; rating: string; minutos: string }
+// Continuidad de la pestaña General: lo que el usuario escribe pisa lo de la API.
+// Vacío = valor automático; "-" = esa tarjeta no se muestra.
+export interface ContinuityOverrides {
+  matches?: string
+  starts?: string
+  minutes?: string
+  last5?: string
+  last10?: string
+}
 export interface Comparable { jugador: string; club: string; rating: string; delta: string }
 export interface InformeContent {
   nombre: string; club: string; posicion: string; rol: string
@@ -52,6 +61,11 @@ export interface InformeContent {
   hideRating?: boolean            // no mostrar el rating (Score GG) en ningún lado del informe
   hideFisicoTab?: boolean         // sacar la pestaña Físico del informe
   hideFisicoCharts?: boolean      // en Físico, mostrar sólo los datos (sin gráficos)
+  hideLevelEvo?: boolean          // General: sacar "Evolución de nivel (Score GG)" (con su "cómo leerlo")
+  hideContinuity?: boolean        // General: sacar el bloque Continuidad entero
+  continuidad?: ContinuityOverrides  // General: valores manuales de Continuidad (vacío = el de la API)
+  hideCarreraTab?: boolean        // sacar la pestaña Carrera del informe
+  hideComparacionesTab?: boolean  // sacar la pestaña Comparaciones del informe
   lecturaAutor: string; lecturaTexto: string
   videoUrl: string; transfermarktUrl: string; representante: string
   ultimos5: MatchRow[]

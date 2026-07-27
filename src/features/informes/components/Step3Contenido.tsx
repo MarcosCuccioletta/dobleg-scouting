@@ -1,4 +1,6 @@
-import type { Informe, InformeContent, MatchRow, Comparable } from '@/features/informes/types'
+import type { Informe, InformeContent, MatchRow, Comparable, ContinuityOverrides } from '@/features/informes/types'
+import { useInformeEnrichment } from '@/features/informes/useInformeEnrichment'
+import { autoContinuityValues } from '@/features/informes/continuity'
 import Step3Impacto from './Step3Impacto'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -76,6 +78,15 @@ export default function Step3Contenido({ informe, content, onChange, onChangeInf
   const set = <K extends keyof InformeContent>(key: K, value: InformeContent[K]) =>
     onChange({ ...content, [key]: value })
 
+  // Continuidad de la pestaña General: se muestra lo que trae la API como
+  // placeholder y el usuario escribe encima si no le cierra (la API cuenta sólo
+  // los partidos que tiene cargados).
+  const enrichment = useInformeEnrichment(informe)
+  const autoCont = autoContinuityValues(enrichment.continuity)
+  const cont = content.continuidad ?? {}
+  const setCont = (key: keyof ContinuityOverrides, value: string) =>
+    onChange({ ...content, continuidad: { ...cont, [key]: value } })
+
   const matches = padMatches(content.ultimos5)
   function updateMatch(idx: number, patch: Partial<MatchRow>) {
     onChange({ ...content, ultimos5: matches.map((r, i) => (i === idx ? { ...r, ...patch } : r)) })
@@ -143,7 +154,51 @@ export default function Step3Contenido({ informe, content, onChange, onChangeInf
                 checked={content.hideFisicoCharts ?? false}
                 onChange={v => set('hideFisicoCharts', v)}
               />
+              <CheckboxField
+                label="Sacar la pestaña Carrera del informe"
+                checked={content.hideCarreraTab ?? false}
+                onChange={v => set('hideCarreraTab', v)}
+              />
+              <CheckboxField
+                label="Sacar la pestaña Comparaciones del informe"
+                checked={content.hideComparacionesTab ?? false}
+                onChange={v => set('hideComparacionesTab', v)}
+              />
+              <p className="text-[11px] text-apple-gray-500 dark:text-apple-gray-400">
+                Comparaciones ya no aparece sola: si no cargaste comparación de jugadores, comparables ni notas, la pestaña no se genera.
+              </p>
             </div>
+          </div>
+
+          {/* ── Pestaña General del informe ── */}
+          <div className={cardClass}>
+            <h2 className="text-sm font-semibold text-apple-gray-900 dark:text-white mb-3">Pestaña General</h2>
+            <div className="space-y-2">
+              <CheckboxField
+                label="Ocultar Evolución de nivel (Score GG) y su “Cómo leerlo”"
+                checked={content.hideLevelEvo ?? false}
+                onChange={v => set('hideLevelEvo', v)}
+              />
+              <CheckboxField
+                label="Ocultar Continuidad"
+                checked={content.hideContinuity ?? false}
+                onChange={v => set('hideContinuity', v)}
+              />
+            </div>
+            {!content.hideContinuity && (
+              <>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-3">
+                  <Field label="Partidos" value={cont.matches ?? ''} onChange={v => setCont('matches', v)} placeholder={autoCont.matches || 'auto'} />
+                  <Field label="Titular" value={cont.starts ?? ''} onChange={v => setCont('starts', v)} placeholder={autoCont.starts || 'auto'} />
+                  <Field label="Minutos" value={cont.minutes ?? ''} onChange={v => setCont('minutes', v)} placeholder={autoCont.minutes || 'auto'} />
+                  <Field label="Últimos 5" value={cont.last5 ?? ''} onChange={v => setCont('last5', v)} placeholder={autoCont.last5 || 'auto'} />
+                  <Field label="Últimos 10" value={cont.last10 ?? ''} onChange={v => setCont('last10', v)} placeholder={autoCont.last10 || 'auto'} />
+                </div>
+                <p className="text-[11px] text-apple-gray-500 dark:text-apple-gray-400 mt-2">
+                  Vacío = el valor de la API (lo que aparece en gris). Escribí lo que quieras (ej. <span className="font-semibold">46/46</span>) o poné <span className="font-semibold">-</span> para sacar esa tarjeta.
+                </p>
+              </>
+            )}
           </div>
 
           <div className={cardClass}>

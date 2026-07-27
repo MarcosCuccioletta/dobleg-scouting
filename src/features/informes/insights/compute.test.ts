@@ -111,10 +111,22 @@ describe('computeInsights — peso ofensivo', () => {
 
   it('avisa cuando fixtures y plantel no coinciden en los goles del club', () => {
     const input = baseInput()
-    input.squadRows = input.squadRows.filter(r => r.fixture_id !== 4) // falta un gol del plantel
+    // El partido 4 sí está cargado (hay filas del plantel) pero le falta el gol.
+    input.squadRows = input.squadRows.map(r => (r.fixture_id === 4 ? { ...r, goals: 0 } : r))
     const res = computeInsights(input)
     expect(res.warnings).toContain('goalsMismatch')
     expect(itemById(res, 'ofe.share')!.values.teamGoals).toBe(4) // se queda con el mayor
+  })
+
+  it('no cuenta los partidos del club sin datos del plantel (competencia no cargada)', () => {
+    const input = baseInput()
+    input.squadRows = input.squadRows.filter(r => r.fixture_id !== 4) // ese partido no está en la base
+    const res = computeInsights(input)
+    expect(res.warnings).toContain('partialCoverage')
+    expect(res.warnings).not.toContain('goalsMismatch')
+    // 3 partidos del club, no 4: el que no tiene datos no infla el denominador.
+    expect(itemById(res, 'cont.pj')!.values).toMatchObject({ played: 3, teamMatches: 3, pct: 100 })
+    expect(itemById(res, 'ofe.share')!.values.teamGoals).toBe(3)
   })
 
   it('tono weak con share bajo', () => {
@@ -282,6 +294,8 @@ describe('computeInsights — impacto en resultados', () => {
       fixture(5, '2026-03-01T00:00:00Z', 0, 3), // sin él, perdió
       fixture(6, '2026-03-08T00:00:00Z', 1, 2), // sin él, perdió
     ]
+    // Los partidos que jugó el equipo sin él igual tienen datos del plantel.
+    input.squadRows = [...input.squadRows, squadRow(2, 5), squadRow(2, 6)]
     const res = computeInsights(input)
     expect(itemById(res, 'res.record')!.values).toMatchObject({ wins: 1, draws: 1, losses: 1 })
     expect(itemById(res, 'res.conSinEl')!.values).toMatchObject({ withPpg: 1.33, withoutPpg: 0 })
