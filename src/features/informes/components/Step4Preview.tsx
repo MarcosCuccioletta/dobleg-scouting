@@ -988,6 +988,15 @@ export default function Step4Preview({ informe, stats, matrix, defs, onBack, onS
           </button>
         </div>
 
+        {/* El link publicado es una foto del informe en ese momento: el HTML queda
+            guardado tal cual. Si después se edita el informe (o cambia el diseño),
+            el link viejo sigue mostrando lo de antes hasta que se vuelve a generar.
+            Aclararlo acá evita el "no se actualizó nada". */}
+        <p className="text-xs" style={{ color: DG.muted }}>
+          El link publicado queda con el informe tal cual está ahora. Si lo editás
+          después, volvé a tocar <span style={{ color: DG.text, fontWeight: 600 }}>Compartir link</span> para actualizarlo.
+        </p>
+
         {exportMsg && (
           <p className="text-sm font-medium" style={{ color: exportMsg.ok ? DG.greenHover : DG.amber }}>{exportMsg.text}</p>
         )}
