@@ -108,6 +108,20 @@ describe('buildInformeHtml', () => {
     expect(bar).toBeLessThan(html.indexOf('class="dg-layout"'))
   })
 
+  it('avisa que la fila de secciones sigue, sólo del lado que quedó afuera', () => {
+    const html = buildInformeHtml({ informe: makeInforme(), stats: emptyStats, matrix: emptyMatrix, defs: emptyDefs })
+    // Flechas a ambos lados, apagadas por defecto y encendidas por clase.
+    expect(html).toContain('dg-more-left')
+    expect(html).toContain('dg-more-right')
+    expect(html).toMatch(/\.dg-tabbar-more \{[^}]*opacity: 0/)
+    expect(html).toContain('.dg-tabbar-frame.can-right .dg-more-right')
+    // La clase la maneja el scroll: si no hay nada afuera, no aparece nada.
+    expect(html).toContain("classList.toggle('can-right'")
+    expect(html).toContain("classList.toggle('can-left'")
+    // Empujoncito inicial para que se vea que se desliza.
+    expect(html).toContain('scrollWidth > rail.clientWidth')
+  })
+
   it('al tocar una pestaña la centra y sube al inicio de la sección', () => {
     const html = buildInformeHtml({ informe: makeInforme(), stats: emptyStats, matrix: emptyMatrix, defs: emptyDefs })
     expect(html).toContain('scrollIntoView')

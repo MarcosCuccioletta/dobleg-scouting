@@ -767,7 +767,11 @@ ${css}
   </header>
 
   <div class="dg-tabbar-wrap">
-    <nav class="dg-tabbar" aria-label="Secciones del informe">${tabBarHtml}</nav>
+    <div class="dg-tabbar-frame">
+      <nav class="dg-tabbar" aria-label="Secciones del informe">${tabBarHtml}</nav>
+      <span class="dg-tabbar-more dg-more-left" aria-hidden="true"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></span>
+      <span class="dg-tabbar-more dg-more-right" aria-hidden="true"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>
+    </div>
   </div>
 
   <div class="dg-layout">
@@ -1082,6 +1086,41 @@ const css = `
     scrollbar-width: none;
   }
   .dg-tabbar::-webkit-scrollbar { display: none; }
+  /* Señal de que la fila sigue: una flecha sobre un degradé, en el borde del
+     riel. Aparece SOLO del lado que quedó contenido afuera y se apaga al llegar
+     al final, así nunca tapa una sección que ya se ve entera. */
+  .dg-tabbar-frame { position: relative; }
+  .dg-tabbar-more {
+    position: absolute;
+    top: 1px;
+    bottom: 1px;
+    width: 42px;
+    display: flex;
+    align-items: center;
+    pointer-events: none;
+    color: #C3C9D1;
+    opacity: 0;
+    transition: opacity .2s ease;
+  }
+  .dg-more-right {
+    right: 1px;
+    justify-content: flex-end;
+    padding-right: 7px;
+    border-radius: 0 12px 12px 0;
+    background: linear-gradient(90deg, rgba(19,22,26,0), rgba(19,22,26,0.92) 55%, rgba(19,22,26,0.97));
+  }
+  .dg-more-left {
+    left: 1px;
+    justify-content: flex-start;
+    padding-left: 7px;
+    border-radius: 12px 0 0 12px;
+    background: linear-gradient(270deg, rgba(19,22,26,0), rgba(19,22,26,0.92) 55%, rgba(19,22,26,0.97));
+  }
+  .dg-tabbar-frame.can-right .dg-more-right,
+  .dg-tabbar-frame.can-left .dg-more-left { opacity: 1; }
+  @media (prefers-reduced-motion: reduce) {
+    .dg-tabbar-more { transition: none; }
+  }
   .dg-tab {
     appearance: none;
     flex: 0 0 auto;
@@ -1439,7 +1478,34 @@ const script = `
   var panels = document.querySelectorAll('.dg-panel');
   var card = document.querySelector('.dg-panel-card');
   var bar = document.querySelector('.dg-tabbar-wrap');
+  var rail = document.querySelector('.dg-tabbar');
+  var frame = document.querySelector('.dg-tabbar-frame');
   var smooth = !window.matchMedia || !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // Flechas a los costados del riel: sólo del lado donde quedó sección afuera.
+  // Sin esto, en el celular no entran todas y no hay forma de darse cuenta de
+  // que la fila se desliza.
+  function updateArrows() {
+    if (!rail || !frame) return;
+    var max = rail.scrollWidth - rail.clientWidth;
+    var x = rail.scrollLeft;
+    frame.classList.toggle('can-left', x > 4);
+    frame.classList.toggle('can-right', x < max - 4);
+  }
+  if (rail && frame) {
+    rail.addEventListener('scroll', updateArrows, { passive: true });
+    window.addEventListener('resize', updateArrows);
+    updateArrows();
+
+    // Empujoncito al abrir: la fila se corre un poco y vuelve. Se ve que hay
+    // más y que se puede arrastrar, sin cartelitos ni menú desplegable.
+    if (smooth && rail.scrollWidth > rail.clientWidth + 8) {
+      setTimeout(function () {
+        rail.scrollTo({ left: 30, behavior: 'smooth' });
+        setTimeout(function () { rail.scrollTo({ left: 0, behavior: 'smooth' }); }, 520);
+      }, 650);
+    }
+  }
 
   tabs.forEach(function (tab) {
     tab.addEventListener('click', function () {
@@ -1456,6 +1522,7 @@ const script = `
       if (tab.scrollIntoView) {
         try { tab.scrollIntoView({ block: 'nearest', inline: 'center', behavior: smooth ? 'smooth' : 'auto' }); }
         catch (e) { tab.scrollIntoView(); }
+        setTimeout(updateArrows, 350);
       }
 
       // Lleva al contenido de la sección elegida, justo debajo de la barra. Sin

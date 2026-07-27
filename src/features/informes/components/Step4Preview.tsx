@@ -139,6 +139,26 @@ function DataRow({ label, value }: { label: string; value: string }) {
   )
 }
 
+/** Flecha al borde del riel de secciones: avisa que la fila sigue de ese lado. */
+function TabArrow({ side, show }: { side: 'left' | 'right'; show: boolean }) {
+  const right = side === 'right'
+  return (
+    <span
+      aria-hidden
+      className={`pointer-events-none absolute top-px bottom-px w-[42px] flex items-center transition-opacity duration-200 ${right ? 'right-px justify-end pr-[7px] rounded-r-xl' : 'left-px justify-start pl-[7px] rounded-l-xl'}`}
+      style={{
+        opacity: show ? 1 : 0,
+        color: '#C3C9D1',
+        background: `linear-gradient(${right ? 90 : 270}deg, rgba(19,22,26,0), rgba(19,22,26,0.92) 55%, rgba(19,22,26,0.97))`,
+      }}
+    >
+      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+        <path d={right ? 'M9 6l6 6-6 6' : 'M15 6l-6 6 6 6'} />
+      </svg>
+    </span>
+  )
+}
+
 function StatTile({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl p-3 text-center border" style={{ borderColor: DG.border, backgroundColor: DG.cardInner }}>
@@ -351,12 +371,21 @@ export default function Step4Preview({ informe, stats, matrix, defs, onBack, onS
 
   useEffect(() => () => { if (exportMsgTimer.current) clearTimeout(exportMsgTimer.current) }, [])
 
+  const [tabArrows, setTabArrows] = useState({ left: false, right: false })
+  const updateTabArrows = () => {
+    const el = tabBarRef.current
+    if (!el) return
+    const max = el.scrollWidth - el.clientWidth
+    setTabArrows({ left: el.scrollLeft > 4, right: el.scrollLeft < max - 4 })
+  }
+
   // Al cambiar de sección: la pestaña elegida se centra en el riel y la vista
   // baja al contenido (que en el celular está debajo de la ficha).
   const firstTabRender = useRef(true)
   useEffect(() => {
     tabBarRef.current?.querySelector<HTMLElement>(`[data-tab="${tab}"]`)
       ?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' })
+    setTimeout(updateTabArrows, 350)
 
     if (firstTabRender.current) { firstTabRender.current = false; return }
     const card = panelCardRef.current
@@ -393,6 +422,29 @@ export default function Step4Preview({ informe, stats, matrix, defs, onBack, onS
       : id === 'comparaciones' ? !content.hideComparacionesTab && hasComparaciones
       : true,
   )
+
+  // Flechas del riel de secciones: se muestran sólo del lado donde quedó algo
+  // afuera, y se apagan al llegar a la punta.
+  useEffect(() => {
+    updateTabArrows()
+    window.addEventListener('resize', updateTabArrows)
+    return () => window.removeEventListener('resize', updateTabArrows)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleTabs.length])
+
+  // Empujoncito al abrir: la fila se corre un poco y vuelve, para que se vea
+  // que se puede arrastrar. Una sola vez y sólo si de verdad no entran todas.
+  const nudged = useRef(false)
+  useEffect(() => {
+    const el = tabBarRef.current
+    if (!el || nudged.current) return
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    if (el.scrollWidth <= el.clientWidth + 8) return
+    nudged.current = true
+    const a = setTimeout(() => el.scrollTo({ left: 30, behavior: 'smooth' }), 650)
+    const b = setTimeout(() => el.scrollTo({ left: 0, behavior: 'smooth' }), 1170)
+    return () => { clearTimeout(a); clearTimeout(b) }
+  }, [visibleTabs.length])
 
   // ── Renders ──
 
@@ -1041,8 +1093,10 @@ export default function Step4Preview({ informe, stats, matrix, defs, onBack, onS
           className="sticky top-0 z-30 -mx-4 sm:-mx-6 px-4 sm:px-6 py-2.5"
           style={{ backgroundColor: 'rgba(8,9,11,0.90)', backdropFilter: 'blur(12px)', borderBottom: `1px solid ${DG.border}` }}
         >
+          <div className="relative">
           <div
             ref={tabBarRef}
+            onScroll={updateTabArrows}
             className="flex items-center gap-0.5 overflow-x-auto p-1 rounded-[13px] border"
             style={{ scrollbarWidth: 'none', backgroundColor: 'rgba(255,255,255,0.045)', borderColor: 'rgba(255,255,255,0.07)' }}
           >
@@ -1069,6 +1123,12 @@ export default function Step4Preview({ informe, stats, matrix, defs, onBack, onS
                 </button>
               )
             })}
+          </div>
+          {/* Flechas a los costados: sólo del lado donde quedó sección afuera.
+              Sin esto, en el celular no entran todas y no hay forma de saber
+              que la fila se desliza. */}
+          <TabArrow side="left" show={tabArrows.left} />
+          <TabArrow side="right" show={tabArrows.right} />
           </div>
         </div>
 
