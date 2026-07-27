@@ -1,5 +1,5 @@
 import { radarSvg, barsSvg, scatterSvg, gaugeSvg, lineChartSvg, lineSvg, donutSvg, dotsSvg } from './chartSvg'
-import { renderItem, renderTile } from './insights/text'
+import { renderItem, renderTileFinal } from './insights/text'
 import type { InsightsConfig, InsightsResult } from './insights/types'
 import { radarData, radarComparisonData, barsData, scatterData, comparisonTable, comparisonWinCounts, parseRating, ratingMax } from './chartData'
 import { t, translateMetric, translateInjury, translateTransferType, isRtl } from './i18n'
@@ -645,7 +645,7 @@ export function buildInformeHtml(opts: {
         const tilesHtml = result.tiles
           .filter(tile => !config.hiddenItems.includes(tile.id))
           .map(tile => {
-            const { value, sub } = renderTile(tile, lang)
+            const { value, sub } = renderTileFinal(tile, config, lang)
             const valueHtml = `<span class="dg-imp-value">${escapeHtml(value)}</span>`
             // Donut: al lado del número. Dots: debajo, ocupando el ancho.
             const head = tile.render === 'donut' && tile.pct != null

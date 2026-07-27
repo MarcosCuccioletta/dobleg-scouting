@@ -1,4 +1,4 @@
-import { renderItem, renderTile } from '@/features/informes/insights/text'
+import { renderItem, renderTileFinal } from '@/features/informes/insights/text'
 import { t, type Lang } from '@/features/informes/i18n'
 import type { InsightsConfig, InsightsResult } from '@/features/informes/insights/types'
 
@@ -84,7 +84,7 @@ export default function InformeImpacto({ result, config, lang }: Props) {
       {visibleTiles.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
           {visibleTiles.map(tile => {
-            const { value, sub } = renderTile(tile, lang)
+            const { value, sub } = renderTileFinal(tile, config, lang)
             return (
               <div key={tile.id} className="rounded-2xl border p-3" style={{ borderColor: DG.border, backgroundColor: DG.cardInner }}>
                 {tile.render === 'donut' && tile.pct != null ? (

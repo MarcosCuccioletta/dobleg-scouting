@@ -98,12 +98,19 @@ export interface InsightsResult {
 }
 
 /** Config persistida en el informe. */
+/** Texto escrito a mano para una tarjeta: número grande y/o texto de abajo. */
+export interface TileOverride {
+  value?: string
+  sub?: string
+}
+
 export interface InsightsConfig {
   enabled: boolean
   period: PeriodConfig
   blocks: InsightBlockId[]
   hiddenItems: string[]
   overrides: Record<string, string>
+  tileOverrides?: Record<string, TileOverride>
   minMinutes?: number
   teamMatchesOverride?: number
   teamGoalsOverride?: number

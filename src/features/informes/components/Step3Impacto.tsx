@@ -48,6 +48,15 @@ export default function Step3Impacto({ informe, onChange }: Props) {
   const toggleItem = (id: string) =>
     setConfig({ hiddenItems: config.hiddenItems.includes(id) ? config.hiddenItems.filter(x => x !== id) : [...config.hiddenItems, id] })
 
+  // Tarjetas: se puede pisar el número, el texto de abajo, o los dos.
+  const setTileOverride = (id: string, patch: { value?: string; sub?: string }) => {
+    const next = { ...(config.tileOverrides ?? {}) }
+    const merged = { ...(next[id] ?? {}), ...patch }
+    if (!merged.value?.trim() && !merged.sub?.trim()) delete next[id]
+    else next[id] = merged
+    setConfig({ tileOverrides: next })
+  }
+
   const setOverride = (id: string, text: string) => {
     const next = { ...config.overrides }
     if (text.trim()) next[id] = text
@@ -160,30 +169,44 @@ export default function Step3Impacto({ informe, onChange }: Props) {
           {/* Tarjetas */}
           {result.tiles.length > 0 && (
             <div>
-              <span className={labelClass}>Tarjetas: destildá la que no quieras mostrar</span>
-              <div className="flex flex-wrap gap-2">
+              <span className={labelClass}>Tarjetas: destildá la que no va y editá el número o el texto</span>
+              <div className="space-y-2">
                 {result.tiles.map(tile => {
-                  const { value, sub } = renderTile(tile, lang)
+                  const auto = renderTile(tile, lang)
+                  const over = config.tileOverrides?.[tile.id] ?? {}
                   const hidden = config.hiddenItems.includes(tile.id)
                   return (
-                    <label
-                      key={tile.id}
-                      className={`flex items-start gap-2 px-3 py-2 rounded-xl border cursor-pointer select-none transition-opacity ${hidden ? 'opacity-40' : ''} border-apple-gray-200 dark:border-apple-gray-700`}
-                    >
+                    <div key={tile.id} className={`grid grid-cols-[auto_90px_1fr] items-center gap-2 ${hidden ? 'opacity-40' : ''}`}>
                       <input
                         type="checkbox"
                         checked={!hidden}
                         onChange={() => toggleItem(tile.id)}
-                        className="mt-1 rounded border-apple-gray-300 dark:border-apple-gray-600 text-brand-green focus:ring-brand-green/40"
+                        title="Mostrar esta tarjeta"
+                        className="rounded border-apple-gray-300 dark:border-apple-gray-600 text-brand-green focus:ring-brand-green/40"
                       />
-                      <span>
-                        <span className="block text-base font-bold text-apple-gray-900 dark:text-white">{value}</span>
-                        <span className="block text-[10px] text-apple-gray-500 dark:text-apple-gray-400">{sub}</span>
-                      </span>
-                    </label>
+                      <input
+                        type="text"
+                        value={over.value ?? ''}
+                        onChange={e => setTileOverride(tile.id, { value: e.target.value })}
+                        placeholder={auto.value}
+                        disabled={hidden}
+                        className={`${smallInputClass} font-semibold disabled:opacity-50`}
+                      />
+                      <input
+                        type="text"
+                        value={over.sub ?? ''}
+                        onChange={e => setTileOverride(tile.id, { sub: e.target.value })}
+                        placeholder={auto.sub}
+                        disabled={hidden}
+                        className={`${smallInputClass} disabled:opacity-50`}
+                      />
+                    </div>
                   )
                 })}
               </div>
+              <p className="text-[11px] text-apple-gray-500 dark:text-apple-gray-400 mt-1.5">
+                Vacío = el valor calculado (el texto gris). El número va a la izquierda y la descripción a la derecha.
+              </p>
             </div>
           )}
 

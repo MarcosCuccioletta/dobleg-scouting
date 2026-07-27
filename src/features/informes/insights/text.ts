@@ -3,7 +3,7 @@
 // Todo pasa por el diccionario de i18n para que el informe siga siendo multiidioma.
 
 import { hasKey, t, type Lang } from '@/features/informes/i18n'
-import type { InsightItem, InsightTile } from './types'
+import type { InsightItem, InsightTile, InsightsConfig } from './types'
 
 /**
  * Traduce con variante singular: si el conteo es 1 y existe `<clave>_one`, usa esa.
@@ -156,5 +156,22 @@ export function renderTile(tile: InsightTile, lang: Lang): { value: string; sub:
       return { value: formatAvg(Number(tile.values.avg), lang), sub: t(lang, 'imp_tile_score') }
     default:
       return { value: '', sub: '' }
+  }
+}
+
+/**
+ * Lo que finalmente se muestra en la tarjeta: lo calculado, salvo que el usuario
+ * haya escrito otra cosa en el paso 3 (el número, el texto de abajo, o los dos).
+ */
+export function renderTileFinal(
+  tile: InsightTile,
+  config: Pick<InsightsConfig, 'tileOverrides'>,
+  lang: Lang,
+): { value: string; sub: string } {
+  const auto = renderTile(tile, lang)
+  const over = config.tileOverrides?.[tile.id]
+  return {
+    value: (over?.value ?? '').trim() || auto.value,
+    sub: (over?.sub ?? '').trim() || auto.sub,
   }
 }

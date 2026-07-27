@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { renderItem, renderTile, formatNum } from './text'
+import { renderItem, renderTile, renderTileFinal, formatNum } from './text'
 import type { InsightItem, InsightTile } from './types'
 
 const item = (id: string, values: InsightItem['values'], tone: InsightItem['tone'] = 'neutral'): InsightItem =>
@@ -134,5 +134,33 @@ describe('renderTile', () => {
     expect(renderTile(tile('tile.share', { pct: 27.6, ga: 21, teamGoals: 76 }), 'es')).toEqual({
       value: '27,6%', sub: 'De los goles del equipo',
     })
+  })
+})
+
+describe('renderTileFinal — tarjetas editadas a mano', () => {
+  const tile = { id: 'tile.score', render: 'plain' as const, values: { avg: 6.8, matches: 12 } }
+
+  it('sin nada escrito muestra lo calculado', () => {
+    const out = renderTileFinal(tile, {}, 'es')
+    expect(out.value).toBe('6,8')
+    expect(out.sub).not.toBe('')
+  })
+
+  it('lo escrito pisa el número y el texto por separado', () => {
+    expect(renderTileFinal(tile, { tileOverrides: { 'tile.score': { value: '7.1' } } }, 'es').value).toBe('7.1')
+    const soloSub = renderTileFinal(tile, { tileOverrides: { 'tile.score': { sub: 'Promedio en Liga MX' } } }, 'es')
+    expect(soloSub.sub).toBe('Promedio en Liga MX')
+    expect(soloSub.value).toBe('6,8')
+  })
+
+  it('un texto en blanco no borra lo calculado', () => {
+    const out = renderTileFinal(tile, { tileOverrides: { 'tile.score': { value: '   ' } } }, 'es')
+    expect(out.value).toBe('6,8')
+  })
+
+  it('la edición de una tarjeta no afecta a las otras', () => {
+    const otra = { id: 'tile.ga', render: 'plain' as const, values: { goals: 3, assists: 2, ga: 5 } }
+    const cfg = { tileOverrides: { 'tile.score': { value: '9' } } }
+    expect(renderTileFinal(otra, cfg, 'es').value).toBe('5')
   })
 })
