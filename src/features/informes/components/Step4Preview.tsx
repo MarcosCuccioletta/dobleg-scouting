@@ -282,6 +282,8 @@ export default function Step4Preview({ informe, stats, matrix, defs, onBack, onS
   const [exportMsg, setExportMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const printRef = useRef<HTMLDivElement>(null)
   const tabBarRef = useRef<HTMLDivElement>(null)
+  const tabBarWrapRef = useRef<HTMLDivElement>(null)
+  const panelCardRef = useRef<HTMLDivElement>(null)
   const exportMsgTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const { content } = informe
   const youtubeId = parseYouTubeId(content.videoUrl || '')
@@ -349,10 +351,19 @@ export default function Step4Preview({ informe, stats, matrix, defs, onBack, onS
 
   useEffect(() => () => { if (exportMsgTimer.current) clearTimeout(exportMsgTimer.current) }, [])
 
-  // La pestaña elegida se centra en la fila: se ve que hay más a los lados.
+  // Al cambiar de sección: la pestaña elegida se centra en el riel y la vista
+  // baja al contenido (que en el celular está debajo de la ficha).
+  const firstTabRender = useRef(true)
   useEffect(() => {
-    const el = tabBarRef.current?.querySelector<HTMLElement>(`[data-tab="${tab}"]`)
-    el?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' })
+    tabBarRef.current?.querySelector<HTMLElement>(`[data-tab="${tab}"]`)
+      ?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' })
+
+    if (firstTabRender.current) { firstTabRender.current = false; return }
+    const card = panelCardRef.current
+    if (!card) return
+    const barH = tabBarWrapRef.current?.getBoundingClientRect().height ?? 0
+    const delta = card.getBoundingClientRect().top - barH - 8
+    if (Math.abs(delta) > 2) window.scrollBy({ top: delta, behavior: 'smooth' })
   }, [tab])
 
   function showExportMsg(msg: { ok: boolean; text: string }) {
@@ -1010,50 +1021,52 @@ export default function Step4Preview({ informe, stats, matrix, defs, onBack, onS
           <LigaCrest dataUrl={informe.ligaCrestDataUrl} />
         </div>
 
+        {/* ── Tabs ──
+            Van ARRIBA de la ficha y a todo el ancho, no adentro del panel: metidas
+            ahí, en el celular quedaban después de todo el perfil (y al costado en
+            horizontal), así que había que scrollear la ficha entera para enterarse
+            de que el informe tiene secciones. Un solo riel (control segmentado),
+            pegado arriba mientras se lee. Mismo diseño que el informe publicado. */}
+        <div
+          ref={tabBarWrapRef}
+          className="sticky top-0 z-30 -mx-4 sm:-mx-6 px-4 sm:px-6 py-2.5"
+          style={{ backgroundColor: 'rgba(8,9,11,0.90)', backdropFilter: 'blur(12px)', borderBottom: `1px solid ${DG.border}` }}
+        >
+          <div
+            ref={tabBarRef}
+            className="flex items-center gap-0.5 overflow-x-auto p-1 rounded-[13px] border"
+            style={{ scrollbarWidth: 'none', backgroundColor: 'rgba(255,255,255,0.045)', borderColor: 'rgba(255,255,255,0.07)' }}
+          >
+            {visibleTabs.map(id => {
+              const active = tab === id
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setTab(id)}
+                  aria-selected={active}
+                  data-tab={id}
+                  className="flex-none px-3.5 py-2 rounded-[9px] text-[13px] whitespace-nowrap transition-colors"
+                  style={{
+                    backgroundColor: active ? DG.green : 'transparent',
+                    color: active ? '#08090B' : '#A8AEB6',
+                    fontWeight: active ? 700 : 600,
+                    boxShadow: active ? '0 2px 10px rgba(34,197,94,0.25)' : 'none',
+                  }}
+                  onMouseEnter={e => { if (!active) { e.currentTarget.style.color = DG.text; e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.07)' } }}
+                  onMouseLeave={e => { if (!active) { e.currentTarget.style.color = '#A8AEB6'; e.currentTarget.style.backgroundColor = 'transparent' } }}
+                >
+                  {t(lang, `tab_${id}`)}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6">
           <PlayerRail informe={informe} lang={lang} stats={stats} />
 
-          <div className="rounded-[18px] border p-5 min-w-0" style={{ borderColor: DG.border, backgroundColor: DG.card }}>
-            {/* ── Tabs ──
-                Un solo riel con las secciones adentro (control segmentado), no
-                botones sueltos. Queda pegado arriba mientras se lee y, cuando no
-                entran todas, se desliza: las de las puntas se cortan contra el
-                borde del riel, que es lo que avisa que hay más. Mismo diseño que
-                el informe publicado. */}
-            <div
-              className="sticky top-0 z-20 -mx-5 -mt-5 mb-5 px-5 py-3 rounded-t-[18px]"
-              style={{ backgroundColor: 'rgba(15,17,20,0.92)', backdropFilter: 'blur(10px)', borderBottom: `1px solid ${DG.border}` }}
-            >
-              <div
-                ref={tabBarRef}
-                className="flex items-center gap-0.5 overflow-x-auto p-1 rounded-[13px] border"
-                style={{ scrollbarWidth: 'none', backgroundColor: 'rgba(255,255,255,0.045)', borderColor: 'rgba(255,255,255,0.07)' }}
-              >
-                {visibleTabs.map(id => {
-                  const active = tab === id
-                  return (
-                    <button
-                      key={id}
-                      type="button"
-                      onClick={() => setTab(id)}
-                      aria-selected={active}
-                      data-tab={id}
-                      className="flex-none px-3.5 py-2 rounded-[9px] text-[13px] whitespace-nowrap transition-colors"
-                      style={{
-                        backgroundColor: active ? DG.green : 'transparent',
-                        color: active ? '#08090B' : '#A8AEB6',
-                        fontWeight: active ? 700 : 600,
-                        boxShadow: active ? '0 2px 10px rgba(34,197,94,0.25)' : 'none',
-                      }}
-                      onMouseEnter={e => { if (!active) { e.currentTarget.style.color = DG.text; e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.07)' } }}
-                      onMouseLeave={e => { if (!active) { e.currentTarget.style.color = '#A8AEB6'; e.currentTarget.style.backgroundColor = 'transparent' } }}
-                    >
-                      {t(lang, `tab_${id}`)}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
+          <div ref={panelCardRef} className="rounded-[18px] border p-5 min-w-0" style={{ borderColor: DG.border, backgroundColor: DG.card }}>
             {renderTab(visibleTabs.includes(tab) ? tab : 'general')}
           </div>
         </div>

@@ -93,6 +93,21 @@ describe('buildInformeHtml', () => {
     expect(html).toContain('aria-selected="false"')
   })
 
+  it('la barra de secciones va antes que la ficha del jugador', () => {
+    const html = buildInformeHtml({ informe: makeInforme(), stats: emptyStats, matrix: emptyMatrix, defs: emptyDefs })
+    const bar = html.indexOf('class="dg-tabbar-wrap"')
+    const rail = html.indexOf('class="dg-rail"')
+    const panel = html.indexOf('class="dg-panel-card"')
+    expect(bar).toBeGreaterThan(-1)
+    // En el celular el orden del HTML es el orden en pantalla: primero las
+    // secciones, después la ficha. Al revés había que scrollear todo el perfil
+    // para descubrir que el informe tenía pestañas.
+    expect(bar).toBeLessThan(rail)
+    expect(rail).toBeLessThan(panel)
+    // Y queda fuera del layout de dos columnas: ocupa todo el ancho.
+    expect(bar).toBeLessThan(html.indexOf('class="dg-layout"'))
+  })
+
   it('al tocar una pestaña la centra y sube al inicio de la sección', () => {
     const html = buildInformeHtml({ informe: makeInforme(), stats: emptyStats, matrix: emptyMatrix, defs: emptyDefs })
     expect(html).toContain('scrollIntoView')

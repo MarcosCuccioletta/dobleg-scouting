@@ -766,13 +766,14 @@ ${css}
     ${crestHtml}
   </header>
 
+  <div class="dg-tabbar-wrap">
+    <nav class="dg-tabbar" aria-label="Secciones del informe">${tabBarHtml}</nav>
+  </div>
+
   <div class="dg-layout">
     ${playerRailHtml}
 
     <div class="dg-panel-card">
-      <div class="dg-tabbar-wrap">
-        <nav class="dg-tabbar" aria-label="Secciones del informe">${tabBarHtml}</nav>
-      </div>
       <div class="dg-panels">${panelsHtml}</div>
     </div>
   </div>
@@ -914,7 +915,7 @@ const css = `
     .dg-rail-head h2 { font-size: 15.5px; }
     .dg-photo-fallback { font-size: 22px; }
     .dg-header { margin-bottom: 14px; gap: 10px; }
-    .dg-tabbar-wrap { margin: -16px -14px 14px; padding: 10px 14px; }
+    .dg-tabbar-wrap { margin: 0 -14px 14px; padding: 8px 14px 10px; }
     .dg-tab { padding: 8px 12px; font-size: 12.5px; }
     .dg-cards-2col { grid-template-columns: 1fr; }
     .dg-wins { grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 8px; }
@@ -1047,22 +1048,22 @@ const css = `
   .dg-panel-card { padding: 20px; min-width: 0; }
 
   /* ── Barra de secciones ──────────────────────────────────────────────────
-     Antes eran links con subrayado que se envolvían en 3 filas de texto chico
-     en el celular: no se veía en cuál estabas ni que las otras se tocaban.
-     Ahora: una sola fila de pastillas que se desliza, pegada arriba mientras
-     se lee, con la activa en verde macizo y las demás con su propio contorno
-     (que es lo que las hace leer como botones). */
+     Va ARRIBA de la ficha y a todo el ancho, no adentro del panel de contenido.
+     Metida ahí abajo, en el celular quedaba después de toda la ficha (y al
+     costado en horizontal): había que scrollear el perfil entero para enterarse
+     de que el informe tenía secciones. Ahora es lo primero que se ve después
+     del encabezado y queda pegada arriba mientras se lee; la ficha sigue
+     exactamente donde estaba, abajo. */
   .dg-tabbar-wrap {
     position: sticky;
     top: 0;
-    z-index: 20;
-    margin: -20px -20px 18px;
-    padding: 12px 20px;
-    background: rgba(15,17,20,0.92);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    z-index: 30;
+    margin: 0 -24px 16px;
+    padding: 10px 24px 12px;
+    background: rgba(8,9,11,0.90);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     border-bottom: 1px solid rgba(255,255,255,0.07);
-    border-radius: 18px 18px 0 0;
   }
   /* Un solo riel con las secciones adentro (control segmentado), no botones
      sueltos. El riel es el que se desliza cuando no entran: las de las puntas
@@ -1437,6 +1438,7 @@ const script = `
   var tabs = document.querySelectorAll('.dg-tab');
   var panels = document.querySelectorAll('.dg-panel');
   var card = document.querySelector('.dg-panel-card');
+  var bar = document.querySelector('.dg-tabbar-wrap');
   var smooth = !window.matchMedia || !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   tabs.forEach(function (tab) {
@@ -1456,11 +1458,13 @@ const script = `
         catch (e) { tab.scrollIntoView(); }
       }
 
-      // Si se estaba leyendo más abajo, la sección nueva arranca desde arriba
-      // (si no, se entra a la mitad de un contenido distinto).
+      // Lleva al contenido de la sección elegida, justo debajo de la barra. Sin
+      // esto, en el celular tocabas "Radar" y te quedabas mirando la ficha,
+      // porque el contenido está más abajo.
       if (card) {
-        var top = card.getBoundingClientRect().top;
-        if (top < 0) window.scrollBy({ top: top - 4, behavior: smooth ? 'smooth' : 'auto' });
+        var barH = bar ? bar.getBoundingClientRect().height : 0;
+        var delta = card.getBoundingClientRect().top - barH - 8;
+        if (Math.abs(delta) > 2) window.scrollBy({ top: delta, behavior: smooth ? 'smooth' : 'auto' });
       }
     });
   });
