@@ -302,9 +302,9 @@ export function barsSvg(opts: { rows: BarRow[]; width?: number; stacked?: boolea
   const paddingBottom = 8
   const height = rows.length * rowHeight + paddingTop + paddingBottom
 
-  // Layout horizontal: [label][track][value+rank+dot]
-  const labelWidth = width * 0.26
-  const rightWidth = width * 0.20
+  // Layout horizontal: [label][track][value+rank]
+  const labelWidth = width * 0.30
+  const rightWidth = width * 0.17
   const trackX = labelWidth + 12
   const trackWidth = width - labelWidth - rightWidth - 24
   const trackHeight = 12
@@ -321,7 +321,7 @@ export function barsSvg(opts: { rows: BarRow[]; width?: number; stacked?: boolea
     const pct = Math.max(0, Math.min(100, row.pct))
     const fillWidth = round2((pct / 100) * trackWidth)
     const dotColor = DOT_COLOR[row.dot]
-    const truncated = truncateLabel(row.label)
+    const truncated = truncateLabel(row.label, 26)
 
     // Label (con <title> propio para el texto completo si fue truncado).
     parts.push(
@@ -353,13 +353,12 @@ export function barsSvg(opts: { rows: BarRow[]; width?: number; stacked?: boolea
       )
     }
 
-    // Valor + rank + dot semaforo a la derecha del track.
-    const rightX = round2(trackX + trackWidth + 12)
+    // Valor + rank a la derecha, anclados al borde del viewBox: por largo que sea
+    // el texto queda adentro (antes se dibujaba desde una x fija y se cortaba).
+    // El semáforo va en el color del número: un punto separado quedaría suelto,
+    // porque no se puede saber de antemano cuánto mide el texto.
     parts.push(
-      `<circle cx="${rightX}" cy="${round2(centerY)}" r="4" fill="${dotColor}"/>`
-    )
-    parts.push(
-      `<text x="${round2(rightX + 10)}" y="${centerY}" fill="${COLOR_STRONG_TEXT}" font-size="14" dominant-baseline="middle">${escapeSvgText(row.value)} <tspan fill="${COLOR_AXIS_TEXT}">${escapeSvgText(row.rank)}</tspan></text>`
+      `<text x="${width}" y="${centerY}" text-anchor="end" font-size="14" dominant-baseline="middle"><tspan fill="${dotColor}" font-weight="700">${escapeSvgText(row.value)}</tspan> <tspan fill="${COLOR_AXIS_TEXT}">${escapeSvgText(row.rank)}</tspan></text>`
     )
   })
 
@@ -368,19 +367,22 @@ export function barsSvg(opts: { rows: BarRow[]; width?: number; stacked?: boolea
 }
 
 /**
- * Variante apilada de las barras, pensada para pantallas angostas (mobile):
- * el nombre de la métrica va completo en una línea arriba y la barra full-width
- * debajo, con el valor + puesto a la derecha. Al no comprimir el label al 26%
- * del ancho, los nombres se leen aunque el SVG se achique.
+ * Variante apilada de las barras, para pantallas angostas (mobile).
+ *
+ * El valor y el puesto van arriba a la derecha, alineados al borde, y la barra
+ * ocupa todo el ancho debajo. Antes iban al lado de la barra en un hueco fijo de
+ * 84px: un valor largo ("2446.00 N°1/9") se salía del viewBox y quedaba cortado.
+ * Alineado al final no se puede cortar, entre a lo que entre.
  */
 function barsSvgStacked(rows: BarRow[], width: number): string {
-  const rowHeight = 48
+  const rowHeight = 52
   const paddingTop = 6
   const paddingBottom = 6
   const height = rows.length * rowHeight + paddingTop + paddingBottom
   const trackHeight = 13
-  const valueSlot = 84
-  const trackWidth = width - valueSlot
+  // El label comparte línea con el valor: se le deja lo que no usa el valor
+  // (~10 caracteres del tipo "2446 N°1/9").
+  const labelMaxChars = 32
 
   const parts: string[] = []
   parts.push(`<svg width="100%" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg" role="img">`)
@@ -388,36 +390,36 @@ function barsSvgStacked(rows: BarRow[], width: number): string {
   rows.forEach((row, i) => {
     const rowY = paddingTop + i * rowHeight
     const pct = Math.max(0, Math.min(100, row.pct))
-    const fillWidth = round2((pct / 100) * trackWidth)
+    const fillWidth = round2((pct / 100) * width)
     const dotColor = DOT_COLOR[row.dot]
-    const label = row.label.length > 40 ? row.label.slice(0, 39) + '…' : row.label
-    const trackY = rowY + 26
-    const centerY = round2(trackY + trackHeight / 2)
+    const label = row.label.length > labelMaxChars ? row.label.slice(0, labelMaxChars - 1) + '…' : row.label
+    const headY = rowY + 13
+    const trackY = rowY + 30
 
-    // Nombre de la métrica (completo), arriba.
+    // Nombre de la métrica, arriba a la izquierda.
     parts.push(
-      `<text x="0" y="${rowY + 13}" fill="${COLOR_STRONG_TEXT}" font-size="15" font-weight="600" dominant-baseline="middle">${escapeSvgText(label)}<title>${escapeSvgText(row.label)}</title></text>`
+      `<text x="0" y="${headY}" fill="${COLOR_STRONG_TEXT}" font-size="15" font-weight="600" dominant-baseline="middle">${escapeSvgText(label)}<title>${escapeSvgText(row.label)}</title></text>`
     )
-    // Track + fill.
-    parts.push(`<rect x="0" y="${round2(trackY)}" width="${round2(trackWidth)}" height="${trackHeight}" rx="6" fill="${COLOR_TRACK}"/>`)
+    // Valor + puesto, arriba a la derecha (anclados al borde: no se cortan).
+    // El color del semáforo va en el propio número, así no hace falta el punto
+    // (que obligaría a saber de antemano cuánto mide el texto).
+    parts.push(
+      `<text x="${width}" y="${headY}" text-anchor="end" font-size="14" dominant-baseline="middle"><tspan fill="${dotColor}" font-weight="700">${escapeSvgText(row.value)}</tspan> <tspan fill="${COLOR_AXIS_TEXT}">${escapeSvgText(row.rank)}</tspan></text>`
+    )
+    // Track + fill, todo el ancho.
+    parts.push(`<rect x="0" y="${round2(trackY)}" width="${width}" height="${trackHeight}" rx="6" fill="${COLOR_TRACK}"/>`)
     if (fillWidth > 0) {
       parts.push(`<rect x="0" y="${round2(trackY)}" width="${fillWidth}" height="${trackHeight}" rx="6" fill="${COLOR_GREEN}"/>`)
     }
     // Marcador del promedio.
     if (row.avgPct != null) {
       const avgPct = Math.max(0, Math.min(100, row.avgPct))
-      const avgX = round2((avgPct / 100) * trackWidth)
+      const avgX = round2((avgPct / 100) * width)
       const top = round2(trackY - 5)
       const bottom = round2(trackY + trackHeight + 5)
       parts.push(`<line x1="${avgX}" y1="${top}" x2="${avgX}" y2="${bottom}" stroke="${COLOR_AVG_MARK}" stroke-width="2" stroke-linecap="round"/>`)
       parts.push(`<path d="M${round2(avgX - 3.5)} ${round2(top - 5)} L${round2(avgX + 3.5)} ${round2(top - 5)} L${avgX} ${round2(top - 0.5)} Z" fill="${COLOR_AVG_MARK}"/>`)
     }
-    // Dot + valor + puesto, a la derecha de la barra.
-    const dotX = round2(trackWidth + 12)
-    parts.push(`<circle cx="${dotX}" cy="${centerY}" r="4" fill="${dotColor}"/>`)
-    parts.push(
-      `<text x="${round2(dotX + 9)}" y="${centerY}" fill="${COLOR_STRONG_TEXT}" font-size="13" dominant-baseline="middle">${escapeSvgText(row.value)} <tspan fill="${COLOR_AXIS_TEXT}">${escapeSvgText(row.rank)}</tspan></text>`
-    )
   })
 
   parts.push('</svg>')

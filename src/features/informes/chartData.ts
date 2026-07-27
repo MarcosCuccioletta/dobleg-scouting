@@ -284,6 +284,20 @@ export function comparisonWinCounts(
 // ---------------------------------------------------------------------------
 
 /** Traduce MetricStat[] (filtradas por `keys`) al formato de fila que espera `barsSvg`. */
+/**
+ * Número de la barra, con los decimales que hagan falta y ni uno más.
+ * "2446.00 minutos" ocupa lugar de más al lado de la barra (en celular llegaba a
+ * cortarse) y encima queda peor escrito que "2446".
+ */
+export function barValue(value: number, unit: MetricDef['unit']): string {
+  if (unit === '%') return `${value.toFixed(0)}%`
+  if (Number.isInteger(value)) return String(value)
+  const abs = Math.abs(value)
+  if (abs >= 100) return value.toFixed(0)
+  if (abs >= 10) return value.toFixed(1)
+  return value.toFixed(2)
+}
+
 export function barsData(stats: MetricStat[], keys: string[]): BarRow[] {
   return keys
     .map(key => stats.find(s => s.def.key === key))
@@ -292,12 +306,7 @@ export function barsData(stats: MetricStat[], keys: string[]): BarRow[] {
       label: stat.def.label,
       pct: stat.percentile ?? 0,
       avgPct: stat.avgPercentile,
-      value:
-        stat.value == null
-          ? '—'
-          : stat.def.unit === '%'
-            ? `${stat.value.toFixed(0)}%`
-            : stat.value.toFixed(2),
+      value: stat.value == null ? '—' : barValue(stat.value, stat.def.unit),
       rank: stat.rank != null ? `N°${stat.rank}/${stat.total}` : 's/d',
       dot: stat.color,
     }))

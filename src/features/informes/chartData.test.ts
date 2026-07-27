@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { getRowName, radarData, radarComparisonData, barsData, scatterData, suggestAxisFloor, comparisonTable, comparisonWinCounts, parseRating, ratingMax, topStrengths } from './chartData'
+import { getRowName, radarData, radarComparisonData, barsData, barValue, scatterData, suggestAxisFloor, comparisonTable, comparisonWinCounts, parseRating, ratingMax, topStrengths } from './chartData'
 import type { Informe, MetricDef, MetricStat, ScatterAssignment } from './types'
 
 function makeDef(over: Partial<MetricDef>): MetricDef {
@@ -209,7 +209,18 @@ describe('barsData', () => {
       { def, value: 5, avg: 3, avgPercentile: 40, percentile: 80, color: 'green', rank: 1, total: 5 },
     ]
     const rows = barsData(stats, ['goals'])
-    expect(rows).toEqual([{ label: 'Goles', pct: 80, avgPct: 40, value: '5.00', rank: 'N°1/5', dot: 'green' }])
+    expect(rows).toEqual([{ label: 'Goles', pct: 80, avgPct: 40, value: '5', rank: 'N°1/5', dot: 'green' }])
+  })
+
+  it('escribe el número con los decimales que hagan falta y no más', () => {
+    // Un entero no lleva decimales ("2446.00 minutos" ocupa lugar al pedo y en
+    // celular llegaba a cortarse contra el borde).
+    expect(barValue(2446, '')).toBe('2446')
+    expect(barValue(0.5, '')).toBe('0.50')
+    expect(barValue(12.345, '')).toBe('12.3')
+    expect(barValue(2446.7, '')).toBe('2447')
+    expect(barValue(48.9, '%')).toBe('49%')
+    expect(barValue(-1.5, '')).toBe('-1.50')
   })
 
   it('formatea porcentaje con unit %', () => {

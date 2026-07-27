@@ -160,6 +160,51 @@ describe('smoke tests de ensamblado SVG', () => {
     expect(svg).toContain('#CBD2DB')
   })
 
+  // El valor va a la derecha de la barra: si se dibuja desde una x fija, un
+  // número largo ("2446 N°1/9") se sale del viewBox y el navegador lo corta.
+  // Anclándolo al final queda adentro siempre.
+  describe('barsSvg — el valor no se corta contra el borde', () => {
+    const rows = [{ label: 'Minutos jugados', pct: 92, avgPct: 45, value: '2446', rank: 'N°1/9', dot: 'green' as const }]
+
+    it('la versión de escritorio ancla el valor al borde derecho', () => {
+      const svg = barsSvg({ rows, width: 720 })
+      expect(svg).toContain('viewBox="0 0 720')
+      expect(svg).toContain('x="720" ')
+      expect(svg).toContain('text-anchor="end"')
+      expect(svg).toContain('2446')
+      expect(svg).toContain('N°1/9')
+    })
+
+    it('la versión de celular también, y la barra ocupa todo el ancho', () => {
+      const svg = barsSvg({ rows, stacked: true, width: 380 })
+      expect(svg).toContain('viewBox="0 0 380')
+      expect(svg).toContain('x="380" ')
+      expect(svg).toContain('text-anchor="end"')
+      expect(svg).toContain('width="380" height="13"')
+      expect(svg).toContain('N°1/9')
+    })
+
+    it('ninguna x del dibujo se pasa del ancho del viewBox', () => {
+      for (const stacked of [false, true]) {
+        const width = stacked ? 380 : 720
+        const svg = barsSvg({ rows, stacked, width })
+        const xs = [...svg.matchAll(/(?:x|cx|x1|x2)="([-\d.]+)"/g)].map(m => Number(m[1]))
+        expect(xs.length).toBeGreaterThan(0)
+        expect(Math.max(...xs)).toBeLessThanOrEqual(width)
+      }
+    })
+
+    it('el nombre largo de la métrica se recorta en celular para no pisar el valor', () => {
+      const svg = barsSvg({
+        rows: [{ ...rows[0], label: 'Duelos defensivos ganados en campo propio, %' }],
+        stacked: true,
+      })
+      expect(svg).toContain('…')
+      // El nombre completo queda en el <title> (tooltip).
+      expect(svg).toContain('<title>Duelos defensivos ganados en campo propio, %</title>')
+    })
+  })
+
   it('radarSvg parte en 2 líneas las etiquetas largas (tspan)', () => {
     const svg = radarSvg({
       axes: ['Duelos defensivos ganados, %', 'Goles', 'xG'],
