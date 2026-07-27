@@ -119,7 +119,7 @@ export default function Step3Contenido({ informe, content, onChange, onChangeInf
               <h2 className="text-sm font-semibold text-apple-gray-900 dark:text-white">Estadísticas principales</h2>
               <CheckboxField label="Ocultar en el email" checked={content.hideMainStats} onChange={v => set('hideMainStats', v)} />
             </div>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               <Field label="Rating" value={content.rating} onChange={v => set('rating', v)} />
               <Field label="PJ" value={content.pj} onChange={v => set('pj', v)} />
               <Field label="Minutos" value={content.minutos} onChange={v => set('minutos', v)} />
@@ -160,19 +160,21 @@ export default function Step3Contenido({ informe, content, onChange, onChangeInf
         <div className="space-y-4">
           <div className={cardClass}>
             <h2 className="text-sm font-semibold text-apple-gray-900 dark:text-white mb-3">Últimos 5 partidos</h2>
-            <div className="space-y-2">
-              <div className="grid grid-cols-4 gap-2 px-1">
+            <div className="space-y-3 sm:space-y-2">
+              {/* La fila de encabezados sólo tiene sentido con las 4 columnas: en
+                  celular se apila de a dos y cada campo lleva su propio placeholder. */}
+              <div className="hidden sm:grid grid-cols-4 gap-2 px-1">
                 <span className={labelClass}>Rival</span>
                 <span className={labelClass}>Resultado</span>
                 <span className={labelClass}>Rating</span>
                 <span className={labelClass}>Minutos</span>
               </div>
               {matches.map((row, idx) => (
-                <div key={idx} className="grid grid-cols-4 gap-2">
-                  <input type="text" value={row.rival} onChange={e => updateMatch(idx, { rival: e.target.value })} className={smallInputClass} />
-                  <input type="text" value={row.resultado} onChange={e => updateMatch(idx, { resultado: e.target.value })} className={smallInputClass} />
-                  <input type="text" value={row.rating} onChange={e => updateMatch(idx, { rating: e.target.value })} className={smallInputClass} />
-                  <input type="text" value={row.minutos} onChange={e => updateMatch(idx, { minutos: e.target.value })} className={smallInputClass} />
+                <div key={idx} className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <input type="text" placeholder="Rival" value={row.rival} onChange={e => updateMatch(idx, { rival: e.target.value })} className={smallInputClass} />
+                  <input type="text" placeholder="Resultado" value={row.resultado} onChange={e => updateMatch(idx, { resultado: e.target.value })} className={smallInputClass} />
+                  <input type="text" placeholder="Rating" value={row.rating} onChange={e => updateMatch(idx, { rating: e.target.value })} className={smallInputClass} />
+                  <input type="text" placeholder="Minutos" value={row.minutos} onChange={e => updateMatch(idx, { minutos: e.target.value })} className={smallInputClass} />
                 </div>
               ))}
             </div>
@@ -183,8 +185,8 @@ export default function Step3Contenido({ informe, content, onChange, onChangeInf
               <h2 className="text-sm font-semibold text-apple-gray-900 dark:text-white">Comparables</h2>
               <CheckboxField label="Ocultar comparables" checked={content.hideComparables} onChange={v => set('hideComparables', v)} />
             </div>
-            <div className="space-y-2">
-              <div className="grid grid-cols-[1fr_1fr_1fr_1fr_auto] gap-2 px-1">
+            <div className="space-y-3 sm:space-y-2">
+              <div className="hidden sm:grid grid-cols-[1fr_1fr_1fr_1fr_auto] gap-2 px-1">
                 <span className={labelClass}>Jugador</span>
                 <span className={labelClass}>Club</span>
                 <span className={labelClass}>Rating</span>
@@ -192,21 +194,25 @@ export default function Step3Contenido({ informe, content, onChange, onChangeInf
                 <span />
               </div>
               {comparables.map((row, idx) => (
-                <div key={idx} className="grid grid-cols-[1fr_1fr_1fr_1fr_auto] gap-2 items-center">
-                  <input type="text" value={row.jugador} onChange={e => updateComparable(idx, { jugador: e.target.value })} className={smallInputClass} />
-                  <input type="text" value={row.club} onChange={e => updateComparable(idx, { club: e.target.value })} className={smallInputClass} />
-                  <input type="text" value={row.rating} onChange={e => updateComparable(idx, { rating: e.target.value })} className={smallInputClass} />
-                  <input type="text" value={row.delta} onChange={e => updateComparable(idx, { delta: e.target.value })} className={smallInputClass} />
+                <div
+                  key={idx}
+                  className="grid grid-cols-[1fr_1fr_auto] sm:grid-cols-[1fr_1fr_1fr_1fr_auto] gap-2 items-center border-b sm:border-0 border-apple-gray-100 dark:border-apple-gray-800 pb-3 sm:pb-0 last:border-0"
+                >
+                  <input type="text" placeholder="Jugador" value={row.jugador} onChange={e => updateComparable(idx, { jugador: e.target.value })} className={smallInputClass} />
+                  <input type="text" placeholder="Club" value={row.club} onChange={e => updateComparable(idx, { club: e.target.value })} className={smallInputClass} />
+                  {/* En celular la X va al final de la primera fila; en desktop, al final de la única fila. */}
                   <button
                     type="button"
                     onClick={() => removeComparable(idx)}
                     aria-label="Quitar comparable"
-                    className="text-apple-gray-400 hover:text-brand-green transition-colors p-1"
+                    className="sm:order-last text-apple-gray-400 hover:text-brand-green transition-colors p-1"
                   >
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
                     </svg>
                   </button>
+                  <input type="text" placeholder="Rating" value={row.rating} onChange={e => updateComparable(idx, { rating: e.target.value })} className={smallInputClass} />
+                  <input type="text" placeholder="Delta" value={row.delta} onChange={e => updateComparable(idx, { delta: e.target.value })} className={smallInputClass} />
                 </div>
               ))}
             </div>

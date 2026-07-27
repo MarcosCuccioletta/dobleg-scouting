@@ -626,14 +626,15 @@ export function buildInformeHtml(opts: {
           .filter(tile => !config.hiddenItems.includes(tile.id))
           .map(tile => {
             const { value, sub } = renderTile(tile, lang)
-            const art = tile.render === 'donut' && tile.pct != null
-              ? `<div class="dg-imp-art">${donutSvg({ pct: tile.pct })}</div>`
+            const valueHtml = `<span class="dg-imp-value">${escapeHtml(value)}</span>`
+            // Donut: al lado del número. Dots: debajo, ocupando el ancho.
+            const head = tile.render === 'donut' && tile.pct != null
+              ? `<div class="dg-imp-head">${valueHtml}<div class="dg-imp-art">${donutSvg({ pct: tile.pct })}</div></div>`
               : tile.render === 'dots' && tile.dots
-                ? `<div class="dg-imp-art">${dotsSvg(tile.dots)}</div>`
-                : ''
+                ? `${valueHtml}<div class="dg-imp-art">${dotsSvg(tile.dots)}</div>`
+                : valueHtml
             return `<div class="dg-imp-tile">
-                <span class="dg-imp-value">${escapeHtml(value)}</span>
-                ${art}
+                ${head}
                 <span class="dg-imp-sub">${escapeHtml(sub)}</span>
               </div>`
           })
@@ -1149,8 +1150,6 @@ const css = `
   @media (max-width: 640px) {
     .dg-bars-wide { display: none; }
     .dg-bars-narrow { display: block; }
-    .dg-imp-value { font-size: 19px; }
-    .dg-imp-list li { font-size: 12px; }
   }
   .dg-chart { width: 100%; max-width: 100%; overflow-x: auto; }
 
@@ -1158,10 +1157,29 @@ const css = `
   .dg-imp-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin: 14px 0 4px; }
   .dg-imp-tile { border: 1px solid rgba(255,255,255,0.08); background: #14171B; border-radius: 14px; padding: 12px; }
   .dg-imp-value { display: block; font-size: 22px; font-weight: 700; color: #F5F7FA; }
+  /* El donut va al lado del número (no debajo): así la tarjeta no crece el doble
+     que sus vecinas y la fila queda pareja. Los dots sí van debajo, son una tira. */
+  .dg-imp-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .dg-imp-head .dg-imp-value { margin: 0; }
   .dg-imp-art { margin: 6px 0 2px; }
-  .dg-imp-sub { display: block; font-size: 11px; color: #8A9099; }
+  .dg-imp-head .dg-imp-art { margin: 0; flex-shrink: 0; }
+  .dg-imp-art svg { display: block; max-width: 100%; height: auto; }
+  .dg-imp-sub { display: block; font-size: 11px; color: #8A9099; margin-top: 4px; }
   .dg-imp-list { margin: 6px 0 0; padding-left: 18px; }
   .dg-imp-list li { font-size: 13px; color: #F5F7FA; margin-bottom: 5px; }
+  /* Mobile del panel Impacto. Va DESPUÉS de las reglas base: si se declara antes,
+     la base le gana por orden y el celular termina con el layout de escritorio. */
+  @media (max-width: 560px) {
+    .dg-imp-tiles { grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0 4px; }
+    .dg-imp-tile { padding: 10px; }
+    .dg-imp-value { font-size: 19px; }
+    .dg-imp-head .dg-imp-art svg { width: 46px; height: 46px; }
+    .dg-imp-list { padding-left: 16px; }
+    .dg-imp-list li { font-size: 12.5px; margin-bottom: 6px; }
+  }
+  @media (max-width: 340px) {
+    .dg-imp-tiles { grid-template-columns: 1fr; }
+  }
   .dg-chart svg { display: block; max-width: 100%; height: auto; }
   .dg-numbers { margin-top: 24px; }
   .dg-numbers h4 {
