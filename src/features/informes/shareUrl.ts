@@ -49,3 +49,18 @@ export function withVersion(url: string, token: string): string {
 export function brandedShareUrl(informeId: string, nombre: string, version = ''): string {
   return withVersion(`${SHARE_BASE}/${informeShareKey(informeId, nombre)}`, version)
 }
+
+/** Clave de la tarjeta de preview: la misma del informe pero `.jpg`. */
+export function informeOgImageKey(informeId: string, nombre: string): string {
+  return informeShareKey(informeId, nombre).replace(/\.html$/, '.jpg')
+}
+
+/**
+ * URL de la tarjeta de preview, en NUESTRO dominio (la sirve la misma función
+ * que el informe). El crawler que arma la preview pide la página y la imagen por
+ * separado: si las dos salen del mismo origen, hay una sola cosa que puede
+ * fallar, en vez de depender también del CDN de Storage.
+ */
+export function brandedOgImageUrl(informeId: string, nombre: string, version = ''): string {
+  return withVersion(`${SHARE_BASE}/${informeOgImageKey(informeId, nombre)}`, version)
+}

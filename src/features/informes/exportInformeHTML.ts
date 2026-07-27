@@ -6,6 +6,7 @@ import { t, translateMetric, translateInjury, translateTransferType, isRtl } fro
 import type { Informe, MetricStat, MetricDef } from './types'
 import type { InformeEnrichment, Last5Row } from './useInformeEnrichment'
 import { continuityTiles } from './continuity'
+import { resolveLast5 } from './last5'
 import type { PlayerTransfer } from '@/services/footballApiService'
 
 // ---------------------------------------------------------------------------
@@ -197,7 +198,8 @@ export function buildInformeHtml(opts: {
   const physEvo = enrichment?.physicalEvolution ?? []
   const marketEvo = enrichment?.marketEvolution ?? []
   const continuity = enrichment?.continuity ?? null
-  const last5Rows = enrichment?.last5 ?? []
+  // Los partidos cargados a mano en el paso 3 pisan a los de la API.
+  const last5Rows = resolveLast5(content.ultimos5, enrichment?.last5 ?? [])
   const injuries = enrichment?.injuries ?? []
   const showFisico = hasPhysical
 

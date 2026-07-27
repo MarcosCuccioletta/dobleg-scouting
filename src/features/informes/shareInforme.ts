@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase'
-import { brandedShareUrl, informeShareKey, withVersion } from './shareUrl'
+import { brandedOgImageUrl, brandedShareUrl, informeOgImageKey, informeShareKey, withVersion } from './shareUrl'
 
 export { informeShareKey, shareVersionToken } from './shareUrl'
 
@@ -28,9 +28,13 @@ export function informeShareUrl(informeId: string, nombre: string, version = '')
 }
 
 /**
- * Sube la tarjeta de preview (Open Graph) y devuelve su URL pública absoluta.
+ * Sube la tarjeta de preview (Open Graph) y devuelve su URL absoluta.
  * Va al mismo bucket, con la misma clave pero `.jpg`. El `?v=` es para que
  * WhatsApp no se quede con una versión vieja cacheada cuando reeditás.
+ *
+ * La URL que se devuelve es la de NUESTRO dominio (`/i/<slug>.jpg`), no la de
+ * Storage: la imagen y la página salen del mismo origen, que es lo que mejor
+ * digieren los crawlers de WhatsApp/LinkedIn.
  */
 export async function uploadInformeOgImage(
   blob: Blob,
@@ -38,13 +42,15 @@ export async function uploadInformeOgImage(
   nombre: string,
   version = '',
 ): Promise<string | null> {
-  const key = informeShareKey(informeId, nombre).replace(/\.html$/, '.jpg')
+  const key = informeOgImageKey(informeId, nombre)
   const { error } = await supabase.storage.from(BUCKET).upload(key, blob, {
     upsert: true,
     contentType: 'image/jpeg',
     cacheControl: '3600',
   })
   if (error) return null
+
+  if (USE_BRANDED_LINK) return brandedOgImageUrl(informeId, nombre, version)
   const url = supabase.storage.from(BUCKET).getPublicUrl(key).data?.publicUrl
   return url ? withVersion(url, version) : null
 }

@@ -1,19 +1,17 @@
-import type { Informe, InformeContent, MatchRow, Comparable, ContinuityOverrides } from '@/features/informes/types'
+import type { Informe, InformeContent, MatchRow, Comparable, ContinuityOverrides, ContinuityKey } from '@/features/informes/types'
 import { useInformeEnrichment } from '@/features/informes/useInformeEnrichment'
-import { autoContinuityValues } from '@/features/informes/continuity'
+import {
+  autoContinuityValues,
+  defaultContinuityLabel,
+  isContinuityTileHidden,
+  CONTINUITY_DEFS,
+} from '@/features/informes/continuity'
+import { editableLast5, EMPTY_MATCH_ROW } from '@/features/informes/last5'
 import Step3Impacto from './Step3Impacto'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-const EMPTY_MATCH: MatchRow = { rival: '', resultado: '', rating: '', minutos: '' }
 const EMPTY_COMPARABLE: Comparable = { jugador: '', club: '', rating: '', delta: '' }
-
-/** Devuelve exactamente 5 filas para render, completando con filas vacías. */
-function padMatches(rows: MatchRow[]): MatchRow[] {
-  const out = [...rows]
-  while (out.length < 5) out.push({ ...EMPTY_MATCH })
-  return out.slice(0, 5)
-}
 
 /** Al menos 3 filas vacías para arrancar si no hay comparables cargados. */
 function displayComparables(rows: Comparable[]): Comparable[] {
@@ -81,15 +79,40 @@ export default function Step3Contenido({ informe, content, onChange, onChangeInf
   // Continuidad de la pestaña General: se muestra lo que trae la API como
   // placeholder y el usuario escribe encima si no le cierra (la API cuenta sólo
   // los partidos que tiene cargados).
+  const lang = informe.idioma ?? 'es'
   const enrichment = useInformeEnrichment(informe)
   const autoCont = autoContinuityValues(enrichment.continuity)
-  const cont = content.continuidad ?? {}
-  const setCont = (key: keyof ContinuityOverrides, value: string) =>
-    onChange({ ...content, continuidad: { ...cont, [key]: value } })
+  const cont: ContinuityOverrides = content.continuidad ?? {}
+  const patchCont = (patch: Partial<ContinuityOverrides>) =>
+    onChange({ ...content, continuidad: { ...cont, ...patch } })
+  const setCont = (key: ContinuityKey, value: string) => patchCont({ [key]: value })
+  const setContLabel = (key: ContinuityKey, value: string) =>
+    patchCont({ labels: { ...cont.labels, [key]: value } })
+  const toggleCont = (key: ContinuityKey) => {
+    const hidden = cont.hidden ?? []
+    const wasHidden = isContinuityTileHidden(cont, key)
+    const next = wasHidden ? hidden.filter(k => k !== key) : [...hidden, key]
+    // El valor "-" era la forma vieja de ocultar: al volver a mostrarla se limpia.
+    patchCont(wasHidden ? { hidden: next, [key]: '' } : { hidden: next })
+  }
 
-  const matches = padMatches(content.ultimos5)
+  // Últimos 5: arranca con lo que trae la API para que se vea cuál falta. En
+  // cuanto el usuario toca algo, la lista pasa a ser suya (queda guardada).
+  const apiLast5 = enrichment.last5
+  const matches = editableLast5(content.ultimos5, apiLast5)
+  const usandoApi = (content.ultimos5?.length ?? 0) === 0
+  const setMatches = (rows: MatchRow[]) => onChange({ ...content, ultimos5: rows })
   function updateMatch(idx: number, patch: Partial<MatchRow>) {
-    onChange({ ...content, ultimos5: matches.map((r, i) => (i === idx ? { ...r, ...patch } : r)) })
+    setMatches(matches.map((r, i) => (i === idx ? { ...r, ...patch } : r)))
+  }
+  function addMatch() {
+    setMatches([{ ...EMPTY_MATCH_ROW }, ...matches])
+  }
+  function removeMatch(idx: number) {
+    setMatches(matches.filter((_, i) => i !== idx))
+  }
+  function resetMatches() {
+    setMatches([])
   }
 
   const comparables = displayComparables(content.comparables)
@@ -187,15 +210,45 @@ export default function Step3Contenido({ informe, content, onChange, onChangeInf
             </div>
             {!content.hideContinuity && (
               <>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-3">
-                  <Field label="Partidos" value={cont.matches ?? ''} onChange={v => setCont('matches', v)} placeholder={autoCont.matches || 'auto'} />
-                  <Field label="Titular" value={cont.starts ?? ''} onChange={v => setCont('starts', v)} placeholder={autoCont.starts || 'auto'} />
-                  <Field label="Minutos" value={cont.minutes ?? ''} onChange={v => setCont('minutes', v)} placeholder={autoCont.minutes || 'auto'} />
-                  <Field label="Últimos 5" value={cont.last5 ?? ''} onChange={v => setCont('last5', v)} placeholder={autoCont.last5 || 'auto'} />
-                  <Field label="Últimos 10" value={cont.last10 ?? ''} onChange={v => setCont('last10', v)} placeholder={autoCont.last10 || 'auto'} />
+                <div className="mt-3 space-y-2">
+                  <div className="hidden sm:grid grid-cols-[auto_1fr_1fr] gap-2 px-1">
+                    <span className="w-4" />
+                    <span className={labelClass}>Título de la tarjeta</span>
+                    <span className={labelClass}>Valor</span>
+                  </div>
+                  {CONTINUITY_DEFS.map(({ key }) => {
+                    const shown = !isContinuityTileHidden(cont, key)
+                    return (
+                      <div key={key} className="grid grid-cols-[auto_1fr_1fr] items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={shown}
+                          onChange={() => toggleCont(key)}
+                          title="Mostrar esta tarjeta"
+                          className="rounded border-apple-gray-300 dark:border-apple-gray-600 text-brand-green focus:ring-brand-green/40"
+                        />
+                        <input
+                          type="text"
+                          value={cont.labels?.[key] ?? ''}
+                          onChange={e => setContLabel(key, e.target.value)}
+                          placeholder={defaultContinuityLabel(key, lang)}
+                          disabled={!shown}
+                          className={`${smallInputClass} disabled:opacity-40`}
+                        />
+                        <input
+                          type="text"
+                          value={cont[key] ?? ''}
+                          onChange={e => setCont(key, e.target.value)}
+                          placeholder={autoCont[key] || 'auto'}
+                          disabled={!shown}
+                          className={`${smallInputClass} disabled:opacity-40`}
+                        />
+                      </div>
+                    )
+                  })}
                 </div>
                 <p className="text-[11px] text-apple-gray-500 dark:text-apple-gray-400 mt-2">
-                  Vacío = el valor de la API (lo que aparece en gris). Escribí lo que quieras (ej. <span className="font-semibold">46/46</span>) o poné <span className="font-semibold">-</span> para sacar esa tarjeta.
+                  Destildá la tarjeta que no quieras (ej. Titularidades). Vacío = lo que trae la API (el texto gris); escribí encima lo que quieras, título y valor.
                 </p>
               </>
             )}
@@ -214,25 +267,62 @@ export default function Step3Contenido({ informe, content, onChange, onChangeInf
         {/* ── Derecha ── */}
         <div className="space-y-4">
           <div className={cardClass}>
-            <h2 className="text-sm font-semibold text-apple-gray-900 dark:text-white mb-3">Últimos 5 partidos</h2>
+            <div className="flex items-center justify-between gap-2 mb-1">
+              <h2 className="text-sm font-semibold text-apple-gray-900 dark:text-white">Últimos 5 partidos</h2>
+              <div className="flex items-center gap-2">
+                {!usandoApi && apiLast5.length > 0 && (
+                  <button type="button" onClick={resetMatches} className="text-xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 hover:underline">
+                    Volver a los de la API
+                  </button>
+                )}
+                <button type="button" onClick={addMatch} className="px-2.5 py-1 rounded-lg border border-brand-green text-brand-green text-xs font-semibold">
+                  + Agregar partido
+                </button>
+              </div>
+            </div>
+            <p className="text-[11px] text-apple-gray-500 dark:text-apple-gray-400 mb-3">
+              {usandoApi
+                ? 'Estos son los que trae la API. Editá lo que quieras o agregá el partido que falta: el primero de la lista es el más reciente.'
+                : 'Lista propia: se publica tal cual la dejes, de arriba (más reciente) hacia abajo.'}
+            </p>
             <div className="space-y-3 sm:space-y-2">
-              {/* La fila de encabezados sólo tiene sentido con las 4 columnas: en
-                  celular se apila de a dos y cada campo lleva su propio placeholder. */}
-              <div className="hidden sm:grid grid-cols-4 gap-2 px-1">
+              {/* La fila de encabezados sólo tiene sentido con las columnas completas:
+                  en celular se apila y cada campo lleva su propio placeholder. */}
+              <div className="hidden sm:grid grid-cols-[64px_1fr_1fr_1fr_1fr_auto] gap-2 px-1">
+                <span className={labelClass}>Fecha</span>
                 <span className={labelClass}>Rival</span>
                 <span className={labelClass}>Resultado</span>
                 <span className={labelClass}>Rating</span>
                 <span className={labelClass}>Minutos</span>
+                <span />
               </div>
+              {matches.length === 0 && (
+                <p className="text-xs text-apple-gray-500 dark:text-apple-gray-400">
+                  Sin partidos. Tocá “Agregar partido” para cargarlos a mano.
+                </p>
+              )}
               {matches.map((row, idx) => (
-                <div key={idx} className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div key={idx} className="grid grid-cols-2 sm:grid-cols-[64px_1fr_1fr_1fr_1fr_auto] gap-2">
+                  <input type="text" placeholder="dd/mm" value={row.fecha ?? ''} onChange={e => updateMatch(idx, { fecha: e.target.value })} className={smallInputClass} />
                   <input type="text" placeholder="Rival" value={row.rival} onChange={e => updateMatch(idx, { rival: e.target.value })} className={smallInputClass} />
                   <input type="text" placeholder="Resultado" value={row.resultado} onChange={e => updateMatch(idx, { resultado: e.target.value })} className={smallInputClass} />
                   <input type="text" placeholder="Rating" value={row.rating} onChange={e => updateMatch(idx, { rating: e.target.value })} className={smallInputClass} />
                   <input type="text" placeholder="Minutos" value={row.minutos} onChange={e => updateMatch(idx, { minutos: e.target.value })} className={smallInputClass} />
+                  <button
+                    type="button"
+                    onClick={() => removeMatch(idx)}
+                    title="Borrar este partido"
+                    aria-label="Borrar este partido"
+                    className="px-2 py-1.5 rounded-lg border border-apple-gray-200 dark:border-apple-gray-700 text-apple-gray-400 hover:text-red-500 hover:border-red-400 text-xs"
+                  >
+                    ✕
+                  </button>
                 </div>
               ))}
             </div>
+            <p className="text-[11px] text-apple-gray-500 dark:text-apple-gray-400 mt-2">
+              La fecha es sólo para que los reconozcas acá; en el informe se publican rival, resultado, rating y minutos. El resultado se escribe con los goles de su equipo primero (ej. 2-1) para que el color salga bien.
+            </p>
           </div>
 
           <div className={cardClass}>

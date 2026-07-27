@@ -1,22 +1,24 @@
 // Tarjetas del bloque Continuidad (pestaña General). La API sólo cuenta los
 // partidos que tiene cargados —y filtrados por posición—, así que el usuario
-// puede pisar cualquier valor a mano: lo que escribe manda.
+// manda: puede reescribir el número, el título, o sacar la tarjeta entera
+// (típico: "Titularidades", que no siempre se sabe).
 //
-// Reglas: vacío = valor automático de la API · "-" = esa tarjeta no se muestra.
+// Reglas: valor vacío = valor automático de la API · destildada = no se muestra.
 
 import { t, type Lang } from './i18n'
-import type { ContinuityOverrides, InformeContent } from './types'
+import type { ContinuityKey, ContinuityOverrides, InformeContent } from './types'
 import type { Continuity } from './useInformeEnrichment'
 
 export interface ContinuityTile {
-  key: keyof ContinuityOverrides
+  key: ContinuityKey
   label: string
   value: string
 }
 
+// Compatibilidad: antes se sacaba una tarjeta escribiendo "-" en el valor.
 const HIDE_TOKENS = new Set(['-', '–', '—', 'x', 'X'])
 
-const DEFS: { key: keyof ContinuityOverrides; tKey: string }[] = [
+export const CONTINUITY_DEFS: { key: ContinuityKey; tKey: string }[] = [
   { key: 'matches', tKey: 's_matches' },
   { key: 'starts', tKey: 's_starts' },
   { key: 'minutes', tKey: 's_minutes' },
@@ -25,7 +27,7 @@ const DEFS: { key: keyof ContinuityOverrides; tKey: string }[] = [
 ]
 
 /** Valores que trae la API, ya formateados (string vacío si no hay datos). */
-export function autoContinuityValues(c: Continuity | null): Record<keyof ContinuityOverrides, string> {
+export function autoContinuityValues(c: Continuity | null): Record<ContinuityKey, string> {
   if (!c) return { matches: '', starts: '', minutes: '', last5: '', last10: '' }
   return {
     matches: String(c.matches),
@@ -36,9 +38,20 @@ export function autoContinuityValues(c: Continuity | null): Record<keyof Continu
   }
 }
 
+/** Título por defecto de cada tarjeta, en el idioma del informe. */
+export function defaultContinuityLabel(key: ContinuityKey, lang: Lang): string {
+  const def = CONTINUITY_DEFS.find(d => d.key === key)
+  return def ? t(lang, def.tKey) : key
+}
+
+export function isContinuityTileHidden(overrides: ContinuityOverrides, key: ContinuityKey): boolean {
+  if (overrides.hidden?.includes(key)) return true
+  return HIDE_TOKENS.has((overrides[key] ?? '').trim())
+}
+
 /**
  * Tarjetas finales a mostrar. Devuelve [] si el bloque está oculto o si no queda
- * ningún valor (ni de la API ni escrito a mano).
+ * ninguna tarjeta con valor.
  */
 export function continuityTiles(
   content: Pick<InformeContent, 'hideContinuity' | 'continuidad'>,
@@ -49,8 +62,11 @@ export function continuityTiles(
   const auto = autoContinuityValues(c)
   const overrides = content.continuidad ?? {}
 
-  return DEFS.map(({ key, tKey }) => {
-    const manual = (overrides[key] ?? '').trim()
-    return { key, label: t(lang, tKey), value: manual || auto[key] }
-  }).filter(tile => tile.value !== '' && !HIDE_TOKENS.has(tile.value))
+  return CONTINUITY_DEFS.filter(({ key }) => !isContinuityTileHidden(overrides, key))
+    .map(({ key }) => ({
+      key,
+      label: (overrides.labels?.[key] ?? '').trim() || defaultContinuityLabel(key, lang),
+      value: (overrides[key] ?? '').trim() || auto[key],
+    }))
+    .filter(tile => tile.value !== '')
 }

@@ -34,6 +34,23 @@ function extractKey(event) {
   return key
 }
 
+// Tipos de imagen que también salen por acá: la tarjeta de preview (og:image).
+// Conviene servirla desde nuestro dominio y no desde Storage — el crawler de
+// WhatsApp/LinkedIn pide la imagen desde otra IP que la del que abre el link, y
+// un CDN de terceros puede contestarle distinto. Mismo origen = una sola cosa
+// que puede fallar.
+const IMAGE_TYPES = {
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  webp: 'image/webp',
+}
+
+function imageTypeOf(key) {
+  const ext = (key.split('.').pop() || '').toLowerCase()
+  return IMAGE_TYPES[ext] || null
+}
+
 exports.handler = async function (event) {
   const key = extractKey(event)
   if (!key || /[\r\n]/.test(key)) {
@@ -41,12 +58,17 @@ exports.handler = async function (event) {
   }
 
   const url = `${SUPABASE}/storage/v1/object/public/${BUCKET}/${encodeURIComponent(key).replace(/%2F/g, '/')}`
+  const imageType = imageTypeOf(key)
 
   return new Promise((resolve) => {
     https
       .get(url, (res) => {
         if (res.statusCode !== 200) {
           res.resume()
+          if (imageType) {
+            resolve({ statusCode: res.statusCode === 404 ? 404 : 502, headers: { 'Content-Type': 'text/plain; charset=utf-8' }, body: 'Imagen no encontrada.' })
+            return
+          }
           resolve({
             statusCode: res.statusCode === 404 ? 404 : 502,
             headers: { 'Content-Type': 'text/html; charset=utf-8' },
@@ -57,6 +79,21 @@ exports.handler = async function (event) {
         const chunks = []
         res.on('data', (c) => chunks.push(c))
         res.on('end', () => {
+          const buf = Buffer.concat(chunks)
+          if (imageType) {
+            resolve({
+              statusCode: 200,
+              headers: {
+                'Content-Type': imageType,
+                'X-Content-Type-Options': 'nosniff',
+                'Cache-Control': 'public, max-age=3600',
+                'Access-Control-Allow-Origin': '*',
+              },
+              body: buf.toString('base64'),
+              isBase64Encoded: true,
+            })
+            return
+          }
           resolve({
             statusCode: 200,
             headers: {
@@ -65,7 +102,7 @@ exports.handler = async function (event) {
               'X-Content-Type-Options': 'nosniff',
               'Cache-Control': 'public, max-age=300',
             },
-            body: Buffer.concat(chunks).toString('utf8'),
+            body: buf.toString('utf8'),
           })
         })
       })

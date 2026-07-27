@@ -40,15 +40,21 @@ export interface ChartAssignments {
 }
 
 // Contenido editorial
-export interface MatchRow { rival: string; resultado: string; rating: string; minutos: string }
+// Fila de "Últimos 5 partidos". `fecha` es sólo de referencia en el editor
+// (dd/mm): sirve para reconocer el partido, no se publica en la tabla.
+export interface MatchRow { rival: string; resultado: string; rating: string; minutos: string; fecha?: string }
 // Continuidad de la pestaña General: lo que el usuario escribe pisa lo de la API.
-// Vacío = valor automático; "-" = esa tarjeta no se muestra.
+// Vacío = valor automático; el título también se puede reescribir; `hidden` saca
+// la tarjeta (ej. "Titularidades", que no siempre se sabe).
+export type ContinuityKey = 'matches' | 'starts' | 'minutes' | 'last5' | 'last10'
 export interface ContinuityOverrides {
   matches?: string
   starts?: string
   minutes?: string
   last5?: string
   last10?: string
+  labels?: Partial<Record<ContinuityKey, string>>
+  hidden?: ContinuityKey[]
 }
 export interface Comparable { jugador: string; club: string; rating: string; delta: string }
 export interface InformeContent {

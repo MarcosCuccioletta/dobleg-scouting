@@ -20,6 +20,7 @@ import { comparisonTable, comparisonWinCounts, topStrengths, parseRating } from 
 import { useInformeEnrichment, type InformeEnrichment } from '@/features/informes/useInformeEnrichment'
 import { usePreferredPlayerId } from '@/hooks/usePlayerStats'
 import { continuityTiles } from '@/features/informes/continuity'
+import { resolveLast5 } from '@/features/informes/last5'
 import { useInformeInsights, DEFAULT_INSIGHTS_CONFIG } from '@/features/informes/useInformeInsights'
 import InformeImpacto from './InformeImpacto'
 import { t, translateMetric, translateInjury, translateTransferType, isRtl, LANGS, type Lang } from '@/features/informes/i18n'
@@ -390,7 +391,7 @@ export default function Step4Preview({ informe, stats, matrix, defs, onBack, onS
     const minStat = stats.find(s => normalizeForSearch(s.def.label) === 'minutos jugados')
       ?? stats.find(s => normalizeForSearch(s.def.label).includes('minutos'))
     const minPct = minStat?.percentile ?? null
-    const last5 = enrichment.last5
+    const last5 = resolveLast5(content.ultimos5, enrichment.last5)
     const outcomeColor = (o: (typeof last5)[number]['outcome']) => o === 'win' ? DG.green : o === 'loss' ? '#EF4444' : DG.muted
     const hasAny = enrichment.levelEvolution.length >= 2 || !!c || enrichment.injuries.length > 0 || last5.length > 0
     return (

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { informeShareKey, shareVersionToken, withVersion, brandedShareUrl } from './shareUrl'
+import { informeShareKey, shareVersionToken, withVersion, brandedShareUrl, brandedOgImageUrl, informeOgImageKey } from './shareUrl'
 
 describe('informeShareKey', () => {
   it('arma slug + token del id', () => {
@@ -57,5 +57,21 @@ describe('brandedShareUrl', () => {
     const b = brandedShareUrl('inf_abc123456', 'Luca Orellano', 'bb')
     expect(a).not.toBe(b)
     expect(a).toContain('luca-orellano-123456.html?v=aa')
+  })
+})
+
+describe('brandedOgImageUrl', () => {
+  it('la tarjeta sale del mismo dominio y con la misma clave que el informe', () => {
+    expect(informeOgImageKey('inf_abc123456', 'Luca Orellano')).toBe('luca-orellano-123456.jpg')
+    expect(brandedOgImageUrl('inf_abc123456', 'Luca Orellano', 'aa'))
+      .toBe('https://dobleg-scouting.netlify.app/i/luca-orellano-123456.jpg?v=aa')
+  })
+
+  it('la imagen y el informe comparten la versión', () => {
+    const page = brandedShareUrl('inf_abc123456', 'Luca Orellano', 'zz')
+    const img = brandedOgImageUrl('inf_abc123456', 'Luca Orellano', 'zz')
+    expect(page.endsWith('?v=zz')).toBe(true)
+    expect(img.endsWith('?v=zz')).toBe(true)
+    expect(img.replace('.jpg', '.html')).toBe(page)
   })
 })
