@@ -3,7 +3,8 @@ import type { Informe, InformeContent, MetricStat, MetricDef, ScatterAssignment 
 import { exportInformePDF } from '@/features/informes/exportInformePDF'
 import { exportInformeHTML, buildInformeHtml, ratingColor, comparePercentile, type EvolutionChartExport } from '@/features/informes/exportInformeHTML'
 import { fetchPlayerTransfers, type PlayerTransfer } from '@/services/footballApiService'
-import { uploadInformeHtml } from '@/features/informes/shareInforme'
+import { uploadInformeHtml, uploadInformeOgImage, informeShareUrl } from '@/features/informes/shareInforme'
+import { buildOgImageBlob } from '@/features/informes/ogImage'
 import MetricEvolutionChart from '@/components/charts/MetricEvolutionChart'
 import { lineSvg } from '@/features/informes/chartSvg'
 import type { WyscoutPoint } from '@/services/wyscoutEvolutionService'
@@ -849,8 +850,33 @@ export default function Step4Preview({ informe, stats, matrix, defs, onBack, onS
     setSharing(true)
     try {
       const logoDataUrl = await loadLogoDataUrl('/brand/logo-white.png')
-      const html = buildInformeHtml({ informe, stats, matrix, defs, logoDataUrl, enrichment, evolution: evoToExport(evoCharts), transfers, insights: insightsArg })
-      const url = await uploadInformeHtml(html, informe.id, content.nombre || 'informe')
+      const nombreKey = content.nombre || 'informe'
+
+      // La tarjeta de preview se sube primero: su URL tiene que estar adentro
+      // del HTML (og:image), y la URL final del informe es calculable de antemano.
+      let imageUrl: string | null = null
+      try {
+        const og = await buildOgImageBlob({
+          nombre: content.nombre,
+          club: content.club,
+          posicion: content.posicion,
+          edad: content.edad,
+          liga: content.liga,
+          fotoDataUrl: informe.fotoDataUrl,
+          logoDataUrl,
+        })
+        if (og) imageUrl = await uploadInformeOgImage(og, informe.id, nombreKey)
+      } catch (e) {
+        // Sin imagen se comparte igual: el link sigue mostrando título y descripción.
+        console.warn('No se pudo generar la imagen de preview:', e)
+      }
+
+      const html = buildInformeHtml({
+        informe, stats, matrix, defs, logoDataUrl, enrichment,
+        evolution: evoToExport(evoCharts), transfers, insights: insightsArg,
+        share: { url: informeShareUrl(informe.id, nombreKey), imageUrl },
+      })
+      const url = await uploadInformeHtml(html, informe.id, nombreKey)
       setShareUrl(url)
       try { await navigator.clipboard.writeText(url) } catch { /* el portapapeles puede fallar sin https/gesto */ }
       showExportMsg({ ok: true, text: 'Link generado y copiado ✓' })

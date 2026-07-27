@@ -357,3 +357,60 @@ describe('buildInformeHtml — pestaña Impacto', () => {
     expect(html).not.toContain('de los 25 goles del equipo')
   })
 })
+
+describe('buildInformeHtml — preview del link (Open Graph)', () => {
+  const baseArgs = () => ({
+    informe: makeInforme(),
+    stats: emptyStats,
+    matrix: emptyMatrix,
+    defs: emptyDefs,
+  })
+
+  it('sin datos de share no emite ninguna etiqueta og', () => {
+    const html = buildInformeHtml(baseArgs())
+    expect(html).not.toContain('og:title')
+    expect(html).not.toContain('twitter:card')
+  })
+
+  it('emite título, descripción y url', () => {
+    const html = buildInformeHtml({
+      ...baseArgs(),
+      share: { url: 'https://dobleg-scouting.netlify.app/i/jugador-abc123.html' },
+    })
+    expect(html).toContain('<meta property="og:title" content="Informe — Jugador Ejemplo" />')
+    expect(html).toContain('<meta property="og:url" content="https://dobleg-scouting.netlify.app/i/jugador-abc123.html" />')
+    expect(html).toContain('DEL · 22 años · Liga X')
+  })
+
+  it('con imagen agrega la tarjeta grande de twitter y las medidas', () => {
+    const html = buildInformeHtml({
+      ...baseArgs(),
+      share: { url: 'https://x.test/i/a.html', imageUrl: 'https://x.test/i/a.jpg?v=1' },
+    })
+    expect(html).toContain('<meta property="og:image" content="https://x.test/i/a.jpg?v=1" />')
+    expect(html).toContain('<meta property="og:image:width" content="1200" />')
+    expect(html).toContain('<meta name="twitter:card" content="summary_large_image" />')
+  })
+
+  it('sin imagen no declara og:image ni la tarjeta grande', () => {
+    const html = buildInformeHtml({ ...baseArgs(), share: { url: 'https://x.test/i/a.html' } })
+    expect(html).not.toContain('og:image')
+    expect(html).not.toContain('summary_large_image')
+  })
+
+  it('escapa el nombre en los atributos en vez de romper la etiqueta', () => {
+    const informe = makeInforme()
+    informe.content.nombre = 'Juan "El Loco" <script>'
+    const html = buildInformeHtml({ ...baseArgs(), informe, share: { url: 'https://x.test/i/a.html' } })
+    expect(html).toContain('&quot;El Loco&quot;')
+    expect(html).not.toContain('content="Informe — Juan "El Loco"')
+  })
+
+  it('acepta una descripción propia', () => {
+    const html = buildInformeHtml({
+      ...baseArgs(),
+      share: { url: 'https://x.test/i/a.html', description: 'Extremo por izquierda · Doble G' },
+    })
+    expect(html).toContain('content="Extremo por izquierda · Doble G"')
+  })
+})

@@ -107,6 +107,13 @@ export interface EvolutionChartExport {
   points: { label: string; value: number }[]
 }
 
+/** Datos del link compartido: alimentan las etiquetas de preview (Open Graph). */
+export interface ShareMeta {
+  url: string
+  imageUrl?: string | null
+  description?: string
+}
+
 /** Conclusiones ya resueltas por el llamador (igual que `evolution`). */
 export interface InsightsExport {
   result: InsightsResult
@@ -127,6 +134,7 @@ export function buildInformeHtml(opts: {
   evolution?: EvolutionChartExport[]
   transfers?: PlayerTransfer[]
   insights?: InsightsExport
+  share?: ShareMeta
 }): string {
   const { informe, stats, matrix, defs, enrichment } = opts
   const { content } = informe
@@ -687,12 +695,45 @@ export function buildInformeHtml(opts: {
 
   const title = `Informe — ${nombre}`
 
+  // ── Preview del link (Open Graph) ──────────────────────────────────────────
+  // Lo que ve el que recibe el link en WhatsApp/LinkedIn antes de abrirlo. Sólo
+  // se emite cuando el llamador resolvió la URL definitiva y la tarjeta: en el
+  // HTML que se descarga a mano no hay link al que apuntar.
+  const share = opts.share
+  const ogDescription = share?.description
+    ?? [content.club, content.posicion, content.edad ? `${content.edad} años` : '', content.liga]
+      .filter(Boolean)
+      .join(' · ')
+  const ogTags = share?.url
+    ? `
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="Doble G Sports Group" />
+<meta property="og:title" content="${escapeHtml(title)}" />
+<meta property="og:description" content="${escapeHtml(ogDescription)}" />
+<meta property="og:url" content="${escapeHtml(share.url)}" />
+<meta property="og:locale" content="${escapeHtml(lang)}" />${
+        share.imageUrl
+          ? `
+<meta property="og:image" content="${escapeHtml(share.imageUrl)}" />
+<meta property="og:image:type" content="image/jpeg" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:image:alt" content="${escapeHtml(title)}" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:image" content="${escapeHtml(share.imageUrl)}" />`
+          : ''
+      }
+<meta name="twitter:title" content="${escapeHtml(title)}" />
+<meta name="twitter:description" content="${escapeHtml(ogDescription)}" />`
+    : ''
+
   return `<!doctype html>
 <html lang="${lang}" dir="${rtl ? 'rtl' : 'ltr'}">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>${escapeHtml(title)}</title>
+<meta name="theme-color" content="#08090B" />
+<title>${escapeHtml(title)}</title>${ogTags}
 <style>
 ${css}
 </style>
@@ -1361,6 +1402,7 @@ export function exportInformeHTML(opts: {
   evolution?: EvolutionChartExport[]
   transfers?: PlayerTransfer[]
   insights?: InsightsExport
+  share?: ShareMeta
 }): void {
   const html = buildInformeHtml(opts)
   const nombre = opts.informe.content.nombre || 'informe'

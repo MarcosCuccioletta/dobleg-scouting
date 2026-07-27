@@ -28,6 +28,46 @@ function slugify(nombre: string): string {
 }
 
 /**
+ * Clave estable del informe en el bucket: `<nombre>-<token>.html`. El token
+ * deriva del id, así re-compartir sobreescribe el MISMO objeto (mismo link).
+ */
+export function informeShareKey(informeId: string, nombre: string): string {
+  const token = informeId.replace(/[^a-z0-9]/gi, '').slice(-6).toLowerCase() || 'informe'
+  return `${slugify(nombre)}-${token}.html`
+}
+
+/**
+ * URL final del informe, calculable ANTES de subirlo. Hace falta para poder
+ * escribir `og:url` dentro del propio HTML que se sube.
+ */
+export function informeShareUrl(informeId: string, nombre: string): string {
+  const key = informeShareKey(informeId, nombre)
+  if (USE_BRANDED_LINK) return `${SHARE_BASE}/${key}`
+  return supabase.storage.from(BUCKET).getPublicUrl(key).data?.publicUrl ?? ''
+}
+
+/**
+ * Sube la tarjeta de preview (Open Graph) y devuelve su URL pública absoluta.
+ * Va al mismo bucket, con la misma clave pero `.jpg`. El `?v=` es para que
+ * WhatsApp no se quede con una versión vieja cacheada cuando reeditás.
+ */
+export async function uploadInformeOgImage(
+  blob: Blob,
+  informeId: string,
+  nombre: string,
+): Promise<string | null> {
+  const key = informeShareKey(informeId, nombre).replace(/\.html$/, '.jpg')
+  const { error } = await supabase.storage.from(BUCKET).upload(key, blob, {
+    upsert: true,
+    contentType: 'image/jpeg',
+    cacheControl: '3600',
+  })
+  if (error) return null
+  const url = supabase.storage.from(BUCKET).getPublicUrl(key).data?.publicUrl
+  return url ? `${url}?v=${Date.now().toString(36)}` : null
+}
+
+/**
  * Sube el HTML autocontenido del informe a Storage y devuelve su URL pública.
  * Usa `upsert` sobre una ruta estable (por id): si el usuario edita y vuelve a
  * compartir, el MISMO link queda actualizado. `Content-Type: text/html` hace que
@@ -38,13 +78,10 @@ export async function uploadInformeHtml(
   informeId: string,
   nombre: string,
 ): Promise<string> {
-  // Clave estable y legible: <nombre>-<token>.html. El token deriva del id (no
-  // adivinable) para que re-compartir sobreescriba el MISMO link.
   // OJO: la extensión .html es OBLIGATORIA — sin ella Supabase sirve el archivo
   // como text/plain y el navegador muestra el código fuente en vez de renderizar
   // (el contentType solo no alcanza). Los acentos los resuelve el <meta charset>.
-  const token = informeId.replace(/[^a-z0-9]/gi, '').slice(-6).toLowerCase() || 'informe'
-  const key = `${slugify(nombre)}-${token}.html`
+  const key = informeShareKey(informeId, nombre)
   const blob = new Blob([html], { type: 'text/html' })
 
   const { error } = await supabase.storage.from(BUCKET).upload(key, blob, {
