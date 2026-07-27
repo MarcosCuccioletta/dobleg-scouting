@@ -337,8 +337,14 @@ export function buildInformeHtml(opts: {
       </div>`
   })()
 
+  // Botón a Transfermarkt: se lee como acción (no como un bloque gris más) y
+  // avisa que abre afuera con la flechita al final.
   const transfermarktHtml = transfermarktUrl
-    ? `<a class="dg-tm-link" href="${escapeHtml(transfermarktUrl)}" target="_blank" rel="noreferrer">Transfermarkt ↗</a>`
+    ? `<a class="dg-tm-link" href="${escapeHtml(transfermarktUrl)}" target="_blank" rel="noreferrer">
+         <span class="dg-tm-dot" aria-hidden="true"></span>
+         <span>Ver en Transfermarkt</span>
+         <svg class="dg-tm-arrow" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 10.5 10.5 5.5"/><path d="M6.5 5.5h4v4"/></svg>
+       </a>`
     : ''
 
   // Gauge de rating (velocímetro) bajo la foto + comparación vs su posición.
@@ -697,7 +703,7 @@ export function buildInformeHtml(opts: {
   const tabBarHtml = tabs
     .map(
       (tb, i) =>
-        `<button type="button" class="dg-tab${i === 0 ? ' active' : ''}" data-tab="${tb.id}">${escapeHtml(t(lang, `tab_${tb.id}`))}</button>`,
+        `<button type="button" class="dg-tab${i === 0 ? ' active' : ''}" data-tab="${tb.id}" aria-selected="${i === 0 ? 'true' : 'false'}">${escapeHtml(t(lang, `tab_${tb.id}`))}</button>`,
     )
     .join('')
 
@@ -764,7 +770,9 @@ ${css}
     ${playerRailHtml}
 
     <div class="dg-panel-card">
-      <nav class="dg-tabbar">${tabBarHtml}</nav>
+      <div class="dg-tabbar-wrap">
+        <nav class="dg-tabbar" aria-label="Secciones del informe">${tabBarHtml}</nav>
+      </div>
       <div class="dg-panels">${panelsHtml}</div>
     </div>
   </div>
@@ -906,8 +914,10 @@ const css = `
     .dg-rail-head h2 { font-size: 15.5px; }
     .dg-photo-fallback { font-size: 22px; }
     .dg-header { margin-bottom: 14px; gap: 10px; }
-    .dg-tabbar { margin-bottom: 16px; }
-    .dg-tab { padding: 8px 10px; font-size: 12px; }
+    .dg-tabbar-wrap { margin: -16px -14px 14px; padding: 10px 14px; }
+    .dg-tabbar-wrap::after { top: 10px; bottom: 10px; width: 28px; }
+    .dg-tabbar { gap: 6px; }
+    .dg-tab { padding: 9px 13px; font-size: 12.5px; }
     .dg-cards-2col { grid-template-columns: 1fr; }
     .dg-wins { grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 8px; }
     .dg-mainstats-grid { gap: 8px; }
@@ -1001,43 +1011,114 @@ const css = `
     font-size: 13px;
   }
   .dg-tm-link {
-    display: block;
-    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
     width: 100%;
-    padding: 10px 16px;
+    padding: 12px 16px;
     border-radius: 12px;
-    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.12);
+    background: linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.025));
     color: #F5F7FA;
     font-size: 13px;
-    font-weight: 600;
+    font-weight: 700;
     text-decoration: none;
+    transition: border-color .16s ease, background .16s ease, transform .16s ease;
   }
-  .dg-tm-link:hover { background: rgba(255,255,255,0.1); }
+  .dg-tm-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
+    background: #22C55E;
+    box-shadow: 0 0 0 3px rgba(34,197,94,0.16);
+    flex-shrink: 0;
+  }
+  .dg-tm-arrow { opacity: 0.5; flex-shrink: 0; }
+  .dg-tm-link:hover {
+    border-color: rgba(34,197,94,0.55);
+    background: linear-gradient(180deg, rgba(34,197,94,0.14), rgba(34,197,94,0.06));
+    transform: translateY(-1px);
+  }
+  .dg-tm-link:hover .dg-tm-arrow { opacity: 0.9; }
+  .dg-tm-link:active { transform: translateY(0); }
+  @media (prefers-reduced-motion: reduce) {
+    .dg-tm-link { transition: none; }
+    .dg-tm-link:hover { transform: none; }
+  }
   .dg-panel-card { padding: 20px; min-width: 0; }
+
+  /* ── Barra de secciones ──────────────────────────────────────────────────
+     Antes eran links con subrayado que se envolvían en 3 filas de texto chico
+     en el celular: no se veía en cuál estabas ni que las otras se tocaban.
+     Ahora: una sola fila de pastillas que se desliza, pegada arriba mientras
+     se lee, con la activa en verde macizo y las demás con su propio contorno
+     (que es lo que las hace leer como botones). */
+  .dg-tabbar-wrap {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    margin: -20px -20px 18px;
+    padding: 12px 20px;
+    background: rgba(15,17,20,0.92);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+    border-radius: 18px 18px 0 0;
+  }
+  /* Degradé al borde derecho: avisa que la fila sigue. */
+  .dg-tabbar-wrap::after {
+    content: '';
+    position: absolute;
+    top: 12px;
+    bottom: 12px;
+    right: 0;
+    width: 36px;
+    pointer-events: none;
+    background: linear-gradient(90deg, rgba(15,17,20,0), rgba(15,17,20,0.95));
+    border-radius: 0 18px 0 0;
+  }
   .dg-tabbar {
     display: flex;
     align-items: center;
-    flex-wrap: wrap;
-    gap: 2px;
-    border-bottom: 1px solid rgba(255,255,255,0.08);
-    margin-bottom: 20px;
+    gap: 7px;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 2px;
   }
+  .dg-tabbar::-webkit-scrollbar { display: none; }
   .dg-tab {
     appearance: none;
-    background: none;
-    border: none;
-    border-bottom: 2px solid transparent;
-    margin-bottom: -1px;
-    padding: 10px 14px;
+    flex: 0 0 auto;
+    scroll-snap-align: center;
+    padding: 9px 15px;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.10);
+    background: rgba(255,255,255,0.035);
     font: inherit;
     font-size: 13px;
     font-weight: 600;
-    color: #8A9099;
+    line-height: 1;
+    color: #A8AEB6;
     cursor: pointer;
     white-space: nowrap;
+    transition: background .16s ease, color .16s ease, border-color .16s ease, transform .16s ease;
   }
-  .dg-tab:hover { color: #F5F7FA; }
-  .dg-tab.active { color: #22C55E; border-bottom-color: #22C55E; }
+  .dg-tab:hover { color: #F5F7FA; border-color: rgba(255,255,255,0.22); background: rgba(255,255,255,0.07); }
+  .dg-tab:focus-visible { outline: 2px solid rgba(34,197,94,0.7); outline-offset: 2px; }
+  .dg-tab.active {
+    background: #22C55E;
+    border-color: #22C55E;
+    color: #08090B;
+    font-weight: 700;
+    box-shadow: 0 3px 14px rgba(34,197,94,0.30);
+  }
+  .dg-tab.active:hover { background: #22C55E; color: #08090B; border-color: #22C55E; }
+  @media (prefers-reduced-motion: reduce) {
+    .dg-tab { transition: none; }
+  }
   .dg-panel { display: none; }
   .dg-panel.active { display: block; }
   .dg-panel-title {
@@ -1364,14 +1445,32 @@ const script = `
 (function () {
   var tabs = document.querySelectorAll('.dg-tab');
   var panels = document.querySelectorAll('.dg-panel');
+  var card = document.querySelector('.dg-panel-card');
+  var smooth = !window.matchMedia || !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
   tabs.forEach(function (tab) {
     tab.addEventListener('click', function () {
       var id = tab.getAttribute('data-tab');
-      tabs.forEach(function (t) { t.classList.remove('active'); });
+      tabs.forEach(function (t) { t.classList.remove('active'); t.setAttribute('aria-selected', 'false'); });
       panels.forEach(function (p) { p.classList.remove('active'); });
       tab.classList.add('active');
+      tab.setAttribute('aria-selected', 'true');
       var panel = document.querySelector('.dg-panel[data-panel="' + id + '"]');
       if (panel) panel.classList.add('active');
+
+      // La pestaña elegida se centra en la fila: así se ve que hay más a los
+      // lados. 'nearest' evita que además salte la página hacia arriba.
+      if (tab.scrollIntoView) {
+        try { tab.scrollIntoView({ block: 'nearest', inline: 'center', behavior: smooth ? 'smooth' : 'auto' }); }
+        catch (e) { tab.scrollIntoView(); }
+      }
+
+      // Si se estaba leyendo más abajo, la sección nueva arranca desde arriba
+      // (si no, se entra a la mitad de un contenido distinto).
+      if (card) {
+        var top = card.getBoundingClientRect().top;
+        if (top < 0) window.scrollBy({ top: top - 4, behavior: smooth ? 'smooth' : 'auto' });
+      }
     });
   });
 

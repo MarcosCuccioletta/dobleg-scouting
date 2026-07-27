@@ -235,8 +235,24 @@ function PlayerRail({ informe, lang, stats }: { informe: Informe; lang: Lang; st
       </dl>
       {renderMainStats(content, lang)}
       {content.transfermarktUrl && (
-        <a href={content.transfermarktUrl} target="_blank" rel="noreferrer" className="block text-center w-full px-4 py-2.5 rounded-xl border text-sm font-semibold transition-colors" style={{ borderColor: DG.green, color: DG.green }} onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(34,197,94,0.1)')} onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}>
-          Transfermarkt ↗
+        <a
+          href={content.transfermarktUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="flex items-center justify-center gap-2.5 w-full px-4 py-3 rounded-xl border text-[13px] font-bold transition-colors"
+          style={{
+            borderColor: 'rgba(255,255,255,0.12)',
+            color: DG.text,
+            background: 'linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.025))',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(34,197,94,0.55)'; e.currentTarget.style.background = 'linear-gradient(180deg, rgba(34,197,94,0.14), rgba(34,197,94,0.06))' }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)'; e.currentTarget.style.background = 'linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.025))' }}
+        >
+          <span className="w-[7px] h-[7px] rounded-full flex-none" style={{ backgroundColor: DG.green, boxShadow: '0 0 0 3px rgba(34,197,94,0.16)' }} />
+          Ver en Transfermarkt
+          <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="flex-none opacity-50">
+            <path d="M5.5 10.5 10.5 5.5" /><path d="M6.5 5.5h4v4" />
+          </svg>
         </a>
       )}
     </div>
@@ -265,6 +281,7 @@ export default function Step4Preview({ informe, stats, matrix, defs, onBack, onS
   const [shareUrl, setShareUrl] = useState<string | null>(null)
   const [exportMsg, setExportMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const printRef = useRef<HTMLDivElement>(null)
+  const tabBarRef = useRef<HTMLDivElement>(null)
   const exportMsgTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const { content } = informe
   const youtubeId = parseYouTubeId(content.videoUrl || '')
@@ -331,6 +348,12 @@ export default function Step4Preview({ informe, stats, matrix, defs, onBack, onS
   }, [transfersPlayerId])
 
   useEffect(() => () => { if (exportMsgTimer.current) clearTimeout(exportMsgTimer.current) }, [])
+
+  // La pestaña elegida se centra en la fila: se ve que hay más a los lados.
+  useEffect(() => {
+    const el = tabBarRef.current?.querySelector<HTMLElement>(`[data-tab="${tab}"]`)
+    el?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' })
+  }, [tab])
 
   function showExportMsg(msg: { ok: boolean; text: string }) {
     if (exportMsgTimer.current) clearTimeout(exportMsgTimer.current)
@@ -908,9 +931,13 @@ export default function Step4Preview({ informe, stats, matrix, defs, onBack, onS
   }
 
   return (
-    <div className="relative rounded-[28px] overflow-hidden" style={{ backgroundColor: DG.bg }} dir={rtl ? 'rtl' : 'ltr'}>
-      <div className="pointer-events-none absolute inset-0" style={{ background: 'radial-gradient(1100px 560px at 12% -8%, rgba(34,197,94,0.16), transparent 60%)' }} />
-      <div className="pointer-events-none absolute inset-0" style={{ background: 'radial-gradient(900px 500px at 100% 110%, rgba(34,197,94,0.08), transparent 60%)' }} />
+    // overflow-x-clip en vez de overflow-hidden: recorta a los costados igual,
+    // pero no crea un contenedor de scroll — que es lo que dejaba sin efecto el
+    // `sticky` de la barra de pestañas. Los degradés llevan su propio radio
+    // porque ya no los recorta el padre.
+    <div className="relative rounded-[28px] overflow-x-clip" style={{ backgroundColor: DG.bg }} dir={rtl ? 'rtl' : 'ltr'}>
+      <div className="pointer-events-none absolute inset-0 rounded-[28px]" style={{ background: 'radial-gradient(1100px 560px at 12% -8%, rgba(34,197,94,0.16), transparent 60%)' }} />
+      <div className="pointer-events-none absolute inset-0 rounded-[28px]" style={{ background: 'radial-gradient(900px 500px at 100% 110%, rgba(34,197,94,0.08), transparent 60%)' }} />
 
       <div className="relative z-10 p-4 sm:p-6 space-y-4">
         {/* ── Barra de acciones ── */}
@@ -987,16 +1014,44 @@ export default function Step4Preview({ informe, stats, matrix, defs, onBack, onS
           <PlayerRail informe={informe} lang={lang} stats={stats} />
 
           <div className="rounded-[18px] border p-5 min-w-0" style={{ borderColor: DG.border, backgroundColor: DG.card }}>
-            {/* ── Tabs ── */}
-            <div className="flex items-center gap-1 border-b mb-5 overflow-x-auto" style={{ borderColor: DG.border }}>
-              {visibleTabs.map(id => {
-                const active = tab === id
-                return (
-                  <button key={id} type="button" onClick={() => setTab(id)} className="px-3.5 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 -mb-px transition-colors" style={{ color: active ? DG.green : DG.muted, borderColor: active ? DG.green : 'transparent' }} onMouseEnter={e => { if (!active) e.currentTarget.style.color = DG.text }} onMouseLeave={e => { if (!active) e.currentTarget.style.color = DG.muted }}>
-                    {t(lang, `tab_${id}`)}
-                  </button>
-                )
-              })}
+            {/* ── Tabs ──
+                Pastillas en una sola fila que se desliza, pegadas arriba: se ve
+                en cuál estás (verde macizo) y que las otras se tocan (contorno
+                propio). Mismo diseño que el informe publicado. */}
+            <div
+              className="sticky top-0 z-20 -mx-5 -mt-5 mb-5 px-5 py-3 rounded-t-[18px]"
+              style={{ backgroundColor: 'rgba(15,17,20,0.92)', backdropFilter: 'blur(10px)', borderBottom: `1px solid ${DG.border}` }}
+            >
+              <div className="relative">
+                <div ref={tabBarRef} className="flex items-center gap-1.5 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+                  {visibleTabs.map(id => {
+                    const active = tab === id
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => setTab(id)}
+                        aria-selected={active}
+                        data-tab={id}
+                        className="flex-none px-4 py-2 rounded-full text-[13px] whitespace-nowrap border transition-colors"
+                        style={{
+                          backgroundColor: active ? DG.green : 'rgba(255,255,255,0.035)',
+                          borderColor: active ? DG.green : 'rgba(255,255,255,0.10)',
+                          color: active ? '#08090B' : '#A8AEB6',
+                          fontWeight: active ? 700 : 600,
+                          boxShadow: active ? '0 3px 14px rgba(34,197,94,0.30)' : 'none',
+                        }}
+                        onMouseEnter={e => { if (!active) { e.currentTarget.style.color = DG.text; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.22)' } }}
+                        onMouseLeave={e => { if (!active) { e.currentTarget.style.color = '#A8AEB6'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.10)' } }}
+                      >
+                        {t(lang, `tab_${id}`)}
+                      </button>
+                    )
+                  })}
+                </div>
+                {/* Degradé al borde derecho: avisa que la fila sigue. */}
+                <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-9" style={{ background: 'linear-gradient(90deg, rgba(15,17,20,0), rgba(15,17,20,0.95))' }} />
+              </div>
             </div>
             {renderTab(visibleTabs.includes(tab) ? tab : 'general')}
           </div>

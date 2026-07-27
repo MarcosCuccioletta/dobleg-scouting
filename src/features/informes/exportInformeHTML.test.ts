@@ -75,6 +75,40 @@ describe('buildInformeHtml', () => {
     expect(html).toContain("addEventListener('click'")
   })
 
+  it('la barra de secciones queda fija arriba, en una sola fila que se desliza', () => {
+    const html = buildInformeHtml({ informe: makeInforme(), stats: emptyStats, matrix: emptyMatrix, defs: emptyDefs })
+    expect(html).toContain('class="dg-tabbar-wrap"')
+    expect(html).toContain('position: sticky')
+    // Una sola fila: se desliza en vez de envolverse en varias.
+    expect(html).toContain('overflow-x: auto')
+    expect(html).not.toMatch(/\.dg-tabbar \{[^}]*flex-wrap/)
+    // La activa se distingue sola (verde macizo) y las otras leen como botones.
+    expect(html).toContain('.dg-tab.active')
+    expect(html).toContain('background: #22C55E')
+    expect(html).toMatch(/\.dg-tab \{[^}]*border-radius: 999px/)
+    // Estado accesible para lectores de pantalla.
+    expect(html).toContain('aria-selected="true"')
+    expect(html).toContain('aria-selected="false"')
+  })
+
+  it('al tocar una pestaña la centra y sube al inicio de la sección', () => {
+    const html = buildInformeHtml({ informe: makeInforme(), stats: emptyStats, matrix: emptyMatrix, defs: emptyDefs })
+    expect(html).toContain('scrollIntoView')
+    expect(html).toContain("inline: 'center'")
+    expect(html).toContain('scrollBy')
+  })
+
+  it('el botón de Transfermarkt se lee como acción y avisa que abre afuera', () => {
+    const informe = makeInforme({
+      content: { ...makeInforme().content, transfermarktUrl: 'https://www.transfermarkt.com/x/profil/spieler/1' },
+    })
+    const html = buildInformeHtml({ informe, stats: emptyStats, matrix: emptyMatrix, defs: emptyDefs })
+    expect(html).toContain('Ver en Transfermarkt')
+    expect(html).toContain('dg-tm-arrow')
+    expect(html).toContain('target="_blank"')
+    expect(html).toContain('rel="noreferrer"')
+  })
+
   it('escapa contenido malicioso en vez de insertarlo crudo', () => {
     const informe = makeInforme({
       content: {
