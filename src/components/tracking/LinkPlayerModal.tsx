@@ -153,11 +153,11 @@ export default function LinkPlayerModal({ player, onClose, onLinked }: Props) {
                   <div className="flex items-center gap-2 flex-shrink-0 ml-3">
                     {p.ggScore !== null && p.ggScore !== undefined && (
                       <span className={`text-xs font-bold tabular-nums ${
-                        p.ggScore >= 70 ? 'text-brand-green' :
-                        p.ggScore >= 50 ? 'text-emerald-500' :
-                        p.ggScore >= 30 ? 'text-amber-500' : 'text-apple-gray-400'
+                        p.ggScore >= 7 ? 'text-brand-green' :
+                        p.ggScore >= 5 ? 'text-emerald-500' :
+                        p.ggScore >= 3 ? 'text-amber-500' : 'text-apple-gray-400'
                       }`}>
-                        {p.ggScore.toFixed(0)}
+                        {p.ggScore.toFixed(1)}
                       </span>
                     )}
                     <span className={`px-1.5 py-0.5 rounded-md text-2xs font-medium ${

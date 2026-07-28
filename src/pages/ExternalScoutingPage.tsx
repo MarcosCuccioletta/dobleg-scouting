@@ -840,7 +840,6 @@ export default function ExternalScoutingPage() {
                     <th className="text-center py-3 px-3 text-xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider">PJ</th>
                     <th className="text-center py-3 px-3 text-xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider">Goles</th>
                     <th className="text-center py-3 px-3 text-xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider">Asist</th>
-                    <th className="text-center py-3 px-3 text-xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider">Rating</th>
                     <th className="text-center py-3 px-3 text-xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider">Score</th>
                   </tr>
                 </thead>
@@ -900,9 +899,6 @@ export default function ExternalScoutingPage() {
                         </td>
                         <td className="py-2.5 px-3 text-center text-sm text-apple-gray-600 dark:text-apple-gray-300 tabular-nums">
                           {ss?.total_assists ?? 0}
-                        </td>
-                        <td className="py-2.5 px-3 text-center text-sm text-apple-gray-600 dark:text-apple-gray-300 tabular-nums">
-                          {ss?.avg_rating?.toFixed(1) ?? '—'}
                         </td>
                         <td className="py-2.5 px-3 text-center">
                           {score !== null ? (

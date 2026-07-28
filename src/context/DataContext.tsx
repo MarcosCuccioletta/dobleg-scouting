@@ -1,10 +1,11 @@
 import { createContext, useContext, useEffect, useRef, useCallback, useMemo, useState, type ReactNode } from 'react'
 import { loadAllData, type MasDatosEntry, type SeguimientoMetricsPlayer } from '@/services/csvService'
-import { computeGGScores, normalizeName, parseMarketValue, formatMarketValue, parseContractDate, monthsBetween, getNumericValue } from '@/utils/scoring'
+import { applyScoreGG, normalizeName, parseMarketValue, formatMarketValue, parseContractDate, monthsBetween, getNumericValue } from '@/utils/scoring'
 import { POSITION_MAP, SCORING_CONFIG, FILTER_POSITION_MAP } from '@/constants/scoring'
 import { loadAgencyPlayers } from '@/services/agencyPlayersService'
 import { getAgencyPlayersList, AGENCY_OVERRIDES, type AgencyPlayer } from '@/constants/agencyPlayers'
 import { fetchAllPlayerVideos, computePlayerFreshness } from '@/services/playerVideosService'
+import { fetchScoreLookup, type ScoreLookupEntry } from '@/services/playerStatsService'
 import type { PlayerVideo, VideoFreshness } from '@/types/videos'
 import { nameKey } from '@/utils/nameUtils'
 import type { AppData, EnrichedPlayer, EvolutionEntry, TransfermarktData, MonitoringPlayer, MarketValueHistoryEntry, GPSEntry } from '@/types'
@@ -331,21 +332,21 @@ function estimateMarketValue(player: EnrichedPlayer, leagueType: 'argentina1' | 
 
   let baseValue: number
 
-  // Score-based base value (Argentina values are ~4-5x higher than Colombia)
+  // Cortes sobre el Score GG (1-10). Argentina vale ~4-5x más que Colombia.
   if (isArgentina) {
     // Liga Argentina base values
-    if (score >= 65) baseValue = 3_000_000      // Elite performers
-    else if (score >= 55) baseValue = 1_800_000 // Very good
-    else if (score >= 45) baseValue = 1_000_000 // Good
-    else if (score >= 35) baseValue = 600_000   // Average
-    else if (score > 0) baseValue = 350_000     // Below average
+    if (score >= 6.5) baseValue = 3_000_000      // Elite performers
+    else if (score >= 5.5) baseValue = 1_800_000 // Very good
+    else if (score >= 4.5) baseValue = 1_000_000 // Good
+    else if (score >= 3.5) baseValue = 600_000   // Average
+    else if (score > 0) baseValue = 350_000      // Below average
     else baseValue = 400_000                     // No score - use age
   } else {
     // Colombia 2nd division base values
-    if (score >= 60) baseValue = 400_000
-    else if (score >= 50) baseValue = 250_000
-    else if (score >= 40) baseValue = 175_000
-    else if (score >= 30) baseValue = 125_000
+    if (score >= 6.0) baseValue = 400_000
+    else if (score >= 5.0) baseValue = 250_000
+    else if (score >= 4.0) baseValue = 175_000
+    else if (score >= 3.0) baseValue = 125_000
     else if (score > 0) baseValue = 75_000
     else baseValue = 100_000
   }
@@ -558,9 +559,10 @@ function teamsMatch(team1: string, team2: string): boolean {
 function linkMonitoringToMetrics(
   monitoring: MonitoringPlayer[],
   seguimientoMetrics: SeguimientoMetricsPlayer[],
-  allPlayersForScoring: EnrichedPlayer[],  // Combined external + internal for consistent scoring
+  allPlayersForScoring: EnrichedPlayer[],  // Combined external + internal, para reusar su score
   internalOnly: EnrichedPlayer[],  // Internal only for comparison averages
-  tmMap: Map<string, TransfermarktData>
+  tmMap: Map<string, TransfermarktData>,
+  scoreLookup: Map<string, ScoreLookupEntry>
 ): MonitoringPlayer[] {
   // Build lookup map for existing players (external + internal) to reuse their scores
   const existingPlayersByName = new Map<string, EnrichedPlayer>()
@@ -747,7 +749,7 @@ function linkMonitoringToMetrics(
     // Player not found in external/internal - calculate score from seguimiento metrics
     const { score, hasEnoughData, enrichedPlayer } = scoreSeguimientoPlayer(
       metricsPlayer,
-      allPlayersForScoring
+      scoreLookup
     )
 
     // Get market value from metrics or Transfermarkt
@@ -924,9 +926,17 @@ function hasEnoughMetrics(player: SeguimientoMetricsPlayer): boolean {
   return metricsWithData >= MIN_METRICS_FOR_SCORE
 }
 
+/**
+ * Enriquece un jugador de Seguimiento y le pega el Score GG (1-10) de la API.
+ *
+ * Antes calculaba un score propio de 0-100 normalizando las columnas del CSV
+ * contra los jugadores de la misma posición. Ese número no era comparable con el
+ * Score GG del resto de la plataforma, así que se sacó: si la API no tiene al
+ * jugador, queda sin score.
+ */
 function scoreSeguimientoPlayer(
   player: SeguimientoMetricsPlayer,
-  allPlayersForNormalization: EnrichedPlayer[]  // Use ALL players (external+internal) for consistent scoring
+  lookup: Map<string, ScoreLookupEntry>
 ): { score: number | null; hasEnoughData: boolean; enrichedPlayer: EnrichedPlayer | null } {
   const hasData = hasEnoughMetrics(player)
 
@@ -934,46 +944,7 @@ function scoreSeguimientoPlayer(
     return { score: null, hasEnoughData: false, enrichedPlayer: null }
   }
 
-  const rawPos = getPlayerPosition(player)
-  const posKey = POSITION_MAP[rawPos] ?? ''
-  const config = SCORING_CONFIG[posKey]
-
-  if (!config) {
-    return { score: null, hasEnoughData: false, enrichedPlayer: null }
-  }
-
-  // Get all players in same position from the GLOBAL pool (external + internal)
-  // This ensures consistent scoring across ALL sources
-  const positionPlayers = allPlayersForNormalization.filter(p => {
-    const pk = POSITION_MAP[p['Posición']?.trim() ?? ''] ?? POSITION_MAP[p['Posición específica']?.trim() ?? ''] ?? ''
-    return pk === posKey && p.minutesPlayed >= 300
-  })
-
-  // Compute min/max for each metric from the global pool
-  const stats = new Map<string, { min: number; max: number }>()
-  for (const { column } of config) {
-    const values = positionPlayers.map(p => {
-      const val = p[column]
-      return typeof val === 'number' ? val : parseFloat(String(val ?? '').replace(',', '.')) || 0
-    })
-    const validValues = values.filter(v => v > 0)
-    if (validValues.length > 0) {
-      stats.set(column, { min: Math.min(...validValues), max: Math.max(...validValues) })
-    } else {
-      stats.set(column, { min: 0, max: 1 })
-    }
-  }
-
-  // Calculate score
-  let score = 0
-  for (const { column, weight } of config) {
-    const raw = getNumericValue(player as Record<string, string>, column)
-    const { min, max } = stats.get(column) ?? { min: 0, max: 1 }
-    const normalized = max > min ? ((raw - min) / (max - min)) * 100 : 50
-    score += normalized * (weight / 100)
-  }
-
-  const finalScore = Math.round(score * 10) / 10
+  const finalScore = lookup.get(normalizeName(player.Jugador ?? ''))?.score ?? null
 
   // Create enriched player object
   const rawValue = player['Valor de mercado'] ?? ''
@@ -1148,22 +1119,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const tmByLinkMap = buildTransfermarktByLinkMap(raw.transfermarkt)
         const masDatosMap = buildMasDatosMap(raw.masDatos)
 
-        // Compute scores using ALL players as baseline (internal + external together)
-        // This ensures consistent scoring and percentiles across both sources
-        const allPlayers = [...raw.external, ...raw.internal]
-        const allScored = computeGGScores(allPlayers, 'externo') // source is overwritten below
-
-        // Split back into external and internal, preserving scores AND percentiles
-        const scoreMap = new Map(allScored.map(p => [p.Jugador + '|' + p.Equipo, p.ggScore]))
-        const percentileMap = new Map(allScored.map(p => [p.Jugador + '|' + p.Equipo, p.ggScorePercentile]))
+        // El Score GG (1-10) lo calcula la API por posición: acá sólo se le pega a
+        // cada fila del CSV por nombre. El scoring viejo de 0-100 sobre columnas del
+        // CSV ya no existe. Si la API no responde, los jugadores quedan sin score
+        // en vez de caer a la escala vieja.
+        const scoreLookup = await fetchScoreLookup().catch(() => new Map<string, ScoreLookupEntry>())
+        if (cancelled) return
 
         // Score and enrich external players with Transfermarkt data + Más Datos + Estimated values
-        const externalScored = computeGGScores(raw.external, 'externo', scoreMap, percentileMap)
+        const externalScored = applyScoreGG(raw.external, 'externo', scoreLookup)
         const external = externalScored.map(p =>
           enrichWithEstimatedValue(enrichWithMasDatos(enrichWithTransfermarkt(p, tmMap), masDatosMap))
         )
 
-        const internalScored = computeGGScores(raw.internal, 'interno', scoreMap, percentileMap)
+        const internalScored = applyScoreGG(raw.internal, 'interno', scoreLookup)
 
         // Enrich internal players with:
         // 1. Transfermarkt data using their TM link (valor de mercado, contrato, imagen)

@@ -82,7 +82,7 @@ export default function RadarAnalysisPage() {
   const { external, internal, loading } = useData()
   const allPlayers = useMemo(() => [...external, ...internal], [external, internal])
 
-  // Supabase score lookup (1-10 scale). Falls back to CSV ggScore (0-100) when not ready or not found.
+  // Score GG de la API, siempre 1-10. Sin entrada el jugador queda sin score.
   const { lookup: scoreLookup, ready: scoreReady } = useScoreLookup()
 
   function getPlayerScore(player: EnrichedPlayer): { score: number | null; scale: '100' | '10' } {

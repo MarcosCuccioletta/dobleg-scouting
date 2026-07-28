@@ -62,7 +62,7 @@ interface PlayerRowProps {
   scale?: ScoreScale
 }
 
-function PlayerRow({ player, metric, metricValue, onClick, posAvg, score, scale = '100' }: PlayerRowProps) {
+function PlayerRow({ player, metric, metricValue, onClick, posAvg, score, scale = '10' }: PlayerRowProps) {
   const displayScore = score !== undefined ? score : player.ggScore
   const scoreColor = getRelativeScoreColorClass(displayScore ?? null, posAvg ?? null, scale)
   const scoreBg = getRelativeScoreBgClass(displayScore ?? null, posAvg ?? null, scale)
@@ -181,7 +181,7 @@ function MonitoringRow({ player, metric, metricValue, onClick, highlight, posAvg
             <p className="text-2xs text-apple-gray-400">{metric}</p>
           </>
         ) : player.ggScore ? (
-          <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${getRelativeScoreBgClass(player.ggScore, posAvg ?? null)} ${getRelativeScoreColorClass(player.ggScore, posAvg ?? null)}`}>
+          <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${getRelativeScoreBgClass(player.ggScore, posAvg ?? null, '10')} ${getRelativeScoreColorClass(player.ggScore, posAvg ?? null, '10')}`}>
             {player.ggScore.toFixed(1)}
           </span>
         ) : null}
@@ -202,18 +202,8 @@ export default function DashboardPage() {
     return { score: null, scale: '10' }
   }
 
-  // Determine whether most players are scored via Supabase (for threshold adaptation)
-  const useSupabaseScale = useMemo(() => {
-    if (scoreLookup.size === 0) return false
-    const withSupabase = internal.filter(p => scoreLookup.has(normalizeName(p.Jugador))).length
-    return withSupabase > internal.length / 2
-  }, [scoreLookup, internal])
-
-  // Score thresholds adapted to the active scale
-  const thresholds = useMemo(() => {
-    if (useSupabaseScale) return { elite: 8.0, good: 5.5, developing: 3.5 }
-    return { elite: 60, good: 45, developing: 35 }
-  }, [useSupabaseScale])
+  // Cortes del Score GG, que siempre viene 1-10 de la API.
+  const thresholds = { elite: 8.0, good: 5.5, developing: 3.5 }
 
   function getPosAvg(posicion: string): number | null {
     const normPos = FILTER_POSITION_MAP[posicion] ?? ''
@@ -361,7 +351,7 @@ export default function DashboardPage() {
 
   // Young talents (high score for age)
   const youngTalents = useMemo(() => {
-    const youngThreshold = useSupabaseScale ? 4.0 : 40
+    const youngThreshold = 4.0
     return [...internal]
       .filter(p => {
         const { score } = getPlayerScore(p)
@@ -369,11 +359,11 @@ export default function DashboardPage() {
       })
       .sort((a, b) => (getPlayerScore(b).score ?? 0) - (getPlayerScore(a).score ?? 0))
       .slice(0, 5)
-  }, [internal, scoreLookup, useSupabaseScale])
+  }, [internal, scoreLookup])
 
   // Undervalued gems (high score, low value)
   const undervalued = useMemo(() => {
-    const undervaluedThreshold = useSupabaseScale ? 5.0 : 50
+    const undervaluedThreshold = 5.0
     return [...internal]
       .filter(p => {
         const { score } = getPlayerScore(p)
@@ -381,7 +371,7 @@ export default function DashboardPage() {
       })
       .sort((a, b) => (getPlayerScore(b).score ?? 0) / (b.marketValueRaw || 1) - (getPlayerScore(a).score ?? 0) / (a.marketValueRaw || 1))
       .slice(0, 5)
-  }, [internal, scoreLookup, useSupabaseScale])
+  }, [internal, scoreLookup])
 
   // ─── SEGUIMIENTO RECOMMENDATIONS ─────────────────────────────────────────────
 
@@ -406,7 +396,7 @@ export default function DashboardPage() {
   // Contract opportunities in seguimiento
   const contractOpportunities = useMemo(() =>
     [...monitoring]
-      .filter(p => p.monthsRemaining != null && p.monthsRemaining <= 12 && p.ggScore != null && p.ggScore >= 40)
+      .filter(p => p.monthsRemaining != null && p.monthsRemaining <= 12 && p.ggScore != null && p.ggScore >= 4)
       .sort((a, b) => (a.monthsRemaining ?? 999) - (b.monthsRemaining ?? 999))
       .slice(0, 5),
     [monitoring]
@@ -562,10 +552,10 @@ export default function DashboardPage() {
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
             {positionScores.map(({ label, avg, count, globalAvg }) => {
               // Normalize globalAvg to match the active scale (positionAverages is 0-100 from CSV, Supabase scores are 1-10)
-              const normGlobalAvg = useSupabaseScale && globalAvg !== null && globalAvg > 10 ? globalAvg / 10 : globalAvg
-              const eliteThreshold = useSupabaseScale ? 8.0 : 80
-              const goodThreshold = useSupabaseScale ? 5.5 : 55
-              const devThreshold = useSupabaseScale ? 3.5 : 35
+              const normGlobalAvg = globalAvg !== null && globalAvg > 10 ? globalAvg / 10 : globalAvg
+              const eliteThreshold = 8.0
+              const goodThreshold = 5.5
+              const devThreshold = 3.5
               const colorClass =
                 avg >= eliteThreshold ? 'text-emerald-400' :
                 normGlobalAvg !== null
@@ -583,7 +573,7 @@ export default function DashboardPage() {
                   : avg >= goodThreshold ? 'bg-emerald-500' :
                     avg >= devThreshold ? 'bg-amber-500' : 'bg-orange-500'
               // Bar width: normalize avg to 0-100% regardless of scale
-              const barWidth = useSupabaseScale ? Math.min(100, ((avg - 1) / 9) * 100) : Math.min(100, avg)
+              const barWidth = Math.min(100, ((avg - 1) / 9) * 100)
               return (
                 <div key={label} className="flex flex-col gap-1.5">
                   <div className="flex items-end justify-between">
@@ -713,14 +703,14 @@ export default function DashboardPage() {
               </div>
               <div className="space-y-2">
                 <div className="flex items-center gap-3">
-                  <span className="text-xs text-apple-gray-500 w-28 truncate">{useSupabaseScale ? `Elite (${thresholds.elite}+)` : 'Elite (60+)'}</span>
+                  <span className="text-xs text-apple-gray-500 w-28 truncate">{`Elite (${thresholds.elite}+)`}</span>
                   <div className="flex-1">
                     <ProgressBar value={kpis.elite} max={kpis.totalPlayers} color="bg-emerald-500" />
                   </div>
                   <span className="text-sm font-medium text-apple-gray-700 dark:text-apple-gray-200 w-8 text-right">{kpis.elite}</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="text-xs text-apple-gray-500 w-28 truncate">{useSupabaseScale ? `Buenos (${thresholds.good}-${thresholds.elite})` : 'Buenos (45-59)'}</span>
+                  <span className="text-xs text-apple-gray-500 w-28 truncate">{`Buenos (${thresholds.good}-${thresholds.elite})`}</span>
                   <div className="flex-1">
                     <ProgressBar value={kpis.good} max={kpis.totalPlayers} color="bg-blue-500" />
                   </div>

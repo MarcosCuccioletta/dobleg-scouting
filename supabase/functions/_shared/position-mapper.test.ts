@@ -180,3 +180,45 @@ Deno.test('4-1-4-1: row 4 col 3 = VI', () => {
 Deno.test('4-1-4-1: row 4 col 4 = EXT', () => {
   assertEquals(mapGridToPosition('4-1-4-1', '4:4'), 'EXT');
 });
+
+// --- Carrileros en formaciones con línea de 3 ---
+// La línea de 4 detrás de una defensa de 3 es el mediocampo CON CARRILEROS.
+// Antes caía en MID_DEF y los de los costados salían VI: así Gonzalo Montiel,
+// lateral derecho, aparecía como volante interior en su único 3-4-2-1.
+Deno.test('3-4-2-1: row 3 col 1 = LI (carrilero)', () => {
+  assertEquals(mapGridToPosition('3-4-2-1', '3:1'), 'LI');
+});
+Deno.test('3-4-2-1: row 3 col 4 = LD (carrilero)', () => {
+  assertEquals(mapGridToPosition('3-4-2-1', '3:4'), 'LD');
+});
+Deno.test('3-4-2-1: row 3 col 2 = VC', () => {
+  assertEquals(mapGridToPosition('3-4-2-1', '3:2'), 'VC');
+});
+Deno.test('3-4-2-1: row 3 col 3 = VC', () => {
+  assertEquals(mapGridToPosition('3-4-2-1', '3:3'), 'VC');
+});
+Deno.test('3-4-2-1: la defensa de 3 son todos centrales', () => {
+  assertEquals(mapGridToPosition('3-4-2-1', '2:1'), 'CB');
+  assertEquals(mapGridToPosition('3-4-2-1', '2:2'), 'CB');
+  assertEquals(mapGridToPosition('3-4-2-1', '2:3'), 'CB');
+});
+Deno.test('3-4-3: row 3 costados = carrileros', () => {
+  assertEquals(mapGridToPosition('3-4-3', '3:1'), 'LI');
+  assertEquals(mapGridToPosition('3-4-3', '3:4'), 'LD');
+});
+
+// --- Casos reales verificados contra la base ---
+// Milton Casco (lateral izquierdo) juega siempre en 2:1.
+// Gonzalo Montiel (lateral derecho) juega siempre en 2:4.
+Deno.test('caso real: Casco es LI en todas sus formaciones', () => {
+  assertEquals(mapGridToPosition('4-3-1-2', '2:1'), 'LI');
+  assertEquals(mapGridToPosition('4-2-3-1', '2:1'), 'LI');
+  assertEquals(mapGridToPosition('4-1-4-1', '2:1'), 'LI');
+  assertEquals(mapGridToPosition('4-4-2', '2:1'), 'LI');
+});
+Deno.test('caso real: Montiel es LD en todas sus formaciones', () => {
+  assertEquals(mapGridToPosition('4-3-1-2', '2:4'), 'LD');
+  assertEquals(mapGridToPosition('4-2-3-1', '2:4'), 'LD');
+  assertEquals(mapGridToPosition('4-4-2', '2:4'), 'LD');
+  assertEquals(mapGridToPosition('4-3-3', '2:4'), 'LD');
+});

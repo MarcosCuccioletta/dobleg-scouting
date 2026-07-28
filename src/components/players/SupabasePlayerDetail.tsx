@@ -7,6 +7,7 @@ import GaugeScore from '@/components/charts/GaugeScore'
 import PositionBar from '@/components/ui/PositionBar'
 import ScoreEvolutionChart from '@/components/charts/ScoreEvolutionChart'
 import { getScoreColorClass, getScoreBgClass } from '@/components/ui/ScoreBar'
+import { currentClubFromMatches } from '@/utils/currentClub'
 import { PlayerPhoto, TeamLogo } from '@/components/ui/PlayerPhoto'
 import MetricsRadarChart from '@/components/charts/MetricsRadarChart'
 import MetricsBarComparison from '@/components/charts/MetricsBarComparison'
@@ -47,6 +48,16 @@ export default function SupabasePlayerDetail() {
 
   const activePosition = selectedPosition ?? data?.player?.primary_position ?? null
   const { matches } = usePlayerMatchHistory(playerId, activePosition ?? undefined)
+
+  /**
+   * Club del último partido: `current_team_id` queda viejo cuando la liga deja de
+   * sincronizar, y el último partido siempre trae club y liga del mismo hecho.
+   */
+  const currentClub = useMemo(() => currentClubFromMatches(data?.matches ?? []), [data])
+  const currentClubName = currentClub?.teamName ?? data?.player?.team?.name ?? null
+  const currentLeagueName = currentClub?.leagueId
+    ? leagues.find(l => l.id === currentClub.leagueId)?.name ?? null
+    : null
 
   const { data: mvHistory } = useMarketValueHistory(playerId)
 
@@ -125,8 +136,11 @@ export default function SupabasePlayerDetail() {
                   <h1 className="text-lg font-bold text-apple-gray-800 dark:text-white truncate">{player.name}</h1>
                   <div className="flex items-center gap-2 text-sm text-apple-gray-500">
                     <TeamLogo src={player.team?.logo} className="w-4 h-4" />
-                    <span className="truncate">{player.team?.name ?? 'Sin equipo'}</span>
+                    <span className="truncate">{currentClubName ?? 'Sin equipo'}</span>
                   </div>
+                  {currentLeagueName && (
+                    <p className="text-xs text-apple-gray-400 truncate mt-0.5">{currentLeagueName}</p>
+                  )}
                 </div>
               </div>
 

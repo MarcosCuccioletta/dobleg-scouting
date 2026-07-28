@@ -76,17 +76,18 @@ const LIGHT_COLORS: ColorPalette = {
 // Legacy alias for backwards compatibility
 const C = DARK_COLORS
 
+// Cortes sobre el Score GG (1-10).
 function scoreColor(s: number, colors: ColorPalette): RGB {
-  if (s >= 70) return colors.brand
-  if (s >= 50) return colors.yellow
-  if (s >= 30) return colors.orange
+  if (s >= 7) return colors.brand
+  if (s >= 5) return colors.yellow
+  if (s >= 3) return colors.orange
   return colors.red
 }
 
 function scoreLabel(s: number): string {
-  if (s >= 70) return 'EXCELENTE'
-  if (s >= 50) return 'BUENO'
-  if (s >= 30) return 'REGULAR'
+  if (s >= 7) return 'EXCELENTE'
+  if (s >= 5) return 'BUENO'
+  if (s >= 3) return 'REGULAR'
   return 'BAJO'
 }
 
@@ -430,7 +431,7 @@ class PDF {
     })
 
     // Needle
-    const angle = start + (score / 100) * Math.PI
+    const angle = start + ((score - 1) / 9) * Math.PI
     const needleColor = this.theme === 'light' ? C.text : [255, 255, 255] as RGB
     this.doc.setDrawColor(...needleColor)
     this.doc.setLineWidth(1.2)

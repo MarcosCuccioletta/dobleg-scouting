@@ -849,7 +849,7 @@ export default function FormationPage() {
                             </span>
                             {p.ggScore !== null && (
                               <span className={`ml-1.5 font-bold ${getScoreColorClass(p.ggScore, '10')}`}>
-                                {p.ggScore.toFixed(0)}
+                                {p.ggScore.toFixed(1)}
                               </span>
                             )}
                           </div>

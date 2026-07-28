@@ -18,9 +18,19 @@ function getWeekLabel(date: string): string {
   return `S${weekNum}`;
 }
 
-function getMonthLabel(date: string): string {
-  const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-  return months[new Date(date).getMonth()];
+const MONTHS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+
+/** Clave por año+mes: si fuera sólo el mes, mayo de 2025 y mayo de 2026 caerían en el mismo punto. */
+export function getMonthKey(date: string): string {
+  const d = new Date(date);
+  return `${d.getFullYear()}-${String(d.getMonth()).padStart(2, '0')}`;
+}
+
+/** "May" cuando el historial es de un solo año; "May 25" cuando abarca varios. */
+export function formatMonthKey(key: string, showYear: boolean): string {
+  const [year, month] = key.split('-');
+  const name = MONTHS[Number(month)];
+  return showYear ? `${name} ${year.slice(2)}` : name;
 }
 
 interface ChartPoint {
@@ -38,7 +48,8 @@ interface ChartPoint {
 }
 
 export default function ScoreEvolutionChart({ matches, avgScore }: ScoreEvolutionChartProps) {
-  const [mode, setMode] = useState<ViewMode>('weekly');
+  // Arranca en mensual: la vista partido a partido es demasiado ruidosa de entrada.
+  const [mode, setMode] = useState<ViewMode>('monthly');
 
   const chartData = useMemo(() => {
     if (matches.length === 0) return [];
@@ -68,13 +79,15 @@ export default function ScoreEvolutionChart({ matches, avgScore }: ScoreEvolutio
     const byMonth = new Map<string, number[]>();
     for (const m of matches) {
       if (m.match_score === null || !m.fixture?.date) continue;
-      const key = getMonthLabel(m.fixture.date);
+      const key = getMonthKey(m.fixture.date);
       if (!byMonth.has(key)) byMonth.set(key, []);
       byMonth.get(key)!.push(m.match_score);
     }
 
-    return Array.from(byMonth.entries()).map(([label, scores]) => ({
-      label,
+    const showYear = new Set(Array.from(byMonth.keys(), k => k.slice(0, 4))).size > 1;
+
+    return Array.from(byMonth.entries()).map(([key, scores]) => ({
+      label: formatMonthKey(key, showYear),
       score: Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 10) / 10,
       tooltipData: {
         date: '',

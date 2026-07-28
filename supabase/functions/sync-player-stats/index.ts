@@ -3,9 +3,11 @@ import { getSupabaseAdmin } from '../_shared/supabase-client.ts';
 import { fetchLineups, fetchFixturePlayers } from '../_shared/api-football.ts';
 import { mapGridToPosition, fallbackPosition } from '../_shared/position-mapper.ts';
 import { calculateMatchScore } from '../_shared/scoring.ts';
+import { pctPasses } from '../_shared/stats-normalize.ts';
 import type { PlayerMatchRow } from '../_shared/types.ts';
 
 const BATCH_SIZE = 15;
+
 
 serve(async () => {
   const supabase = getSupabaseAdmin();
@@ -94,7 +96,12 @@ serve(async () => {
               shots_on: stats.shots.on ?? 0,
               passes_total: stats.passes.total ?? 0,
               passes_key: stats.passes.key ?? 0,
-              passes_accuracy: stats.passes.accuracy ? parseFloat(stats.passes.accuracy) : 0,
+              // OJO: API-Football manda en `passes.accuracy` la CANTIDAD de pases
+              // acertados, no el porcentaje (se ven valores de 107 sobre 123 pases).
+              // Sofascore, en cambio, guarda porcentaje. Se normaliza a porcentaje
+              // acá para que la columna signifique lo mismo venga de donde venga:
+              // el scoring la pondera como porcentaje (`isPercentage: true`).
+              passes_accuracy: pctPasses(stats.passes.total, stats.passes.accuracy),
               tackles: stats.tackles.total ?? 0,
               blocks: stats.tackles.blocks ?? 0,
               interceptions: stats.tackles.interceptions ?? 0,

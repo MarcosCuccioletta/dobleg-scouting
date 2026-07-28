@@ -14,6 +14,14 @@ export function assignLineRoles(lines: number[]): LineRole[] {
   if (lines.length === 4) {
     const [l1, l2, l3, l4] = lines;
 
+    // Línea de 3 en el fondo (3-4-2-1, 3-4-1-2): la línea de 4 que sigue es el
+    // mediocampo CON CARRILEROS, no un doble cinco. Va como MID para que
+    // `mapMidLine` los reconozca por el tamaño de la línea defensiva; si cae en
+    // MID_DEF, los carrileros terminan clasificados como volantes interiores.
+    if (l1 === 3 && l2 >= 4) {
+      return ['DEF', 'MID', 'MID_ATK', 'ATK'];
+    }
+
     // 4-2-3-1: DEF, MID_DEF(pivot), MID_ATK(enganche+wings), ATK
     if (l1 >= 4 && l2 <= 2 && l3 >= 3 && l4 <= 1) {
       return ['DEF', 'MID_DEF', 'MID_ATK', 'ATK'];
@@ -37,11 +45,15 @@ export function assignLineRoles(lines: number[]): LineRole[] {
   return roles;
 }
 
+// Convención de columnas de API-Football: la columna 1 es el lado IZQUIERDO y la
+// última el DERECHO. Verificado contra jugadores de posición conocida —
+// Milton Casco (lateral izquierdo) juega siempre en 2:1 y Gonzalo Montiel
+// (lateral derecho) siempre en 2:4.
 function mapDefLine(col: number, cols: number[]): Position {
   const sorted = [...cols].sort((a, b) => a - b);
   if (sorted.length === 3) return 'CB';
-  if (col === sorted[0]) return 'LD';
-  if (col === sorted[sorted.length - 1]) return 'LI';
+  if (col === sorted[0]) return 'LI';
+  if (col === sorted[sorted.length - 1]) return 'LD';
   return 'CB';
 }
 
@@ -49,10 +61,12 @@ function mapMidLine(col: number, cols: number[], defLineSize: number): Position 
   const sorted = [...cols].sort((a, b) => a - b);
   const n = sorted.length;
 
-  // 5-man midfield with 3-back: wide players are wing-backs (LD/LI)
-  if (n === 5 && defLineSize === 3) {
-    if (col === sorted[0]) return 'LD';
-    if (col === sorted[n - 1]) return 'LI';
+  // Mediocampo de 4 o 5 con línea de 3 atrás: los de los costados son
+  // carrileros, o sea laterales, no volantes interiores.
+  if (n >= 4 && defLineSize === 3) {
+    if (col === sorted[0]) return 'LI';
+    if (col === sorted[n - 1]) return 'LD';
+    if (n === 4) return 'VC';
     const mid = Math.floor(n / 2);
     if (col === sorted[mid]) return 'VC';
     return 'VI';

@@ -14,7 +14,7 @@ import MetricEvolutionChart from '@/components/charts/MetricEvolutionChart'
 import { buildInsights } from '@/features/wyscout/wyscoutInsights'
 import { aggregateByMonth, metricIsLowerBetter } from '@/services/wyscoutEvolutionService'
 import type { WyscoutEvolutionData } from '@/services/wyscoutEvolutionService'
-import { usePlayerDetail, usePlayerMatchHistory, usePositionAverages, usePositionMetricAverages, useLeagues, useScoreLookup } from '@/hooks/usePlayerStats'
+import { usePlayerDetail, usePlayerMatchHistory, usePositionAverages, usePositionMetricAverages, useLeagues, useScoreLookup, usePreferredPlayerId } from '@/hooks/usePlayerStats'
 import type { Position } from '@/types/scoring'
 import { displayPosition as formatPosition } from '@/types/scoring'
 import MetricsRadarChart from '@/components/charts/MetricsRadarChart'
@@ -25,6 +25,7 @@ import ExportPDFModal, { type PDFTheme } from '@/components/ui/ExportPDFModal'
 import { exportPlayerToPdfFull } from '@/utils/pdfExport'
 import AddToReportButton from '@/components/pdf/AddToReportButton'
 import { normalizeName } from '@/utils/scoring'
+import { currentClubFromMatches } from '@/utils/currentClub'
 import { fuzzyMatch } from '@/lib/search'
 import { POSITION_MAP, DISPLAY_POSITION_MAP, DISPLAY_METRICS, RADAR_METRICS, METRIC_ABBREVIATIONS } from '@/constants/scoring'
 import { fetchPlayerEvaluations, fetchEvaluationsByName, type ScoutEvaluation } from '@/services/scoutEvaluationService'
@@ -698,7 +699,7 @@ export default function PlayerDetailPage() {
   const { metricAverages } = usePositionMetricAverages()
   const leagues = useLeagues()
 
-  const apiPlayerId = useMemo(() => {
+  const rawApiPlayerId = useMemo(() => {
     if (apiIdParam) return parseInt(apiIdParam)
     if (typeof player?.apiFootballId === 'number') return player.apiFootballId
     if (source === 'interno' && player && scoreLookupReady) {
@@ -728,11 +729,47 @@ export default function PlayerDetailPage() {
     return null
   }, [apiIdParam, player, source, scoreLookup, scoreLookupReady]) as number | null
 
+  // Un mismo jugador puede estar dos veces en `players`: la fila de API-Football y
+  // la de Sofascore. Hay que quedarse con la de API-Football — es la que trae
+  // traspasos y lesiones, y la otra puede dar otro score para el mismo partido.
+  const apiPlayerId = usePreferredPlayerId(rawApiPlayerId)
+
   const { data: supabaseDetail } = usePlayerDetail(apiPlayerId)
+
+  /**
+   * Posición sobre la que existe Score GG. Se prefiere la elegida (o la primaria),
+   * pero si esa posición no tiene temporada puntuada se cae a la que más partidos
+   * acumule. Un central que sólo sumó minutos como lateral tiene score y partidos:
+   * mirar la posición equivocada dejaba la ficha sin score y sin historial.
+   */
+  const scoredPosition = useMemo(() => {
+    if (!supabaseDetail) return null
+    const pos = selectedPosition ?? supabaseDetail.player.primary_position
+    const scored = supabaseDetail.allSeasonScores.filter(s => s.avg_score != null)
+    if (scored.some(s => s.position === pos)) return pos
+    const best = [...scored].sort((a, b) => b.matches_played - a.matches_played)[0]
+    return best?.position ?? pos
+  }, [supabaseDetail, selectedPosition])
+
   const { matches: supabaseMatches } = usePlayerMatchHistory(
     apiPlayerId,
-    selectedPosition ?? supabaseDetail?.player?.primary_position ?? undefined
+    scoredPosition ?? undefined
   )
+
+  /**
+   * Club y liga del último partido jugado. Van juntos a propósito: antes el club
+   * salía del CSV y la liga de la API, y podía quedar "Necaxa · Liga Uruguay".
+   * Si el jugador no tiene partidos en la API se cae al club del CSV, sin liga
+   * (no se puede afirmar la liga de un club que la API no confirma).
+   */
+  const currentClub = useMemo(
+    () => currentClubFromMatches(supabaseDetail?.matches ?? []),
+    [supabaseDetail],
+  )
+  const currentClubName = currentClub?.teamName ?? player?.Equipo ?? null
+  const currentLeagueName = currentClub?.leagueId
+    ? leagues.find(l => l.id === currentClub.leagueId)?.name ?? null
+    : null
 
   // Datos evolutivos Wyscout (solo interno)
   const [wyscout, setWyscout] = useState<WyscoutEvolutionData | null>(null)
@@ -780,20 +817,17 @@ export default function PlayerDetailPage() {
   const { transfers: playerTransfers, loading: transfersLoading } = usePlayerTransfers(effectiveApiId)
 
   const supabaseAvgScore = useMemo(() => {
-    if (!supabaseDetail) return null
-    const pos = selectedPosition ?? supabaseDetail.player.primary_position
-    const score = supabaseDetail.allSeasonScores.find(s => s.position === pos)
-    return score?.avg_score ?? null
-  }, [supabaseDetail, selectedPosition])
+    if (!supabaseDetail || !scoredPosition) return null
+    return supabaseDetail.allSeasonScores.find(s => s.position === scoredPosition)?.avg_score ?? null
+  }, [supabaseDetail, scoredPosition])
 
   const supabasePosAverage = useMemo(() => {
-    if (!supabaseDetail || !positionAverages.length) return null
-    const pos = selectedPosition ?? supabaseDetail.player.primary_position
+    if (!supabaseDetail || !positionAverages.length || !scoredPosition) return null
     const leagueId = supabaseDetail.player.team?.league_id
-    if (!pos || !leagueId) return null
-    const avg = positionAverages.find(a => a.position === pos && a.league_id === leagueId)
+    if (!leagueId) return null
+    const avg = positionAverages.find(a => a.position === scoredPosition && a.league_id === leagueId)
     return avg?.avg_score ?? null
-  }, [supabaseDetail, selectedPosition, positionAverages])
+  }, [supabaseDetail, scoredPosition, positionAverages])
 
   const rawPosition = useMemo(() => {
     if (overridePosition) return overridePosition
@@ -1307,7 +1341,7 @@ export default function PlayerDetailPage() {
                     </svg>
                   </button>
                   <p className="text-sm text-apple-gray-500 dark:text-apple-gray-400 mt-0.5">
-                    {player.Equipo || '—'}
+                    {currentClubName || '—'}
                   </p>
 
                   {/* Player Selector Dropdown */}
@@ -1406,9 +1440,9 @@ export default function PlayerDetailPage() {
                 <span className="inline-flex px-2.5 py-1 bg-apple-gray-100 dark:bg-apple-gray-700 rounded-lg text-xs font-medium text-apple-gray-600 dark:text-apple-gray-300">
                   {displayPosition}
                 </span>
-                {player.Liga && (
+                {currentLeagueName && (
                   <span className="text-xs text-apple-gray-500 dark:text-apple-gray-400">
-                    {player.Liga}
+                    {currentLeagueName}
                   </span>
                 )}
               </div>
@@ -1453,22 +1487,22 @@ export default function PlayerDetailPage() {
               <h2 className="text-xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider">
                 Score GG
               </h2>
-              {supabaseDetail?.player?.primary_position && supabaseAvgScore != null && (
+              {scoredPosition && supabaseAvgScore != null && (
                 <p className="text-2xs text-apple-gray-400 mt-1">
-                  {formatPosition(supabaseDetail.player.primary_position)} · {supabaseDetail.allSeasonScores.find(s => s.position === (selectedPosition ?? supabaseDetail.player.primary_position))?.matches_played ?? 0} partidos
+                  {formatPosition(scoredPosition)} · {supabaseDetail?.allSeasonScores.find(s => s.position === scoredPosition)?.matches_played ?? 0} partidos
                 </p>
               )}
             </div>
+            {/* Sólo Score GG (1-10) de la API. Sin dato se dice; no se cae al scoring viejo de 0-100. */}
             <GaugeScore
-              score={supabaseAvgScore ?? player.ggScore}
+              score={supabaseAvgScore}
               size="lg"
-              scale={supabaseAvgScore != null ? '10' : '100'}
-              comparisonScore={supabaseAvgScore != null ? supabasePosAverage : positionAverageScore}
-              comparisonLabel={`Promedio ${formatPosition(supabaseDetail?.player?.primary_position) || posKey || 'posición'}`}
+              scale="10"
+              comparisonScore={supabasePosAverage}
+              comparisonLabel={`Promedio ${formatPosition(scoredPosition) || posKey || 'posición'}`}
             />
             {(() => {
-              const activePos = selectedPosition ?? supabaseDetail?.player?.primary_position
-              const activeSeasonScore = supabaseDetail?.allSeasonScores?.find(s => s.position === activePos)
+              const activeSeasonScore = supabaseDetail?.allSeasonScores?.find(s => s.position === scoredPosition)
               if (!supabaseDetail || !activeSeasonScore) return null
               const scores = (supabaseDetail.allSeasonScores ?? [])
                 .filter(s => s.avg_score != null)
@@ -1503,7 +1537,7 @@ export default function PlayerDetailPage() {
                     <div className="space-y-1.5">
                       <p className="text-2xs font-medium text-apple-gray-400 uppercase tracking-wider">Score por posición</p>
                       {scores.map(s => (
-                        <div key={s.position} className={`flex items-center justify-between text-xs px-2.5 py-1.5 rounded-lg ${s.position === activePos ? 'bg-brand-green/10 dark:bg-brand-green/15' : 'bg-apple-gray-50 dark:bg-apple-gray-800/50'}`}>
+                        <div key={s.position} className={`flex items-center justify-between text-xs px-2.5 py-1.5 rounded-lg ${s.position === scoredPosition ? 'bg-brand-green/10 dark:bg-brand-green/15' : 'bg-apple-gray-50 dark:bg-apple-gray-800/50'}`}>
                           <span className="font-semibold text-apple-gray-700 dark:text-apple-gray-300">{s.position}</span>
                           <span className="text-apple-gray-500 dark:text-apple-gray-400">{s.avg_score != null ? s.avg_score.toFixed(1) : '—'} · {s.matches_played} PJ</span>
                         </div>
@@ -1691,7 +1725,7 @@ export default function PlayerDetailPage() {
                           <span className="font-semibold text-apple-gray-800 dark:text-white">{player.Jugador}</span>
                           {' '}es un <span className="font-medium">{displayPosition}</span>
                           {' '}de <span className="font-medium">{player.Edad} años</span>
-                          {player.Liga && <> que juega en <span className="font-medium">{player.Liga}</span></>}.
+                          {currentLeagueName && <> que juega en <span className="font-medium">{currentLeagueName}</span></>}.
                           {supabaseAvgScore != null ? (
                             <> Su Score GG de <span className="font-bold text-brand-green">{supabaseAvgScore.toFixed(1)}</span>/10
                             {supabasePosAverage && supabaseAvgScore > supabasePosAverage ? (
@@ -1703,15 +1737,7 @@ export default function PlayerDetailPage() {
                               <> Basado en <span className="font-medium">{supabaseMatches.length} partidos</span> analizados.</>
                             )}
                             </>
-                          ) : player.ggScore !== null ? (
-                            <> Su Score GG de <span className="font-bold text-brand-green">{player.ggScore.toFixed(1)}</span>
-                            {positionAverageScore && player.ggScore > positionAverageScore ? (
-                              <> está <span className="text-emerald-600 font-medium">por encima</span> del promedio de su posición</>
-                            ) : positionAverageScore && player.ggScore < positionAverageScore ? (
-                              <> está por debajo del promedio de su posición</>
-                            ) : null}.
-                            </>
-                          ) : null}
+                          ) : <> Todavía no tiene Score GG calculado.</>}
                           {player.contractStatus === 'critical' && (
                             <> <span className="text-orange-500 font-medium">Contrato por vencer pronto.</span></>
                           )}
@@ -2020,16 +2046,6 @@ export default function PlayerDetailPage() {
                               {supabasePosAverage && (
                                 <p className={`text-xs mt-2 font-medium ${supabaseAvgScore >= supabasePosAverage ? 'text-emerald-500' : 'text-orange-500'}`}>
                                   {supabaseAvgScore >= supabasePosAverage ? '↑' : '↓'} {Math.abs(supabaseAvgScore - supabasePosAverage).toFixed(1)} vs promedio
-                                </p>
-                              )}
-                            </>
-                          ) : player.ggScore !== null ? (
-                            <>
-                              <p className="text-3xl font-bold text-apple-gray-800 dark:text-white">{player.ggScore.toFixed(1)}</p>
-                              <p className="text-xs text-apple-gray-400 mt-1">Score GG actual</p>
-                              {positionAverageScore && (
-                                <p className={`text-xs mt-2 font-medium ${player.ggScore >= positionAverageScore ? 'text-emerald-500' : 'text-orange-500'}`}>
-                                  {player.ggScore >= positionAverageScore ? '↑' : '↓'} {Math.abs(player.ggScore - positionAverageScore).toFixed(1)} vs promedio
                                 </p>
                               )}
                             </>
@@ -2641,25 +2657,12 @@ export default function PlayerDetailPage() {
                       Mapa Corporal
                     </h4>
                     <div className="py-2">
+                      {/* El mapa traduce solo el texto de la lesión a zonas
+                          (ver `bodyZones.ts`), así que acá va el tipo crudo. */}
                       <BodyMapSVG
                         injuries={playerInjuries
                           .filter(i => !i.end || new Date(i.end) > new Date())
-                          .map(i => {
-                            const reason = i.type.toLowerCase()
-                            const zone = reason.includes('knee') ? 'knee_right' :
-                              reason.includes('hamstring') || reason.includes('thigh') ? 'thigh_right' :
-                              reason.includes('ankle') ? 'ankle_right' :
-                              reason.includes('calf') ? 'calf_right' :
-                              reason.includes('groin') || reason.includes('adductor') ? 'hip_right' :
-                              reason.includes('shoulder') ? 'shoulder_right' :
-                              reason.includes('back') || reason.includes('lumbar') ? 'lower_back' :
-                              reason.includes('head') || reason.includes('concussion') ? 'head' :
-                              reason.includes('foot') ? 'foot_right' :
-                              reason.includes('hip') ? 'hip_right' :
-                              reason.includes('muscle') ? 'thigh_right' :
-                              'torso_front'
-                            return { zone, severity: 'moderada' as const, label: i.type }
-                          })}
+                          .map(i => ({ zone: i.type, severity: 'moderada' as const, label: i.type }))}
                         interactive={false}
                         className="w-full"
                       />
