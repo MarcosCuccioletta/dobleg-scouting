@@ -117,3 +117,20 @@ export interface GpsParseResult {
   columns: ColumnMapping[]
   players: DetectedPlayer[]
 }
+
+// ─── Formulario ───────────────────────────────────────────────────────────────
+
+export interface MatchContextValue {
+  playerName: string
+  matchDate: string       // 'YYYY-MM-DD'
+  equipo: string
+  rival: string
+  competencia: string
+  resultado: string
+  minutos: string         // texto en el form; se parsea al guardar
+}
+
+export const EMPTY_MATCH_CONTEXT: MatchContextValue = {
+  playerName: '', matchDate: '', equipo: '', rival: '',
+  competencia: '', resultado: '', minutos: '',
+}

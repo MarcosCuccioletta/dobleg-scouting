@@ -1,0 +1,166 @@
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { getAgencyPlayers } from '@/services/agencyPlayersService'
+import { useGpsCatalog } from '@/features/gps/useGpsCatalog'
+import { fetchGpsEntries, saveGpsEntries, distinctValues } from '@/services/gpsService'
+import MatchContextForm from '@/features/gps/components/MatchContextForm'
+import MetricValueInputs from '@/features/gps/components/MetricValueInputs'
+import { EMPTY_MATCH_CONTEXT, type MatchContextValue, type GpsEntryRow } from '@/features/gps/types'
+
+type Tab = 'auto' | 'manual'
+
+export default function GpsUploadPage() {
+  const [tab, setTab] = useState<Tab>('auto')
+  const { metrics, addMetric, loading: catalogLoading } = useGpsCatalog()
+  const [entries, setEntries] = useState<GpsEntryRow[]>([])
+
+  const roster = useMemo(() => getAgencyPlayers(), [])
+  const reloadEntries = useCallback(async () => setEntries(await fetchGpsEntries()), [])
+  useEffect(() => { void reloadEntries() }, [reloadEntries])
+
+  const rivals = useMemo(() => distinctValues(entries, 'rival'), [entries])
+  const competitions = useMemo(() => distinctValues(entries, 'competencia'), [entries])
+  const teams = useMemo(() => {
+    const fromEntries = distinctValues(entries, 'equipo')
+    const fromRoster = roster.map(p => p.team).filter(Boolean)
+    return [...new Set([...fromEntries, ...fromRoster])].sort((a, b) => a.localeCompare(b, 'es'))
+  }, [entries, roster])
+
+  return (
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 pb-28 sm:pb-10 space-y-5">
+      <header>
+        <h1 className="text-2xl sm:text-3xl font-bold text-apple-gray-800 dark:text-white">Carga de GPS</h1>
+        <p className="text-sm text-apple-gray-500 dark:text-apple-gray-400 mt-1">
+          Datos físicos por partido. Una carga es un jugador en un partido.
+        </p>
+      </header>
+
+      <div className="flex gap-1 bg-apple-gray-100 dark:bg-apple-gray-700/50 p-1 rounded-apple w-full sm:w-fit">
+        {([['auto', 'Automática'], ['manual', 'Manual']] as const).map(([id, text]) => (
+          <button
+            key={id}
+            onClick={() => setTab(id)}
+            className={`flex-1 sm:flex-none px-5 py-2.5 rounded-lg text-sm font-medium transition-all ${
+              tab === id
+                ? 'bg-white dark:bg-apple-gray-800 text-apple-gray-800 dark:text-white shadow-apple dark:shadow-apple-dark'
+                : 'text-apple-gray-500 dark:text-apple-gray-400'
+            }`}
+          >
+            {text}
+          </button>
+        ))}
+      </div>
+
+      {catalogLoading ? (
+        <div className="bg-white dark:bg-apple-gray-800 rounded-apple-xl p-8 text-center text-sm text-apple-gray-400">
+          Cargando métricas…
+        </div>
+      ) : tab === 'manual' ? (
+        <ManualTab
+          metrics={metrics}
+          roster={roster}
+          rivals={rivals}
+          competitions={competitions}
+          teams={teams}
+          addMetric={addMetric}
+          onSaved={reloadEntries}
+        />
+      ) : (
+        <div className="bg-white dark:bg-apple-gray-800 rounded-apple-xl p-8 text-center text-sm text-apple-gray-400">
+          Próximamente
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Pestaña manual ───────────────────────────────────────────────────────────
+
+function ManualTab({ metrics, roster, rivals, competitions, teams, addMetric, onSaved }: {
+  metrics: ReturnType<typeof useGpsCatalog>['metrics']
+  roster: ReturnType<typeof getAgencyPlayers>
+  rivals: string[]
+  competitions: string[]
+  teams: string[]
+  addMetric: ReturnType<typeof useGpsCatalog>['addMetric']
+  onSaved: () => Promise<void>
+}) {
+  const [context, setContext] = useState<MatchContextValue>(EMPTY_MATCH_CONTEXT)
+  const [values, setValues] = useState<Record<string, string>>({})
+  const [status, setStatus] = useState<{ kind: 'ok' | 'error' | 'conflict'; text: string } | null>(null)
+  const [saving, setSaving] = useState(false)
+
+  const canSave = Boolean(context.playerName && context.matchDate)
+
+  const save = async (replace = false) => {
+    setSaving(true)
+    setStatus(null)
+
+    const metricsPayload: Record<string, number> = {}
+    for (const [key, raw] of Object.entries(values)) {
+      const n = Number(String(raw).replace(',', '.'))
+      if (raw !== '' && Number.isFinite(n)) metricsPayload[key] = n
+    }
+
+    const result = await saveGpsEntries([{
+      playerName: context.playerName,
+      matchDate: context.matchDate,
+      equipo: context.equipo || null,
+      rival: context.rival || null,
+      competencia: context.competencia || null,
+      resultado: context.resultado || null,
+      minutos: context.minutos === '' ? null : Number(context.minutos),
+      metrics: metricsPayload,
+      source: 'manual',
+    }], { replace })
+
+    setSaving(false)
+
+    if (result.error) { setStatus({ kind: 'error', text: `No se pudo guardar: ${result.error}` }); return }
+    if (result.conflicts.length > 0) {
+      setStatus({ kind: 'conflict', text: `Ya hay una carga de ${result.conflicts[0]} para el ${context.matchDate}.` })
+      return
+    }
+    setStatus({ kind: 'ok', text: `Guardado: ${context.playerName} vs ${context.rival || 'rival sin cargar'}.` })
+    setContext(EMPTY_MATCH_CONTEXT)
+    setValues({})
+    await onSaved()
+  }
+
+  return (
+    <div className="space-y-4">
+      <MatchContextForm
+        value={context} onChange={setContext}
+        roster={roster} rivals={rivals} competitions={competitions} teams={teams}
+      />
+      <MetricValueInputs metrics={metrics} values={values} onChange={setValues} onAddMetric={addMetric} />
+
+      {status && (
+        <div className={`rounded-apple px-4 py-3 text-sm ${
+          status.kind === 'ok'
+            ? 'bg-brand-green/10 text-brand-green'
+            : 'bg-red-500/10 text-red-500'
+        }`}>
+          <span>{status.text}</span>
+          {status.kind === 'conflict' && (
+            <button onClick={() => void save(true)} className="ml-3 underline font-medium">
+              Reemplazar la carga existente
+            </button>
+          )}
+        </div>
+      )}
+
+      <div className="sticky bottom-20 sm:bottom-0 sm:static">
+        <button
+          onClick={() => void save(false)}
+          disabled={!canSave || saving}
+          className="w-full sm:w-auto px-6 py-3 rounded-apple bg-brand-green text-white font-medium disabled:opacity-40"
+        >
+          {saving ? 'Guardando…' : 'Guardar carga'}
+        </button>
+        {!canSave && (
+          <p className="text-xs text-apple-gray-400 mt-2">Elegí jugador y fecha para poder guardar.</p>
+        )}
+      </div>
+    </div>
+  )
+}
