@@ -2,8 +2,9 @@
  * Migra el Google Sheet GPS_Data a la tabla gps_entries de Supabase. Se corre una
  * sola vez. Los ceros del Sheet significan "no disponible" y no se migran.
  *
- * Dry run:  node scripts/migrate-gps-sheet.mjs
- * En serio: SUPABASE_URL=... SUPABASE_SERVICE_KEY=... node scripts/migrate-gps-sheet.mjs --apply
+ * Dry run:   node scripts/migrate-gps-sheet.mjs
+ * Genera SQL: node scripts/migrate-gps-sheet.mjs --sql     (se pega en el SQL Editor)
+ * Vía API:    SUPABASE_URL=... SUPABASE_SERVICE_KEY=... node scripts/migrate-gps-sheet.mjs --apply
  */
 
 const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSneBjGlw2I3SyXV-uw1V8Cs_O4lbiQw39melKEZJNhunpshakPrn7AZQBN2L8N9Yw_HA-EeVOt3qvf/pub?gid=1233910424&single=true&output=csv'
@@ -30,6 +31,49 @@ const COLUMN_TO_METRIC = {
 }
 
 const APPLY = process.argv.includes('--apply')
+const AS_SQL = process.argv.includes('--sql')
+
+/**
+ * El Sheet tiene celdas con bytes corruptos: al decodificar quedan U+FFFD en lugar de
+ * la vocal acentuada. En los nombres de jugador no es cosmético — el player_key sale
+ * de ahí y la ficha no encontraría sus datos. Se reparan por tabla explícita y el
+ * script aborta si aparece un caso nuevo, para no migrar nada adivinado.
+ */
+const R = '�'   // el caracter de reemplazo que quedó en lugar de la vocal
+const ENCODING_FIXES = new Map([
+  [`Mat${R}as Kabalin`,          'Matías Kabalin'],
+  [`Agust${R}n Mulet`,           'Agustín Mulet'],
+  [`Hurac${R}n`,                 'Huracán'],
+  [`Col${R}n`,                   'Colón'],
+  [`Central C${R}rdoba Stgo`,    'Central Córdoba Stgo'],
+  [`Atl${R}tico Tucum${R}n`,     'Atlético Tucumán'],
+  [`Trist${R}n Su${R}rez`,       'Tristán Suárez'],
+  [`San Mart${R}n (SJ)`,         'San Martín (SJ)'],
+  [`G${R}emes`,                  'Güemes'],
+])
+
+function fixEncoding(value) {
+  if (typeof value !== 'string' || !value.includes(R)) return value
+  return ENCODING_FIXES.get(value) ?? value
+}
+
+/**
+ * Nombres que en el Sheet están abreviados o incompletos. El player_key tiene que
+ * coincidir con el del roster o la ficha del jugador no encuentra sus datos.
+ */
+const PLAYER_NAME_FIXES = new Map([
+  ['J. Ginzo', 'Juan Martín Ginzo'],
+  ['Juan Díaz', 'Juan Ignacio Díaz'],
+])
+
+/** Nombres del roster Doble G, leídos de la constante del front. */
+async function rosterKeys() {
+  const { readFileSync } = await import('node:fs')
+  const src = readFileSync('src/constants/agencyPlayers.ts', 'utf8')
+  const names = [...src.matchAll(/fullName: '([^']+)'/g)].map(m => m[1])
+  if (names.length < 20) throw new Error('No pude leer el roster de agencyPlayers.ts')
+  return new Set(names.map(playerKey))
+}
 
 /** Igual que agencyKey() del front: NFD, lower, sin acentos ni puntos. */
 function playerKey(name) {
@@ -80,8 +124,9 @@ const entries = []
 const skipped = []
 
 for (const row of rows.slice(1)) {
-  const get = name => row[headers.indexOf(name)] ?? ''
-  const playerName = get('Jugador').trim()
+  const get = name => fixEncoding((row[headers.indexOf(name)] ?? '').trim())
+  const rawName = get('Jugador')
+  const playerName = PLAYER_NAME_FIXES.get(rawName) ?? rawName
   const matchDate = toIsoDate(get('Fecha'))
   if (!playerName || !matchDate) { skipped.push(`${playerName || '(sin nombre)'} / ${get('Fecha')}`); continue }
 
@@ -96,10 +141,10 @@ for (const row of rows.slice(1)) {
     player_key: playerKey(playerName),
     player_name: playerName,
     match_date: matchDate,
-    equipo: get('Equipo').trim() || null,
-    rival: get('Rival').trim() || null,
-    competencia: get('Competencia').trim() || null,
-    resultado: get('Resultado').trim() === 'N/A' ? null : (get('Resultado').trim() || null),
+    equipo: get('Equipo') || null,
+    rival: get('Rival') || null,
+    competencia: get('Competencia') || null,
+    resultado: get('Resultado') === 'N/A' ? null : (get('Resultado') || null),
     minutos: num(get('Minutos')),
     metrics,
     source: 'manual',
@@ -135,6 +180,27 @@ for (const e of unique) {
 }
 const deduped = [...bySignature.values()]
 
+// Nada con caracteres rotos puede llegar a la base: el player_key sale del nombre.
+const stillBroken = deduped.filter(e =>
+  [e.player_name, e.player_key, e.equipo, e.rival, e.competencia].some(v => (v ?? '').includes(R)))
+if (stillBroken.length) {
+  console.error('Hay celdas con encoding roto que no están en ENCODING_FIXES. Agregalas y volvé a correr:')
+  for (const e of stillBroken) {
+    console.error(' ', JSON.stringify([e.player_name, e.equipo, e.rival, e.competencia]))
+  }
+  process.exit(1)
+}
+
+// Todos los jugadores tienen que existir en el roster: si un player_key no matchea,
+// la carga queda huérfana y la ficha nunca la muestra.
+const known = await rosterKeys()
+const orphans = [...new Set(deduped.filter(e => !known.has(e.player_key)).map(e => e.player_name))]
+if (orphans.length) {
+  console.error('Estos jugadores no matchean el roster Doble G. Agregalos a PLAYER_NAME_FIXES:')
+  for (const name of orphans) console.error(' ', name)
+  process.exit(1)
+}
+
 console.log(`Filas del CSV: ${rows.length - 1}`)
 console.log(`A migrar: ${deduped.length}`)
 if (encodingDupes.length) console.log(`Repetidas por encoding (se queda la bien escrita): ${encodingDupes.join(' | ')}`)
@@ -142,8 +208,34 @@ if (dupes.length) console.log(`Duplicados (se queda el último): ${dupes.join(',
 if (skipped.length) console.log(`Salteadas por falta de jugador o fecha: ${skipped.join(', ')}`)
 console.log("Ejemplo:", JSON.stringify(deduped[0], null, 2))
 
+if (AS_SQL) {
+  // Salida para pegar en el SQL Editor de Supabase: corre como postgres, así que no
+  // hace falta la service key.
+  const q = v => v === null || v === undefined ? 'NULL' : `'${String(v).replace(/'/g, "''")}'`
+  const lines = deduped.map(e => '  (' + [
+    q(e.player_key), q(e.player_name), q(e.match_date), q(e.equipo), q(e.rival),
+    q(e.competencia), q(e.resultado), e.minutos === null ? 'NULL' : e.minutos,
+    `${q(JSON.stringify(e.metrics))}::jsonb`, q(e.source), q(e.file_name),
+  ].join(', ') + ')')
+
+  const sql = [
+    '-- Migración única del Sheet GPS_Data a gps_entries.',
+    'INSERT INTO gps_entries',
+    '  (player_key, player_name, match_date, equipo, rival, competencia, resultado, minutos, metrics, source, file_name)',
+    'VALUES',
+    lines.join(',\n'),
+    'ON CONFLICT DO NOTHING;',
+    '',
+  ].join('\n')
+
+  const { writeFileSync } = await import('node:fs')
+  writeFileSync('scripts/output/gps-migration.sql', sql, 'utf8')
+  console.log('\nSQL escrito en scripts/output/gps-migration.sql: pegalo en el SQL Editor.')
+  process.exit(0)
+}
+
 if (!APPLY) {
-  console.log('\nDry run. Volvé a correr con --apply y las credenciales para escribir.')
+  console.log('\nDry run. Volvé a correr con --sql (para pegar en el editor) o con --apply y las credenciales.')
   process.exit(0)
 }
 
