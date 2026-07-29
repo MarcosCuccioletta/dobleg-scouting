@@ -4,13 +4,17 @@ import { useGpsCatalog } from '@/features/gps/useGpsCatalog'
 import { fetchGpsEntries, saveGpsEntries, distinctValues } from '@/services/gpsService'
 import MatchContextForm from '@/features/gps/components/MatchContextForm'
 import MetricValueInputs from '@/features/gps/components/MetricValueInputs'
-import { EMPTY_MATCH_CONTEXT, type MatchContextValue, type GpsEntryRow } from '@/features/gps/types'
+import GpsDropzone from '@/features/gps/components/GpsDropzone'
+import ParseReviewPanel from '@/features/gps/components/ParseReviewPanel'
+import { parseGpsPdf, GpsParseError } from '@/features/gps/parser/parsePdf'
+import pdfWorkerSrc from '@/features/gps/parser/pdfWorker'
+import { EMPTY_MATCH_CONTEXT, type MatchContextValue, type GpsEntryRow, type GpsParseResult } from '@/features/gps/types'
 
 type Tab = 'auto' | 'manual'
 
 export default function GpsUploadPage() {
   const [tab, setTab] = useState<Tab>('auto')
-  const { metrics, addMetric, loading: catalogLoading } = useGpsCatalog()
+  const { metrics, lookup, addMetric, learnAlias, loading: catalogLoading } = useGpsCatalog()
   const [entries, setEntries] = useState<GpsEntryRow[]>([])
 
   const roster = useMemo(() => getAgencyPlayers(), [])
@@ -65,9 +69,17 @@ export default function GpsUploadPage() {
           onSaved={reloadEntries}
         />
       ) : (
-        <div className="bg-white dark:bg-apple-gray-800 rounded-apple-xl p-8 text-center text-sm text-apple-gray-400">
-          Próximamente
-        </div>
+        <AutoTab
+          metrics={metrics}
+          lookup={lookup}
+          roster={roster}
+          rivals={rivals}
+          competitions={competitions}
+          teams={teams}
+          addMetric={addMetric}
+          learnAlias={learnAlias}
+          onSaved={reloadEntries}
+        />
       )}
     </div>
   )
@@ -161,6 +173,63 @@ function ManualTab({ metrics, roster, rivals, competitions, teams, addMetric, on
           <p className="text-xs text-apple-gray-400 mt-2">Elegí jugador y fecha para poder guardar.</p>
         )}
       </div>
+    </div>
+  )
+}
+
+// ─── Pestaña automática ───────────────────────────────────────────────────────
+
+function AutoTab({ metrics, lookup, roster, rivals, competitions, teams, addMetric, learnAlias, onSaved }: {
+  metrics: ReturnType<typeof useGpsCatalog>['metrics']
+  lookup: ReturnType<typeof useGpsCatalog>['lookup']
+  roster: ReturnType<typeof getAgencyPlayers>
+  rivals: string[]
+  competitions: string[]
+  teams: string[]
+  addMetric: ReturnType<typeof useGpsCatalog>['addMetric']
+  learnAlias: ReturnType<typeof useGpsCatalog>['learnAlias']
+  onSaved: () => Promise<void>
+}) {
+  const [parsing, setParsing] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [result, setResult] = useState<GpsParseResult | null>(null)
+  const [fileName, setFileName] = useState('')
+
+  const handleFile = async (file: File) => {
+    setParsing(true)
+    setError(null)
+    setResult(null)
+    try {
+      const data = await file.arrayBuffer()
+      const parsed = await parseGpsPdf(data, { roster, lookup, workerSrc: pdfWorkerSrc })
+      setResult(parsed)
+      setFileName(file.name)
+    } catch (err) {
+      setError(err instanceof GpsParseError
+        ? err.message
+        : `No pude leer el archivo: ${(err as Error).message}`)
+    } finally {
+      setParsing(false)
+    }
+  }
+
+  if (result) {
+    return (
+      <ParseReviewPanel
+        result={result} fileName={fileName} metrics={metrics} roster={roster}
+        rivals={rivals} competitions={competitions} teams={teams}
+        addMetric={addMetric} learnAlias={learnAlias}
+        onSaved={onSaved} onCancel={() => setResult(null)}
+      />
+    )
+  }
+
+  return (
+    <div className="space-y-4">
+      <GpsDropzone onFile={file => void handleFile(file)} disabled={parsing} />
+      {error && (
+        <div className="rounded-apple bg-red-500/10 text-red-500 px-4 py-3 text-sm">{error}</div>
+      )}
     </div>
   )
 }
