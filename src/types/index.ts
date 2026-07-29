@@ -244,7 +244,11 @@ export interface AppData {
   evolution: EvolutionEntry[]
   subjectiveMetrics: SubjectiveMetric[]
   marketValueHistory: MarketValueHistoryEntry[]
+  /** Forma vieja (métricas canónicas), derivada de `gpsEntries`. La usan los informes. */
   gpsData: GPSEntry[]
+  gpsEntries: import('@/features/gps/types').GpsEntryRow[]
+  gpsMetrics: import('@/features/gps/types').GpsMetric[]
+  refreshGps: () => Promise<void>
   positionAverages: Record<string, number>
   agencyPlayers: import('@/constants/agencyPlayers').AgencyPlayer[]
   refreshAgencyPlayers: () => Promise<void>

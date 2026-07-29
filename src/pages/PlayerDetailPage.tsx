@@ -29,6 +29,7 @@ import { currentClubFromMatches } from '@/utils/currentClub'
 import { fuzzyMatch } from '@/lib/search'
 import { POSITION_MAP, DISPLAY_POSITION_MAP, DISPLAY_METRICS, RADAR_METRICS, METRIC_ABBREVIATIONS } from '@/constants/scoring'
 import { fetchPlayerEvaluations, fetchEvaluationsByName, type ScoutEvaluation } from '@/services/scoutEvaluationService'
+import { gpsPlayerKey } from '@/services/gpsService'
 import { useApiFootballPlayerId, usePlayerInjuries, usePlayerTransfers } from '@/hooks/usePlayerApiData'
 import TrackingWidget from '@/components/tracking/TrackingWidget'
 import DobleGWidget from '@/components/agency/DobleGWidget'
@@ -595,7 +596,7 @@ export default function PlayerDetailPage() {
   const source = (searchParams.get('source') ?? 'externo') as 'externo' | 'interno' | 'seguimiento'
   const apiIdParam = searchParams.get('apiId')
   const overridePosition = searchParams.get('pos')
-  const { external, internal, monitoring, normalized, evolution, subjectiveMetrics, marketValueHistory, gpsData, agencyPlayers, loading, error } = useData()
+  const { external, internal, monitoring, normalized, evolution, subjectiveMetrics, marketValueHistory, gpsEntries, gpsMetrics, agencyPlayers, loading, error } = useData()
   const [activeTab, setActiveTab] = useState('General')
   const [selectedPosition, setSelectedPosition] = useState<Position | null>(null)
   const [comparisonLeague, setComparisonLeague] = useState<string>('all')
@@ -863,28 +864,12 @@ export default function PlayerDetailPage() {
     return (player as EnrichedPlayer & { jugadorSK?: string }).jugadorSK ?? ''
   }, [player, source])
 
-  // Filter GPS data for the current player
+  // Datos GPS del jugador: identidad por player_key, la misma clave que videos.
   const playerGpsData = useMemo(() => {
     if (!player || source !== 'interno') return []
-    const playerNameNorm = normalizeName(player.Jugador)
-    return gpsData.filter(entry => {
-      const entryNameNorm = normalizeName(entry.Jugador)
-      // Match by exact name or partial name (handle abbreviated names)
-      if (entryNameNorm === playerNameNorm) return true
-      // Try matching by last name if one is abbreviated
-      const playerParts = playerNameNorm.split(' ')
-      const entryParts = entryNameNorm.split(' ')
-      const playerLast = playerParts[playerParts.length - 1]
-      const entryLast = entryParts[entryParts.length - 1]
-      if (playerLast === entryLast && playerParts.length > 0 && entryParts.length > 0) {
-        // Check if first initial matches
-        const playerInit = playerParts[0]?.[0] ?? ''
-        const entryInit = entryParts[0]?.[0] ?? ''
-        return playerInit === entryInit
-      }
-      return false
-    })
-  }, [player, source, gpsData])
+    const key = gpsPlayerKey(player.Jugador)
+    return gpsEntries.filter(e => e.player_key === key)
+  }, [player, source, gpsEntries])
 
   // Calculate average score for same position (for comparison)
   const positionAverageScore = useMemo(() => {
@@ -1995,10 +1980,13 @@ export default function PlayerDetailPage() {
                           </svg>
                         </div>
                         {playerGpsData.length > 0 ? (() => {
-                          const lastGps = playerGpsData[playerGpsData.length - 1]
-                          const fechaStr = lastGps?.Fecha instanceof Date
-                            ? lastGps.Fecha.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' })
-                            : '—'
+                          // El más reciente por fecha: las entradas no vienen ordenadas.
+                          const lastGps = playerGpsData.reduce((a, b) =>
+                            b.match_date > a.match_date ? b : a)
+                          const distancia = lastGps.metrics?.distancia_total
+                          const velMax = lastGps.metrics?.vel_max
+                          const fechaStr = new Date(`${lastGps.match_date}T00:00:00`)
+                            .toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' })
                           return (
                             <div className="space-y-2">
                               <div className="flex justify-between text-sm">
@@ -2008,13 +1996,13 @@ export default function PlayerDetailPage() {
                               <div className="flex justify-between text-sm">
                                 <span className="text-apple-gray-500 dark:text-apple-gray-400">Distancia</span>
                                 <span className="font-semibold text-apple-gray-800 dark:text-white tabular-nums">
-                                  {lastGps?.Distancia?.toLocaleString() || '—'} m
+                                  {distancia ? `${distancia.toLocaleString('es-AR')} m` : '—'}
                                 </span>
                               </div>
                               <div className="flex justify-between text-sm">
                                 <span className="text-apple-gray-500 dark:text-apple-gray-400">Vel. máxima</span>
                                 <span className="font-semibold text-apple-gray-800 dark:text-white tabular-nums">
-                                  {lastGps?.VelMax?.toFixed(1) || '—'} km/h
+                                  {velMax ? `${velMax.toFixed(1)} km/h` : '—'}
                                 </span>
                               </div>
                             </div>
@@ -2125,7 +2113,8 @@ export default function PlayerDetailPage() {
               <div className="animate-fade-in" id="tab-content-gps">
                 {needsManualFixtures && <ManualFixturesEditor playerName={player.Jugador} />}
                 <GPSTab
-                  gpsEntries={playerGpsData}
+                  entries={playerGpsData}
+                  metrics={gpsMetrics}
                   playerName={player.Jugador}
                 />
               </div>

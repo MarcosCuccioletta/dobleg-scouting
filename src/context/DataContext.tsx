@@ -6,6 +6,8 @@ import { loadAgencyPlayers } from '@/services/agencyPlayersService'
 import { getAgencyPlayersList, AGENCY_OVERRIDES, type AgencyPlayer } from '@/constants/agencyPlayers'
 import { fetchAllPlayerVideos, computePlayerFreshness } from '@/services/playerVideosService'
 import { fetchScoreLookup, type ScoreLookupEntry } from '@/services/playerStatsService'
+import { fetchGpsEntries, fetchGpsCatalog, toLegacyGpsEntry } from '@/services/gpsService'
+import type { GpsEntryRow, GpsMetric } from '@/features/gps/types'
 import type { PlayerVideo, VideoFreshness } from '@/types/videos'
 import { nameKey } from '@/utils/nameUtils'
 import type { AppData, EnrichedPlayer, EvolutionEntry, TransfermarktData, MonitoringPlayer, MarketValueHistoryEntry, GPSEntry } from '@/types'
@@ -1069,6 +1071,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
     subjectiveMetrics: [],
     marketValueHistory: [],
     gpsData: [],
+    gpsEntries: [],
+    gpsMetrics: [],
+    refreshGps: async () => {},
     positionAverages: {},
     agencyPlayers: [],
     refreshAgencyPlayers: async () => {},
@@ -1098,6 +1103,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const videos = await fetchAllPlayerVideos()
     setData(prev => ({ ...prev, playerVideos: videos }))
   }, [])
+
+  // GPS: vive en Supabase (no en el CSV). Se carga aparte del resto de los datos
+  // para que una demora de la hoja no retrase el físico y viceversa.
+  const [gps, setGps] = useState<{ entries: GpsEntryRow[]; metrics: GpsMetric[] }>({
+    entries: [], metrics: [],
+  })
+
+  const refreshGps = useCallback(async () => {
+    const [entries, catalog] = await Promise.all([fetchGpsEntries(), fetchGpsCatalog()])
+    setGps({ entries, metrics: catalog.metrics })
+  }, [])
+
+  useEffect(() => { void refreshGps() }, [refreshGps])
 
   useEffect(() => {
     let cancelled = false
@@ -1191,7 +1209,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
           evolution: raw.evolution,
           subjectiveMetrics: raw.subjectiveMetrics,
           marketValueHistory: raw.marketValueHistory,
-          gpsData: raw.gpsData,
+          // El GPS lo pisa `contextValue` con lo que viene de Supabase.
+          gpsData: [],
+          gpsEntries: [],
+          gpsMetrics: [],
+          refreshGps,
           positionAverages,
           agencyPlayers,
           refreshAgencyPlayers,
@@ -1229,8 +1251,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [data.playerVideos])
 
   const contextValue = useMemo(
-    () => ({ ...data, videoFreshnessByKey }),
-    [data, videoFreshnessByKey]
+    () => ({
+      ...data,
+      videoFreshnessByKey,
+      gpsEntries: gps.entries,
+      gpsMetrics: gps.metrics,
+      gpsData: gps.entries.map(e => toLegacyGpsEntry(e, gps.metrics)),
+      refreshGps,
+    }),
+    [data, videoFreshnessByKey, gps, refreshGps]
   )
 
   return (
