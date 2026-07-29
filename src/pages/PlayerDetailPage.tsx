@@ -33,6 +33,7 @@ import { gpsPlayerKey } from '@/services/gpsService'
 import { useApiFootballPlayerId, usePlayerInjuries, usePlayerTransfers } from '@/hooks/usePlayerApiData'
 import TrackingWidget from '@/components/tracking/TrackingWidget'
 import DobleGWidget from '@/components/agency/DobleGWidget'
+import SimilarPlayersCard from '@/components/players/SimilarPlayersCard'
 import ManualFixturesEditor from '@/components/agency/ManualFixturesEditor'
 import BodyMapSVG from '@/components/health/BodyMapSVG'
 import ScoutsGGBadge from '@/components/ui/ScoutsGGBadge'
@@ -756,6 +757,14 @@ export default function PlayerDetailPage() {
     apiPlayerId,
     scoredPosition ?? undefined
   )
+
+  /** Fila de temporada sobre la que se calculan los jugadores similares. */
+  const scoredSeasonRow = useMemo(() => {
+    if (!supabaseDetail || !scoredPosition) return null
+    return supabaseDetail.allSeasonScores.find(
+      s => s.position === scoredPosition && s.avg_score != null
+    ) ?? null
+  }, [supabaseDetail, scoredPosition])
 
   /**
    * Todos sus partidos, sin filtrar por puesto. `supabaseMatches` se filtra por la
@@ -2102,6 +2111,17 @@ export default function PlayerDetailPage() {
                     </div>
                   </div>
                 )}
+                {apiPlayerId && scoredPosition && scoredSeasonRow && (
+                  <div className="mt-4">
+                    <SimilarPlayersCard
+                      playerId={apiPlayerId}
+                      playerName={player.Jugador}
+                      position={scoredPosition}
+                      score={scoredSeasonRow}
+                    />
+                  </div>
+                )}
+
                 <div className="xl:hidden card-apple p-4 space-y-2">
                   <DobleGWidget player={player} apiPlayerId={apiIdParam ? Number(apiIdParam) : null} />
                   {source !== 'interno' && (

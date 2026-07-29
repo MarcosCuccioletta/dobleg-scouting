@@ -16,6 +16,7 @@ import TrackingWidget from '@/components/tracking/TrackingWidget'
 import AddToReportButton from '@/components/pdf/AddToReportButton'
 import MarketValueChart from '@/components/charts/MarketValueChart'
 import DobleGWidget from '@/components/agency/DobleGWidget'
+import SimilarPlayersCard from '@/components/players/SimilarPlayersCard'
 import type { Position, PlayerMatchStat } from '@/types/scoring'
 import { displayPosition } from '@/types/scoring'
 import type { MarketValueHistoryEntry, EnrichedPlayer } from '@/types'
@@ -259,6 +260,16 @@ export default function SupabasePlayerDetail() {
                 <StatBox label="Percentil Global" value={activeScore.global_percentile !== null ? `${activeScore.global_percentile.toFixed(0)}%` : '—'} />
               </div>
             </div>
+          )}
+
+          {/* Jugadores similares */}
+          {activeScore && activePosition && (
+            <SimilarPlayersCard
+              playerId={player.id}
+              playerName={player.name}
+              position={activePosition}
+              score={activeScore}
+            />
           )}
 
           {/* Other positions scores */}
