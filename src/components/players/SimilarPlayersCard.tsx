@@ -93,7 +93,7 @@ export default function SimilarPlayersCard({
                 </div>
 
                 <div className="text-right shrink-0">
-                  <div className={`text-sm font-semibold tabular-nums ${pScore !== null ? getScoreColorClass(pScore) : 'text-apple-gray-400'}`}>
+                  <div className={`text-sm font-semibold tabular-nums ${pScore !== null ? getScoreColorClass(pScore, '10') : 'text-apple-gray-400'}`}>
                     {pScore !== null ? pScore.toFixed(1) : '—'}
                   </div>
                   <div className="text-2xs text-apple-gray-400 tabular-nums">{pct}% símil</div>
