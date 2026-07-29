@@ -84,7 +84,12 @@ Ej: `dist rel x min` → `metros_por_min`.
 | `created_by`, `created_by_name` | | |
 | `created_at`, `updated_at` | timestamptz | |
 
-Índices: `player_key`, `match_date`, y **único `(player_key, match_date)`**.
+Índices: `player_key`, `match_date`, y **único `(player_key, match_date, lower(rival))`**.
+
+> Ajuste hecho durante la implementación: la clave única iba a ser `(player_key,
+> match_date)`, pero en el Sheet hay cinco partidos distintos de Echeverría con la
+> misma fecha (se cargó la fecha de subida, no la del partido). Sin el rival en la
+> clave, la migración habría colapsado esos cinco en uno.
 
 Rival y competencia no tienen tabla propia: las sugerencias salen de los valores
 distintos ya cargados en `gps_entries`.
@@ -189,8 +194,11 @@ Script de una sola vez (`scripts/migrate-gps-sheet.mjs`, ejecutado a mano) que:
 
 1. Lee el CSV publicado (`SHEET_URLS.gps`).
 2. Siembra el catálogo con las 17 métricas y sus alias de cabecera del Sheet.
-3. Inserta las 73 filas en `gps_entries`, **omitiendo las métricas con valor 0**, porque
-   en ese Sheet 0 significa "no disponible" y no un cero real.
+3. Inserta las filas en `gps_entries`, **omitiendo las métricas con valor 0**, porque
+   en ese Sheet 0 significa "no disponible" y no un cero real. De las 74 filas quedan
+   65: siete son la misma carga repetida y dos son repeticiones donde la única
+   diferencia es el encoding roto del rival (`San Mart<?>n` vs `San Martín`), que se
+   detectan por jugador + fecha + distancia total.
 
 Después de migrar, `csvService` deja de traer `gpsData` y se saca `SHEET_URLS.gps` del
 fetch inicial (mejora de arranque).
