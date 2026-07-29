@@ -7,6 +7,7 @@ import MetricValueInputs from '@/features/gps/components/MetricValueInputs'
 import GpsDropzone from '@/features/gps/components/GpsDropzone'
 import ParseReviewPanel from '@/features/gps/components/ParseReviewPanel'
 import RecentGpsUploads from '@/features/gps/components/RecentGpsUploads'
+import { mergeCompetitions } from '@/features/gps/competitions'
 import { parseGpsPdf, GpsParseError } from '@/features/gps/parser/parsePdf'
 import pdfWorkerSrc from '@/features/gps/parser/pdfWorker'
 import { EMPTY_MATCH_CONTEXT, type MatchContextValue, type GpsEntryRow, type GpsParseResult } from '@/features/gps/types'
@@ -23,7 +24,10 @@ export default function GpsUploadPage() {
   useEffect(() => { void reloadEntries() }, [reloadEntries])
 
   const rivals = useMemo(() => distinctValues(entries, 'rival'), [entries])
-  const competitions = useMemo(() => distinctValues(entries, 'competencia'), [entries])
+  const competitions = useMemo(
+    () => mergeCompetitions(distinctValues(entries, 'competencia')),
+    [entries],
+  )
   const teams = useMemo(() => {
     const fromEntries = distinctValues(entries, 'equipo')
     const fromRoster = roster.map(p => p.team).filter(Boolean)
