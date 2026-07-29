@@ -62,9 +62,9 @@ export function matchRosterName(raw: string, roster: AgencyPlayer[]): string[] {
   if (bySurname.length === 0) return []
   if (!initial) return bySurname.map(p => p.fullName)
 
-  const byInitial = bySurname.filter(p => {
-    const { given } = splitName(p.fullName)
-    return given.some(g => g[0] === initial)
-  })
-  return (byInitial.length > 0 ? byInitial : bySurname).map(p => p.fullName)
+  // Si la celda trae inicial y no le coincide a nadie, no es un jugador nuestro:
+  // "Gonzalez T" en el PDF de Estudiantes no es Gonzalo González.
+  return bySurname
+    .filter(p => splitName(p.fullName).given.some(g => g[0] === initial))
+    .map(p => p.fullName)
 }

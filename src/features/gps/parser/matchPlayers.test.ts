@@ -42,4 +42,10 @@ describe('matchRosterName', () => {
     expect(matchRosterName('Ojeda', roster)).toEqual([])
     expect(matchRosterName('Quiroga', roster)).toEqual([])
   })
+
+  it('respeta la inicial: mismo apellido con otra inicial no es nuestro jugador', () => {
+    // En el PDF de Estudiantes juegan Gonzalez G (nuestro) y Gonzalez T (no).
+    expect(matchRosterName('Gonzalez T', roster)).toEqual([])
+    expect(matchRosterName('R. Watson', roster)).toEqual([])
+  })
 })
