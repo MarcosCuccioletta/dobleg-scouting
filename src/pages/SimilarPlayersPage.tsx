@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { usePlayersList } from '@/hooks/usePlayerStats'
+import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import EmptyState from '@/components/ui/EmptyState'
 import ScoreBar from '@/components/ui/ScoreBar'
@@ -23,58 +24,60 @@ export default function SimilarPlayersPage() {
   const [selectedPlayer, setSelectedPlayer] = useState<PlayerWithScore | null>(null)
   const [restored, setRestored] = useState(false)
 
-  // Load all players for the search dropdown (no position filter)
-  const { players: allPlayers, loading: loadingAll, error: errorAll } = usePlayersList({
-    pageSize: 500,
-    min_matches: 5,
-  })
+  /**
+   * La búsqueda va contra la base, no sobre una tanda ya cargada. Antes se traían
+   * los 500 mejores por score y se filtraba en el navegador: cualquier jugador fuera
+   * de ese top era imposible de encontrar (había 3.614 con 5+ partidos, y el 500º
+   * ya estaba en 7.1 de score).
+   */
+  const debouncedSearch = useDebouncedValue(search.trim(), 250)
+  const { players: searchMatches, loading: loadingSearch, error: errorAll } = usePlayersList(
+    debouncedSearch.length >= 2
+      ? { search: debouncedSearch, pageSize: 10, min_matches: 5 }
+      : { pageSize: 0 }
+  )
 
   // Once a player is selected, load the pool for the same position
   const selectedPosition = selectedPlayer?.primary_position ?? null
 
+  // El pool es TODA la posición: la más numerosa tiene ~740 jugadores. Con un tope
+  // de 300 se comparaba sólo contra los de mejor score, y los parecidos reales de un
+  // jugador de mitad de tabla quedaban afuera.
   const { players: poolPlayers, loading: loadingPool } = usePlayersList(
     selectedPosition
-      ? { positions: [selectedPosition], pageSize: 300, min_matches: 5 }
+      ? { positions: [selectedPosition], pageSize: 1000, min_matches: 5 }
       : { pageSize: 0 }
   )
 
-  // Restore state from sessionStorage on mount
+  // Restore state from sessionStorage on mount. Se guarda el jugador entero y no su
+  // id: la búsqueda ya no trae una lista completa donde buscarlo.
   useEffect(() => {
-    if (restored || allPlayers.length === 0) return
+    if (restored) return
     try {
       const saved = sessionStorage.getItem(STORAGE_KEY)
       if (saved) {
-        const { searchText, playerId } = JSON.parse(saved)
+        const { searchText, player } = JSON.parse(saved)
         if (searchText) setSearch(searchText)
-        if (playerId) {
-          const player = allPlayers.find(p => p.id === playerId)
-          if (player) setSelectedPlayer(player)
-        }
+        if (player?.id) setSelectedPlayer(player as PlayerWithScore)
       }
     } catch {
       // Ignore
     }
     setRestored(true)
-  }, [allPlayers, restored])
+  }, [restored])
 
   // Save state to sessionStorage when it changes
   useEffect(() => {
     if (!restored) return
     const state = {
       searchText: search,
-      playerId: selectedPlayer?.id ?? null,
+      player: selectedPlayer,
     }
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state))
   }, [search, selectedPlayer, restored])
 
-  // Filter players for the search dropdown
-  const searchResults = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    if (!q) return []
-    return allPlayers
-      .filter(p => p.name.toLowerCase().includes(q))
-      .slice(0, 10)
-  }, [allPlayers, search])
+  // Resultados del buscador: vienen de la base ya filtrados por nombre.
+  const searchResults = search.trim().length >= 2 ? searchMatches : []
 
   // Compute similarity when base player and pool are ready
   const similarPlayers = useMemo(() => {
@@ -95,9 +98,9 @@ export default function SimilarPlayersPage() {
     return Math.max(...similarPlayers.map(r => r.distance), 0.001)
   }, [similarPlayers])
 
-  const loading = loadingAll || (!!selectedPlayer && loadingPool)
+  // Ya no hay carga inicial: la página abre vacía y busca cuando escribís.
+  const loading = !!selectedPlayer && loadingPool
 
-  if (loadingAll) return <LoadingSpinner fullScreen message="Cargando jugadores..." />
   if (errorAll) return (
     <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 py-8">
       <EmptyState title="Error al cargar datos" description={errorAll} icon="error" />
@@ -165,6 +168,16 @@ export default function SimilarPlayersPage() {
             </div>
           )}
         </div>
+
+        {search.trim().length >= 2 && !selectedPlayer && (
+          <p className="text-xs text-apple-gray-400 mt-2">
+            {loadingSearch
+              ? 'Buscando…'
+              : searchResults.length === 0
+                ? `Sin resultados para «${search.trim()}». Se buscan jugadores con 5 partidos o más en la temporada.`
+                : `${searchResults.length} resultado(s)`}
+          </p>
+        )}
       </div>
 
       {/* Selected player card */}
