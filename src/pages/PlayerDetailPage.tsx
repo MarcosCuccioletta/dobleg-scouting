@@ -14,7 +14,7 @@ import MetricEvolutionChart from '@/components/charts/MetricEvolutionChart'
 import { buildInsights } from '@/features/wyscout/wyscoutInsights'
 import { aggregateByMonth, metricIsLowerBetter } from '@/services/wyscoutEvolutionService'
 import type { WyscoutEvolutionData } from '@/services/wyscoutEvolutionService'
-import { usePlayerDetail, usePlayerMatchHistory, usePositionAverages, usePositionMetricAverages, useLeagues, useScoreLookup, usePreferredPlayerId } from '@/hooks/usePlayerStats'
+import { usePlayerDetail, usePlayerMatchHistory, usePlayerAllMatches, usePositionAverages, usePositionMetricAverages, useLeagues, useScoreLookup, usePreferredPlayerId } from '@/hooks/usePlayerStats'
 import type { Position } from '@/types/scoring'
 import { displayPosition as formatPosition } from '@/types/scoring'
 import MetricsRadarChart from '@/components/charts/MetricsRadarChart'
@@ -756,6 +756,14 @@ export default function PlayerDetailPage() {
     apiPlayerId,
     scoredPosition ?? undefined
   )
+
+  /**
+   * Todos sus partidos, sin filtrar por puesto. `supabaseMatches` se filtra por la
+   * posición del scoring (así se compara contra sus pares), pero para mostrarle al
+   * usuario "sus partidos" ese filtro esconde los que jugó en otro puesto: a un
+   * lateral que entró una vez de volante le quedaba un solo partido en el historial.
+   */
+  const { matches: allPlayerMatches } = usePlayerAllMatches(apiPlayerId)
 
   /**
    * Club y liga del último partido jugado. Van juntos a propósito: antes el club
@@ -2206,7 +2214,7 @@ export default function PlayerDetailPage() {
             {/* EVOLUCIÓN TAB */}
             {activeTab === 'Rendimiento evolutivo' && source === 'interno' && (
               <div className="animate-fade-in" id="tab-content-evolution">
-                {supabaseMatches.length > 0 ? (
+                {allPlayerMatches.length > 0 ? (
                   <div className="space-y-6">
                     <div>
                       <h3 className="text-sm font-semibold text-apple-gray-700 dark:text-apple-gray-300 mb-1">
@@ -2216,7 +2224,7 @@ export default function PlayerDetailPage() {
                         Score por partido · La línea punteada indica el promedio
                       </p>
                       <ScoreEvolutionChart
-                        matches={supabaseMatches}
+                        matches={allPlayerMatches}
                         avgScore={supabaseAvgScore}
                       />
                     </div>
@@ -2279,7 +2287,7 @@ export default function PlayerDetailPage() {
                             </tr>
                           </thead>
                           <tbody>
-                            {[...supabaseMatches].reverse().slice(0, 20).map((match) => {
+                            {[...allPlayerMatches].reverse().slice(0, 20).map((match) => {
                               const fixture = (match as any).fixture
                               const date = fixture?.date ? new Date(fixture.date) : null
                               const isHome = match.team_id === fixture?.home_team_id

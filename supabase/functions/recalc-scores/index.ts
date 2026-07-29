@@ -1,6 +1,7 @@
 import { serve } from 'https://deno.land/std@0.208.0/http/server.ts';
 import { getSupabaseAdmin } from '../_shared/supabase-client.ts';
 import { calculateSeasonScores } from '../_shared/scoring.ts';
+import { fetchAllRows } from '../_shared/fetchAll.ts';
 import type { Position } from '../_shared/types.ts';
 
 // Pool mínimo de jugadores de una posición (en la liga) para que el ranking sea
@@ -64,13 +65,14 @@ serve(async (req) => {
       // fixtures tagged with a different season than the league's own season field
       const leaguesForSeason = domesticLeagues;
 
-      // Get ALL fixture IDs for this season (domestic + cups)
-      const { data: allFixtures } = await supabase
+      // Los partidos de la temporada no se traen como lista de ids: son miles y
+      // pasarlos por `.in()` arma una URL enorme (y sin paginar PostgREST corta en
+      // 1000 y el resto desaparece en silencio). Se filtra por el join con fixtures.
+      const { count: seasonFixtureCount } = await supabase
         .from('fixtures')
-        .select('id')
+        .select('id', { count: 'exact', head: true })
         .eq('season', season);
-      const allFixtureIds = allFixtures?.map(f => f.id) ?? [];
-      if (allFixtureIds.length === 0) continue;
+      if (!seasonFixtureCount) continue;
 
       // Filas de TODAS las ligas acumuladas: el rating se rankea por posición a
       // nivel GLOBAL (contra todos los de su puesto en la plataforma, sin importar
@@ -87,25 +89,17 @@ serve(async (req) => {
         if (teamIds.length === 0) continue;
 
         // Get ALL match stats for players on these teams (any competition)
-        let allStats: any[] = [];
-        let page = 0;
-        const PAGE_SIZE = 1000;
-
-        while (true) {
-          const { data: batch } = await supabase
+        const allStats = await fetchAllRows<any>((from, to) =>
+          supabase
             .from('player_match_stats')
-            .select('player_id, detected_position, team_id, match_score, rating, goals, assists, fixture_id, minutes, tackles, interceptions, blocks, duels_total, duels_won, passes_accuracy, passes_key, passes_total, dribbles_success, dribbles_attempted, shots_on, shots_total, fouls_drawn, saves, goals_conceded, penalty_saved')
+            .select('player_id, detected_position, team_id, match_score, rating, goals, assists, fixture_id, minutes, tackles, interceptions, blocks, duels_total, duels_won, passes_accuracy, passes_key, passes_total, dribbles_success, dribbles_attempted, shots_on, shots_total, fouls_drawn, saves, goals_conceded, penalty_saved, fixtures!inner(season)')
             .not('match_score', 'is', null)
             .not('detected_position', 'is', null)
             .in('team_id', teamIds)
-            .in('fixture_id', allFixtureIds)
-            .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
-
-          if (!batch || batch.length === 0) break;
-          allStats = allStats.concat(batch);
-          if (batch.length < PAGE_SIZE) break;
-          page++;
-        }
+            .eq('fixtures.season', season)
+            .order('id')
+            .range(from, to)
+        );
 
         if (allStats.length === 0) continue;
 
@@ -276,31 +270,21 @@ serve(async (req) => {
         totalUpserted += primaryRows.length;
       }
 
-      // Fix current_team_id: set to team from most recent fixture
-      const { data: allFixtureDates } = await supabase
-        .from('fixtures')
-        .select('id, date')
-        .eq('season', season);
-      if (allFixtureDates && allFixtureDates.length > 0) {
-        const fixtureDateMap = new Map(allFixtureDates.map(f => [f.id, f.date]));
-
-        let allTeamStats: any[] = [];
-        let tPage = 0;
-        while (true) {
-          const { data: tBatch } = await supabase
+      // Fix current_team_id: set to team from most recent fixture. La fecha viene
+      // del join, así no hace falta traer los miles de fixtures aparte.
+      {
+        const allTeamStats = await fetchAllRows<{ player_id: number; team_id: number; fixtures: { date: string } }>(
+          (from, to) => supabase
             .from('player_match_stats')
-            .select('player_id, team_id, fixture_id')
-            .in('fixture_id', allFixtureDates.map(f => f.id))
-            .range(tPage * 1000, (tPage + 1) * 1000 - 1);
-          if (!tBatch || tBatch.length === 0) break;
-          allTeamStats = allTeamStats.concat(tBatch);
-          if (tBatch.length < 1000) break;
-          tPage++;
-        }
+            .select('player_id, team_id, fixtures!inner(date, season)')
+            .eq('fixtures.season', season)
+            .order('id')
+            .range(from, to)
+        );
 
         const latestTeam = new Map<number, { team_id: number; date: string }>();
         for (const row of allTeamStats) {
-          const fdate = fixtureDateMap.get(row.fixture_id) ?? '';
+          const fdate = row.fixtures?.date ?? '';
           const existing = latestTeam.get(row.player_id);
           if (!existing || fdate > existing.date) {
             latestTeam.set(row.player_id, { team_id: row.team_id, date: fdate });
