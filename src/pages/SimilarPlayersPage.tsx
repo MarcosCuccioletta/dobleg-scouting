@@ -12,12 +12,6 @@ import { computeSimilarity } from '@/utils/similarity'
 
 const STORAGE_KEY = 'similar-players-state-v2'
 
-// Convert similarity distance (0 = identical) to a 0–100% display value
-function distanceToPercent(distance: number, maxDistance: number): number {
-  if (maxDistance === 0) return 100
-  return Math.max(0, Math.round((1 - distance / maxDistance) * 100))
-}
-
 export default function SimilarPlayersPage() {
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
@@ -92,11 +86,6 @@ export default function SimilarPlayersPage() {
     const ranked = computeSimilarity(baseScore, others, selectedPosition as Position)
     return ranked.slice(0, 10)
   }, [selectedPlayer, selectedPosition, poolPlayers])
-
-  const maxDistance = useMemo(() => {
-    if (similarPlayers.length === 0) return 1
-    return Math.max(...similarPlayers.map(r => r.distance), 0.001)
-  }, [similarPlayers])
 
   // Ya no hay carga inicial: la página abre vacía y busca cuando escribís.
   const loading = !!selectedPlayer && loadingPool
@@ -241,8 +230,7 @@ export default function SimilarPlayersPage() {
             </div>
           ) : (
             <div className="divide-y divide-apple-gray-100 dark:divide-apple-gray-700/50">
-              {similarPlayers.map(({ player, distance }, index) => {
-                const similarity = distanceToPercent(distance, maxDistance)
+              {similarPlayers.map(({ player, similarity }, index) => {
                 return (
                   <button
                     key={player.id}

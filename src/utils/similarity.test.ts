@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computeSimilarity } from './similarity'
+import { computeSimilarity, similarityPercent } from './similarity'
 import type { PlayerSeasonScore, PlayerWithScore } from '@/types/scoring'
 
 // Minimal fixture builder — only the fields needed by the DEL metric keys:
@@ -149,5 +149,61 @@ describe('computeSimilarity', () => {
   it('returns empty array when others is empty', () => {
     const results = computeSimilarity(baseScore, [], 'DEL')
     expect(results).toHaveLength(0)
+  })
+})
+
+// ─── Porcentaje de similitud ──────────────────────────────────────────────────
+
+describe('similarityPercent', () => {
+  it('da 100% cuando las métricas son idénticas', () => {
+    expect(similarityPercent(0, 7)).toBe(100)
+  })
+
+  it('da 0% en el extremo opuesto de todas las métricas', () => {
+    // Cada métrica está normalizada a [0,1]: la distancia máxima es √(cantidad).
+    expect(similarityPercent(Math.sqrt(7), 7)).toBe(0)
+  })
+
+  it('no depende de los jugadores mostrados, sólo de la distancia', () => {
+    // Caso real: los tres defensores más parecidos a Tomás Palacios estaban a
+    // 0.109, 0.121 y 0.127. Con la escala relativa el tercero daba 0%.
+    const primero = similarityPercent(0.109, 7)
+    const tercero = similarityPercent(0.127, 7)
+    expect(primero).toBeGreaterThan(tercero)
+    expect(tercero).toBeGreaterThan(90)
+  })
+
+  it('no se va del rango', () => {
+    expect(similarityPercent(99, 7)).toBe(0)
+    expect(similarityPercent(-1, 7)).toBe(100)
+  })
+})
+
+describe('computeSimilarity: porcentaje por jugador', () => {
+  it('el idéntico da 100% y el lejano da menos', () => {
+    const baseScore = makeScore({
+      goals_p90: 0.5, shots_on_p90: 2.0, assists_p90: 0.3, shots_pct: 40,
+      passes_key_p90: 1.5, duels_won_pct: 55, avg_rating: 7.0,
+      dribbles_success_p90: 1.0, fouls_drawn_p90: 2.0,
+    })
+    const identical = makeScore({
+      goals_p90: 0.5, shots_on_p90: 2.0, assists_p90: 0.3, shots_pct: 40,
+      passes_key_p90: 1.5, duels_won_pct: 55, avg_rating: 7.0,
+      dribbles_success_p90: 1.0, fouls_drawn_p90: 2.0,
+    })
+    const distant = makeScore({
+      goals_p90: 0.0, shots_on_p90: 0.2, assists_p90: 0.0, shots_pct: 5,
+      passes_key_p90: 0.1, duels_won_pct: 20, avg_rating: 5.5,
+      dribbles_success_p90: 0.0, fouls_drawn_p90: 0.2,
+    })
+
+    const results = computeSimilarity(baseScore, [
+      { player: makePlayer(1, 'Idéntico'), score: identical },
+      { player: makePlayer(2, 'Lejano'), score: distant },
+    ], 'DEL')
+
+    expect(results[0].similarity).toBe(100)
+    expect(results[1].similarity).toBeLessThan(100)
+    expect(results[1].similarity).toBeGreaterThanOrEqual(0)
   })
 })

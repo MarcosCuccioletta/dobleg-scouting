@@ -1,11 +1,25 @@
 import type { PlayerSeasonScore, PlayerWithScore, Position } from '@/types/scoring'
 import { METRICS_BY_POSITION, getMetricValue, type ApiMetricKey } from '@/constants/apiMetrics'
 
+/**
+ * Distancia a porcentaje de similitud, en escala absoluta: cada métrica está
+ * normalizada a [0,1], así que la distancia máxima posible entre dos jugadores es
+ * √(cantidad de métricas). 100% = mismas métricas.
+ *
+ * No se normaliza contra los jugadores mostrados: hacerlo le daba 0% al último de
+ * la lista aunque fuera el tercero más parecido entre cientos.
+ */
+export function similarityPercent(distance: number, metricCount: number): number {
+  const max = Math.sqrt(Math.max(metricCount, 1))
+  if (max === 0) return 100
+  return Math.max(0, Math.min(100, Math.round((1 - distance / max) * 100)))
+}
+
 export function computeSimilarity(
   base: PlayerSeasonScore,
   others: { player: PlayerWithScore; score: PlayerSeasonScore }[],
   position: Position,
-): { player: PlayerWithScore; distance: number }[] {
+): { player: PlayerWithScore; distance: number; similarity: number }[] {
   const keys: ApiMetricKey[] = METRICS_BY_POSITION[position]
   const all = [base, ...others.map(o => o.score)]
   const ranges = keys.map(k => {
@@ -21,7 +35,7 @@ export function computeSimilarity(
     .map(o => {
       const v = vec(o.score)
       const distance = Math.sqrt(v.reduce((acc, x, i) => acc + (x - b[i]) ** 2, 0))
-      return { player: o.player, distance }
+      return { player: o.player, distance, similarity: similarityPercent(distance, keys.length) }
     })
     .sort((a, z) => a.distance - z.distance)
 }

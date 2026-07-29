@@ -18,12 +18,6 @@ interface Props {
   limit?: number
 }
 
-/** Distancia (0 = idéntico) a un % legible, relativo al más lejano del top. */
-function similarityPercent(distance: number, maxDistance: number): number {
-  if (maxDistance <= 0) return 100
-  return Math.max(0, Math.min(100, Math.round((1 - distance / maxDistance) * 100)))
-}
-
 /**
  * Top de jugadores parecidos al de la ficha: misma posición y métricas de
  * rendimiento más cercanas. Usa el mismo cálculo que la página Similares, contra
@@ -49,10 +43,6 @@ export default function SimilarPlayersCard({
     return computeSimilarity(score, others, position).slice(0, limit)
   }, [pool, playerId, score, position, limit])
 
-  // El 100% se reparte sobre el peor del top, no sobre el total: así el primero
-  // siempre queda arriba y se ve la diferencia entre los tres.
-  const worst = similar.length > 0 ? Math.max(...similar.map(s => s.distance), 0.001) : 1
-
   const goTo = (p: PlayerWithScore) =>
     navigate(`/jugador/${encodeURIComponent(p.name)}?source=externo&apiId=${p.id}`)
 
@@ -62,7 +52,9 @@ export default function SimilarPlayersCard({
         <h4 className="text-xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider">
           Jugadores similares
         </h4>
-        <span className="text-2xs text-apple-gray-400 shrink-0">{displayPosition(position)}</span>
+        <span className="text-2xs text-apple-gray-400 shrink-0">
+          {pool.length > 1 ? `entre ${pool.length} ${displayPosition(position)}` : displayPosition(position)}
+        </span>
       </div>
 
       {loading ? (
@@ -78,8 +70,7 @@ export default function SimilarPlayersCard({
         </p>
       ) : (
         <div className="space-y-2">
-          {similar.map(({ player, distance }) => {
-            const pct = similarityPercent(distance, worst)
+          {similar.map(({ player, similarity: pct }) => {
             const pScore = player.season_scores[0]?.avg_score ?? null
             return (
               <button
