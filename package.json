@@ -27,6 +27,7 @@
     "jspdf": "^4.2.0",
     "lz-string": "^1.5.0",
     "papaparse": "^5.4.1",
+    "pdfjs-dist": "^4.10.38",
     "rc-slider": "^11.1.9",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
