@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useRecentForm } from '@/hooks/usePlayerStats'
+import { useData } from '@/context/DataContext'
+import { excludeAgencyPlayers } from '@/utils/agencyFilter'
 import { marketTagsFor } from '@/utils/opportunities'
 import Sparkline from '@/components/ui/Sparkline'
 
@@ -9,9 +11,15 @@ const TAG_LABEL = { contract: 'Fin de contrato', cheap: 'Precio bajo' } as const
 
 export default function OpportunityHero() {
   const navigate = useNavigate()
-  const { players, loading } = useRecentForm({
+  const { players: allPlayers, loading } = useRecentForm({
     windowMonths: 3, cheapMaxValue: CHEAP_MAX, contractMaxMonths: CONTRACT_MAX, limit: 8,
   })
+  // Un jugador que ya representamos no es una oportunidad de mercado.
+  const { agencyPlayers } = useData()
+  const players = useMemo(
+    () => excludeAgencyPlayers(allPlayers, agencyPlayers),
+    [allPlayers, agencyPlayers],
+  )
   const [idx, setIdx] = useState(0)
   const [paused, setPaused] = useState(false)
 

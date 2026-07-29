@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useRecentForm } from '@/hooks/usePlayerStats'
+import { useData } from '@/context/DataContext'
+import { excludeAgencyPlayers } from '@/utils/agencyFilter'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import MobileFilterPanel, { MobileFilterButton } from '@/components/filters/MobileFilterPanel'
 import { getScoreColorClass, getScoreBgClass } from '@/components/ui/ScoreBar'
@@ -34,12 +36,21 @@ export default function OpportunitiesPage() {
   const navigate = useNavigate()
 
   const [windowMonths, setWindowMonths] = useState<number>(3)
-  const { players, loading } = useRecentForm({
+  const { players: allPlayers, loading } = useRecentForm({
     windowMonths,
     cheapMaxValue: CHEAP_MAX,
     contractMaxMonths: CONTRACT_MAX,
     limit: 200,
   })
+
+  // Los jugadores que ya representamos no son una oportunidad de mercado: están en
+  // Scout Interno. Se ocultan acá y se avisa cuántos, para que no parezca que faltan.
+  const { agencyPlayers } = useData()
+  const players = useMemo(
+    () => excludeAgencyPlayers(allPlayers, agencyPlayers),
+    [allPlayers, agencyPlayers],
+  )
+  const hiddenAgencyCount = allPlayers.length - players.length
 
   const [typeFilter, setTypeFilter] = useState<FilterType>('all')
   const [positionFilter, setPositionFilter] = useState<string>('all')
@@ -319,6 +330,11 @@ export default function OpportunitiesPage() {
         </h1>
         <p className="text-sm text-apple-gray-500 dark:text-apple-gray-400 mt-0.5">
           {filteredPlayers.length} jugadores en alza · ranking por Score GG reciente
+          {hiddenAgencyCount > 0 && (
+            <span className="text-apple-gray-400">
+              {' · '}{hiddenAgencyCount} de Doble G {hiddenAgencyCount === 1 ? 'oculto' : 'ocultos'}
+            </span>
+          )}
         </p>
       </div>
 
