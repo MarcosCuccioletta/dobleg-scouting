@@ -6,6 +6,7 @@ import MatchContextForm from '@/features/gps/components/MatchContextForm'
 import MetricValueInputs from '@/features/gps/components/MetricValueInputs'
 import GpsDropzone from '@/features/gps/components/GpsDropzone'
 import ParseReviewPanel from '@/features/gps/components/ParseReviewPanel'
+import RecentGpsUploads from '@/features/gps/components/RecentGpsUploads'
 import { parseGpsPdf, GpsParseError } from '@/features/gps/parser/parsePdf'
 import pdfWorkerSrc from '@/features/gps/parser/pdfWorker'
 import { EMPTY_MATCH_CONTEXT, type MatchContextValue, type GpsEntryRow, type GpsParseResult } from '@/features/gps/types'
@@ -81,6 +82,8 @@ export default function GpsUploadPage() {
           onSaved={reloadEntries}
         />
       )}
+
+      <RecentGpsUploads entries={entries} metrics={metrics} onChanged={reloadEntries} />
     </div>
   )
 }
