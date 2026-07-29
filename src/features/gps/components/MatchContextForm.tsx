@@ -11,6 +11,8 @@ interface Props {
   teams: string[]
   /** En la carga automática el jugador viene del PDF y no se elige acá. */
   hidePlayer?: boolean
+  /** Equipo que dice el PDF, para avisar cuando no coincide con el prefill. */
+  equipoHint?: string | null
 }
 
 const field = 'w-full px-3 py-2.5 rounded-apple border border-apple-gray-200 dark:border-apple-gray-600 ' +
@@ -19,8 +21,10 @@ const field = 'w-full px-3 py-2.5 rounded-apple border border-apple-gray-200 dar
 
 const label = 'block text-xs font-medium text-apple-gray-500 dark:text-apple-gray-400 mb-1.5'
 
+const hintClass = 'text-2xs text-apple-gray-400 mt-1'
+
 export default function MatchContextForm({
-  value, onChange, roster, rivals, competitions, teams, hidePlayer,
+  value, onChange, roster, rivals, competitions, teams, hidePlayer, equipoHint,
 }: Props) {
   const set = <K extends keyof MatchContextValue>(key: K, v: MatchContextValue[K]) =>
     onChange({ ...value, [key]: v })
@@ -69,6 +73,9 @@ export default function MatchContextForm({
           <input id="gps-equipo" list="gps-teams" className={field} placeholder="Estudiantes Río Cuarto"
             value={value.equipo} onChange={e => set('equipo', e.target.value)} />
           <datalist id="gps-teams">{teams.map(t => <option key={t} value={t} />)}</datalist>
+          {equipoHint
+            ? <p className="text-2xs text-amber-500 mt-1">El PDF dice «{equipoHint}»: verificá el equipo.</p>
+            : <p className={hintClass}>Escribí uno nuevo si no está en la lista.</p>}
         </div>
 
         <div>
@@ -76,6 +83,7 @@ export default function MatchContextForm({
           <input id="gps-rival" list="gps-rivals" className={field} placeholder="Tigre"
             value={value.rival} onChange={e => set('rival', e.target.value)} />
           <datalist id="gps-rivals">{rivals.map(r => <option key={r} value={r} />)}</datalist>
+          <p className={hintClass}>Escribí uno nuevo si no está en la lista.</p>
         </div>
 
         <div>
@@ -83,6 +91,7 @@ export default function MatchContextForm({
           <input id="gps-competencia" list="gps-comps" className={field} placeholder="Primera Nacional"
             value={value.competencia} onChange={e => set('competencia', e.target.value)} />
           <datalist id="gps-comps">{competitions.map(c => <option key={c} value={c} />)}</datalist>
+          <p className={hintClass}>Escribí una nueva si no está en la lista (ej. LPF Clausura 2026).</p>
         </div>
 
         <div className="grid grid-cols-2 gap-4 sm:col-span-2 lg:col-span-1">

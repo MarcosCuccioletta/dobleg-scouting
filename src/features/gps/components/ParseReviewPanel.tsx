@@ -55,6 +55,25 @@ export default function ParseReviewPanel({
 
   const metricByKey = useMemo(() => new Map(metrics.map(m => [m.key, m])), [metrics])
 
+  /**
+   * El equipo se prefillea con el club que figura en el roster, que puede estar
+   * desactualizado (un préstamo, por ejemplo). Si el PDF nombra otro equipo, se avisa
+   * en vez de pisar el valor: el nombre del PDF suele venir abreviado.
+   */
+  const equipoMismatch = useMemo(() => {
+    const fromPdf = result.context.teamText?.trim()
+    if (!fromPdf || !context.equipo) return null
+    const simplify = (s: string) => s.toLowerCase().normalize('NFD')
+      .replace(/[̀-ͯ]/g, '').replace(/[^a-z]/g, '')
+    const pdf = simplify(fromPdf)
+    const current = simplify(context.equipo)
+    if (!pdf || pdf.includes(current) || current.includes(pdf)) return null
+    // Comparte alguna palabra larga (Estudiantes, Gimnasia): se considera el mismo club.
+    const words = fromPdf.split(/\s+/).filter(w => w.length >= 5).map(simplify)
+    if (words.some(w => w && current.includes(w))) return null
+    return fromPdf
+  }, [result.context.teamText, context.equipo])
+
   const changeMapping = async (index: number, value: string) => {
     if (value === '__nueva__') {
       const header = result.columns[index].header
@@ -132,6 +151,7 @@ export default function ParseReviewPanel({
       <MatchContextForm
         value={context} onChange={setContext} hidePlayer
         roster={roster} rivals={rivals} competitions={competitions} teams={teams}
+        equipoHint={equipoMismatch}
       />
 
       {/* ── Mapeo de columnas ── */}
