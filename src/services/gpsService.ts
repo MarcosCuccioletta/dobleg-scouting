@@ -60,6 +60,37 @@ export async function createGpsMetric(
   return data as GpsMetric
 }
 
+export async function updateGpsMetric(
+  id: number,
+  patch: { label?: string; unit?: string; decimals?: number; category?: GpsMetricCategory; is_active?: boolean },
+): Promise<boolean> {
+  const { error } = await supabase.from('gps_metrics').update(patch).eq('id', id)
+  if (error) { console.error('updateGpsMetric error:', error); return false }
+  return true
+}
+
+/**
+ * Borra una métrica del catálogo. Sólo se puede si ninguna carga la usa: borrarla
+ * con datos cargados dejaría valores huérfanos en el jsonb, invisibles pero ahí.
+ */
+export async function deleteGpsMetric(id: number, key: string): Promise<{ ok: boolean; usedBy: number }> {
+  const usedBy = await countMetricUsage(key)
+  if (usedBy > 0) return { ok: false, usedBy }
+  const { error } = await supabase.from('gps_metrics').delete().eq('id', id)
+  if (error) { console.error('deleteGpsMetric error:', error); return { ok: false, usedBy: 0 } }
+  return { ok: true, usedBy: 0 }
+}
+
+/** Cuántas cargas tienen un valor para esa métrica. */
+export async function countMetricUsage(key: string): Promise<number> {
+  const { count, error } = await supabase
+    .from('gps_entries')
+    .select('id', { count: 'exact', head: true })
+    .not(`metrics->>${key}`, 'is', null)
+  if (error) { console.error('countMetricUsage error:', error); return 0 }
+  return count ?? 0
+}
+
 /** Guarda que una cabecera de PDF corresponde a una métrica. Idempotente. */
 export async function addMetricAlias(
   metricId: number,

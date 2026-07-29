@@ -7,6 +7,7 @@ import MetricValueInputs from '@/features/gps/components/MetricValueInputs'
 import GpsDropzone from '@/features/gps/components/GpsDropzone'
 import ParseReviewPanel from '@/features/gps/components/ParseReviewPanel'
 import RecentGpsUploads from '@/features/gps/components/RecentGpsUploads'
+import MetricCatalogManager from '@/features/gps/components/MetricCatalogManager'
 import { mergeCompetitions } from '@/features/gps/competitions'
 import { parseGpsPdf, GpsParseError } from '@/features/gps/parser/parsePdf'
 import pdfWorkerSrc from '@/features/gps/parser/pdfWorker'
@@ -16,7 +17,7 @@ type Tab = 'auto' | 'manual'
 
 export default function GpsUploadPage() {
   const [tab, setTab] = useState<Tab>('auto')
-  const { metrics, lookup, addMetric, learnAlias, loading: catalogLoading } = useGpsCatalog()
+  const { metrics, lookup, addMetric, learnAlias, reload: reloadCatalog, loading: catalogLoading } = useGpsCatalog()
   const [entries, setEntries] = useState<GpsEntryRow[]>([])
 
   const roster = useMemo(() => getAgencyPlayers(), [])
@@ -88,6 +89,7 @@ export default function GpsUploadPage() {
       )}
 
       <RecentGpsUploads entries={entries} metrics={metrics} onChanged={reloadEntries} />
+      {!catalogLoading && <MetricCatalogManager metrics={metrics} onChanged={reloadCatalog} />}
     </div>
   )
 }
