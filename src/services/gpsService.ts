@@ -122,9 +122,16 @@ export async function saveGpsEntries(
   }))
 
   if (opts.replace) {
-    const { error } = await supabase
-      .from('gps_entries')
-      .upsert(rows, { onConflict: 'player_key,match_date' })
+    // El índice único es una expresión (lower(rival)), que PostgREST no puede usar
+    // como target de upsert: se borra la carga previa y se inserta de nuevo.
+    for (const row of rows) {
+      const del = supabase.from('gps_entries').delete()
+        .eq('player_key', row.player_key)
+        .eq('match_date', row.match_date)
+      const { error } = await (row.rival ? del.ilike('rival', row.rival) : del.is('rival', null))
+      if (error) { console.error('saveGpsEntries delete error:', error); return { saved: 0, conflicts: [], error: error.message } }
+    }
+    const { error } = await supabase.from('gps_entries').insert(rows)
     if (error) { console.error('saveGpsEntries error:', error); return { saved: 0, conflicts: [], error: error.message } }
     return { saved: rows.length, conflicts: [], error: null }
   }

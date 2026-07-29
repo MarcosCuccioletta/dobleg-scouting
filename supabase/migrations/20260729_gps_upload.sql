@@ -45,8 +45,11 @@ CREATE TABLE IF NOT EXISTS gps_entries (
 
 CREATE INDEX IF NOT EXISTS idx_gps_entries_player_key ON gps_entries(player_key);
 CREATE INDEX IF NOT EXISTS idx_gps_entries_match_date ON gps_entries(match_date);
-CREATE UNIQUE INDEX IF NOT EXISTS uniq_gps_entries_player_date
-  ON gps_entries(player_key, match_date);
+-- Identidad de una carga: jugador + fecha + rival. El rival hace falta porque hay
+-- datos donde la fecha es la de carga y no la del partido (Echeverría tiene cinco
+-- partidos distintos con la misma fecha en el Sheet viejo).
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_gps_entries_player_date_rival
+  ON gps_entries(player_key, match_date, lower(coalesce(rival, '')));
 
 -- RLS: lectura pública + escritura para authenticated (igual que player_videos)
 ALTER TABLE public.gps_metrics        ENABLE ROW LEVEL SECURITY;
