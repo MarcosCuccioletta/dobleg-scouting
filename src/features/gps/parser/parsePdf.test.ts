@@ -57,4 +57,10 @@ describe('parseGpsPdf', () => {
       parseGpsPdf(new ArrayBuffer(8), { roster: BASE_AGENCY_PLAYERS, lookup: {} }),
     ).rejects.toThrow()
   })
+
+  it('tira el mismo error claro para un reporte OpenField individual (tarjetas, no tabla)', async () => {
+    await expect(
+      parseGpsPdf(fixture('postigo-individual.pdf'), { roster: BASE_AGENCY_PLAYERS, lookup: {} }),
+    ).rejects.toThrow('No encontré una tabla de jugadores en el PDF')
+  })
 })

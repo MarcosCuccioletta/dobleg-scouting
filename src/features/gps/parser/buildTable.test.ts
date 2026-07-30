@@ -73,3 +73,15 @@ describe('buildTable sobre el PDF de Estudiantes vs Tigre', () => {
     expect(table.preambleLines.some(l => /25 de Julio/i.test(l))).toBe(true)
   })
 })
+
+describe('buildTable sobre un reporte OpenField individual (una tarjeta por jugador)', () => {
+  it('no confunde la celda suelta "JUGADOR" de la tarjeta con una cabecera de tabla', async () => {
+    // No es un formato tabular: cada métrica es una tarjeta con título, valor y
+    // nombre repetido. La única celda "JUGADOR" (la de la foto/ficha del atleta)
+    // matchea HEADER_RE pero es de una sola columna, no el inicio de una tabla real.
+    const items = await extractPdfItems(fixture('postigo-individual.pdf'))
+    const table = buildTable(groupRows(items))
+
+    expect(table).toBeNull()
+  })
+})

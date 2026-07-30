@@ -52,7 +52,11 @@ function nearestColumn(centers: number[], center: number): number {
  * números a la derecha.
  */
 export function buildTable(rows: PdfRow[]): PdfTable | null {
-  const headerIndex = rows.findIndex(r => r.cells.some(c => HEADER_RE.test(normalizeLabel(c.text))))
+  // La cabecera necesita al menos una columna de métrica además del nombre: un
+  // reporte "individual" (una tarjeta por jugador, sin tabla) puede tener una celda
+  // suelta "JUGADOR" que matchea el label pero no es cabecera de nada.
+  const headerIndex = rows.findIndex(r =>
+    r.cells.length >= 2 && r.cells.some(c => HEADER_RE.test(normalizeLabel(c.text))))
   if (headerIndex < 0) return null
 
   const headerRow = rows[headerIndex]
