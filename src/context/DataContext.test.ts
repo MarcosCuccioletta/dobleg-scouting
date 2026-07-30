@@ -75,4 +75,15 @@ describe('mergeAgencyIntoInternal', () => {
     expect(Number(merged[0].Edad)).toBeGreaterThanOrEqual(20)
     expect(merged[0].ageNum).toBe(Number(merged[0].Edad))
   })
+
+  it('pisa la Posición del CSV legacy con la curada en agencyPlayers, para un jugador que ya tenía fila propia', () => {
+    // Como el CSV "J. López, ..., Defensor central" — el usuario dice que juega de volante central.
+    const baseInternal = [player({ Jugador: 'J. López', 'Posición': 'Defensor central', 'Posición específica': 'Defensor central' })]
+    const roster = [agency({ shortName: 'J. López', fullName: 'Julián López', position: 'Volante central' })]
+
+    const merged = mergeAgencyIntoInternal(baseInternal, [], roster)
+
+    expect(merged[0]['Posición']).toBe('Volante central')
+    expect(merged[0]['Posición específica']).toBe('Volante central')
+  })
 })

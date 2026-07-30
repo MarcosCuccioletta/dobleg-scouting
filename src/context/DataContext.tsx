@@ -124,9 +124,13 @@ export function mergeAgencyIntoInternal(
  * legacy — que nadie actualiza — queda pisando al dato real para siempre.
  */
 function applyAgencyOverrides(players: EnrichedPlayer[], agencyPlayers: AgencyPlayer[]): EnrichedPlayer[] {
-  const byKey = new Map<string, { team?: string; contractEnd?: string }>()
+  const byKey = new Map<string, { team?: string; contractEnd?: string; position?: string }>()
   for (const a of agencyPlayers) {
-    const patch = { team: a.team || undefined, contractEnd: a.contractEnd ?? undefined }
+    const patch = {
+      team: a.team || undefined,
+      contractEnd: a.contractEnd ?? undefined,
+      position: a.position ?? undefined,
+    }
     byKey.set(identityKey(a.fullName), patch)
     byKey.set(identityKey(a.shortName), patch)
   }
@@ -140,6 +144,11 @@ function applyAgencyOverrides(players: EnrichedPlayer[], agencyPlayers: AgencyPl
     if (!o) return p
     const patched = { ...p }
     if (o.team) patched.Equipo = o.team
+    if (o.position) {
+      const position = POSITION_MAP[o.position] ?? o.position
+      patched['Posición'] = position
+      patched['Posición específica'] = position
+    }
     if (o.contractEnd) {
       patched['Vencimiento contrato'] = o.contractEnd
       const d = parseContractDate(o.contractEnd)
