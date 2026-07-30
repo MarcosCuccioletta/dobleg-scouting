@@ -85,13 +85,28 @@ export function mergeAgencyIntoInternal(
     present.add(exact)
     present.add(keyFull)
   }
-  return applyAgencyOverrides([...baseInternal, ...additions])
+  return applyAgencyOverrides([...baseInternal, ...additions], agencyPlayers)
 }
 
-/** Aplica AGENCY_OVERRIDES (correcciones puntuales) pisando el dato del CSV. */
-function applyAgencyOverrides(players: EnrichedPlayer[]): EnrichedPlayer[] {
-  if (AGENCY_OVERRIDES.length === 0) return players
-  const byKey = new Map(AGENCY_OVERRIDES.map(o => [identityKey(o.name), o]))
+/**
+ * Pisa Equipo y Vencimiento contrato con lo que dice `agencyPlayers` (curado a mano)
+ * más las correcciones puntuales de AGENCY_OVERRIDES. Necesario para todo jugador que
+ * ya tenía una fila en el CSV (interno) antes de fichar por la agencia: sin esto, el
+ * merge lo salta por completo (`present.has` ya da true) y el club/contrato del CSV
+ * legacy — que nadie actualiza — queda pisando al dato real para siempre.
+ */
+function applyAgencyOverrides(players: EnrichedPlayer[], agencyPlayers: AgencyPlayer[]): EnrichedPlayer[] {
+  const byKey = new Map<string, { team?: string; contractEnd?: string }>()
+  for (const a of agencyPlayers) {
+    const patch = { team: a.team || undefined, contractEnd: a.contractEnd ?? undefined }
+    byKey.set(identityKey(a.fullName), patch)
+    byKey.set(identityKey(a.shortName), patch)
+  }
+  for (const o of AGENCY_OVERRIDES) {
+    byKey.set(identityKey(o.name), { ...byKey.get(identityKey(o.name)), ...o })
+  }
+  if (byKey.size === 0) return players
+
   return players.map(p => {
     const o = byKey.get(identityKey(p.Jugador))
     if (!o) return p
