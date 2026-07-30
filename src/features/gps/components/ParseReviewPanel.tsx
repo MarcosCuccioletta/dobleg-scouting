@@ -199,9 +199,17 @@ export default function ParseReviewPanel({
         <p className="text-xs text-apple-gray-400 mt-0.5 mb-4">Destildá los que no quieras cargar.</p>
 
         {result.players.length === 0 && (
-          <p className="text-sm text-apple-gray-500">
-            No encontré jugadores de la agencia en este PDF. Revisá el archivo o cargalo a mano.
-          </p>
+          <div className="text-sm text-apple-gray-500 space-y-2">
+            <p>No encontré jugadores de la agencia en este PDF. Revisá el archivo o cargalo a mano.</p>
+            {result.table.rows.length > 0 && (
+              <div>
+                <p className="text-xs text-apple-gray-400">Nombres que sí reconocí en la tabla (ninguno matcheó con el roster):</p>
+                <p className="text-xs text-apple-gray-400 mt-1">
+                  {result.table.rows.map(r => r.name).join(' · ')}
+                </p>
+              </div>
+            )}
+          </div>
         )}
 
         <div className="space-y-3">

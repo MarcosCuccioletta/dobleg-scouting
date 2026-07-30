@@ -4,10 +4,25 @@ import { slugify } from '@/features/gps/parser/normalize'
 import type {
   GpsMetric, GpsMetricAlias, GpsEntryRow, GpsEntryInput, GpsMetricCategory,
 } from '@/features/gps/types'
+import type { AgencyPlayer } from '@/constants/agencyPlayers'
 import type { GPSEntry } from '@/types'
 
 /** Clave de identidad del jugador: la misma que videos y agencia. */
 export const gpsPlayerKey = agencyKey
+
+/**
+ * player_key para el nombre que trae la ficha (`player.Jugador`), que puede venir en
+ * formato corto ("J. Postigo") cuando el dato sale de una fuente externa, mientras que
+ * la Carga de GPS siempre guarda bajo el `fullName` del roster ("Joaquin Postigo"). Si
+ * el nombre coincide (exacto, sin acentos) con el fullName o el shortName de algún
+ * jugador del roster DG, resuelve al fullName del roster antes de generar la key.
+ */
+export function resolveGpsPlayerKey(name: string, roster: AgencyPlayer[]): string {
+  const norm = (s: string) => s.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+  const target = norm(name)
+  const match = roster.find(p => norm(p.fullName) === target || norm(p.shortName) === target)
+  return gpsPlayerKey(match?.fullName ?? name)
+}
 
 // ─── Catálogo ─────────────────────────────────────────────────────────────────
 

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { distinctValues, toLegacyGpsEntry } from './gpsService'
+import { distinctValues, toLegacyGpsEntry, resolveGpsPlayerKey } from './gpsService'
 import type { GpsEntryRow, GpsMetric } from '@/features/gps/types'
+import type { AgencyPlayer } from '@/constants/agencyPlayers'
 
 const metrics: GpsMetric[] = [
   { id: 1, key: 'distancia_total', label: 'Distancia Total', unit: 'm', decimals: 0, category: 'locomotor', sort_order: 10, is_active: true },
@@ -20,6 +21,25 @@ describe('distinctValues', () => {
   it('devuelve los valores usados, sin repetir ni vacíos, ordenados', () => {
     const rows = [row(), row({ rival: 'Ajax' }), row({ rival: 'Tigre' }), row({ rival: null })]
     expect(distinctValues(rows, 'rival')).toEqual(['Ajax', 'Tigre'])
+  })
+})
+
+describe('resolveGpsPlayerKey', () => {
+  const roster: AgencyPlayer[] = [{
+    shortName: 'J. Postigo', fullName: 'Joaquin Postigo', image: null, contractEnd: null,
+    marketValue: null, team: 'Quilmes', apiTeamId: 480, isReserve: false,
+  }]
+
+  it('resuelve el shortName de la ficha al fullName que usa la Carga de GPS', () => {
+    expect(resolveGpsPlayerKey('J. Postigo', roster)).toBe('joaquin postigo')
+  })
+
+  it('el fullName resuelve a la misma key', () => {
+    expect(resolveGpsPlayerKey('Joaquin Postigo', roster)).toBe('joaquin postigo')
+  })
+
+  it('sin match en el roster, cae al nombre tal cual', () => {
+    expect(resolveGpsPlayerKey('Alguien Ajeno', roster)).toBe('alguien ajeno')
   })
 })
 

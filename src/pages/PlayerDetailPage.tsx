@@ -29,7 +29,7 @@ import { currentClubFromMatches } from '@/utils/currentClub'
 import { fuzzyMatch } from '@/lib/search'
 import { POSITION_MAP, DISPLAY_POSITION_MAP, DISPLAY_METRICS, RADAR_METRICS, METRIC_ABBREVIATIONS } from '@/constants/scoring'
 import { fetchPlayerEvaluations, fetchEvaluationsByName, type ScoutEvaluation } from '@/services/scoutEvaluationService'
-import { gpsPlayerKey } from '@/services/gpsService'
+import { resolveGpsPlayerKey } from '@/services/gpsService'
 import { useApiFootballPlayerId, usePlayerInjuries, usePlayerTransfers } from '@/hooks/usePlayerApiData'
 import TrackingWidget from '@/components/tracking/TrackingWidget'
 import DobleGWidget from '@/components/agency/DobleGWidget'
@@ -881,12 +881,14 @@ export default function PlayerDetailPage() {
     return (player as EnrichedPlayer & { jugadorSK?: string }).jugadorSK ?? ''
   }, [player, source])
 
-  // Datos GPS del jugador: identidad por player_key, la misma clave que videos.
+  // Datos GPS del jugador: identidad por player_key. `player.Jugador` puede venir en
+  // formato corto ("J. Postigo") si sale de una fuente externa; resolver contra el
+  // roster antes de armar la key, que es la que usa la Carga de GPS al guardar.
   const playerGpsData = useMemo(() => {
     if (!player || source !== 'interno') return []
-    const key = gpsPlayerKey(player.Jugador)
+    const key = resolveGpsPlayerKey(player.Jugador, agencyPlayers)
     return gpsEntries.filter(e => e.player_key === key)
-  }, [player, source, gpsEntries])
+  }, [player, source, gpsEntries, agencyPlayers])
 
   // Calculate average score for same position (for comparison)
   const positionAverageScore = useMemo(() => {
