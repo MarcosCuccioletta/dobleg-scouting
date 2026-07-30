@@ -7,6 +7,13 @@ export interface AgencyPlayer {
   team: string
   apiTeamId: number | null
   isReserve: boolean
+  /**
+   * Sólo hace falta para un jugador sin fila propia en el CSV/API interno (una alta
+   * nueva sin match todavía): sin esto la ficha le queda sin Edad ni Posición porque
+   * `agencyToEnriched` no tiene de dónde sacarlas.
+   */
+  birthDate?: string | null   // 'YYYY-MM-DD'
+  position?: string | null    // valor canónico de POSITION_MAP, ej. 'Volante interno'
 }
 
 export const BASE_AGENCY_PLAYERS: AgencyPlayer[] = [
@@ -23,7 +30,7 @@ export const BASE_AGENCY_PLAYERS: AgencyPlayer[] = [
   { shortName: 'F. Watson', fullName: 'Franco Watson', image: 'https://img.a.transfermarkt.technology/portrait/header/654733-1677162423.JPG?lm=1', contractEnd: '31/12/2027', marketValue: '€600k', team: 'Lanús', apiTeamId: 446, isReserve: false },
   { shortName: 'M. Espindola', fullName: 'Matías Espíndola', image: 'https://encrypted-tbn1.gstatic.com/images?q=tbn:ANd9GcS1N9vJgD-2W3N7xXyVN_vQzc1kald8Fj2FKbMCF9lZT0psjQ', contractEnd: '30/06/2030', marketValue: '€1.00m', team: 'Necaxa', apiTeamId: 2288, isReserve: false },
   { shortName: 'P. Guajardo', fullName: 'Paolo Guajardo', image: 'https://img.a.transfermarkt.technology/portrait/header/882846-1773086173.jpg?lm=1', contractEnd: '31/12/2027', marketValue: '€500k', team: 'Audax Italiano', apiTeamId: 2329, isReserve: false },
-  { shortName: 'F. Loyola', fullName: 'Favian Loyola', image: 'https://img.a.transfermarkt.technology/portrait/big/998206-1773086660.jpg?lm=1', contractEnd: null, marketValue: '€200k', team: 'Audax Italiano', apiTeamId: 2329, isReserve: false },
+  { shortName: 'F. Loyola', fullName: 'Favian Loyola', image: 'https://img.a.transfermarkt.technology/portrait/big/998206-1773086660.jpg?lm=1', contractEnd: null, marketValue: '€200k', team: 'Audax Italiano', apiTeamId: 2329, isReserve: false, birthDate: '2005-05-18', position: 'Volante interno' },
   { shortName: 'J. Díaz', fullName: 'Juan Ignacio Díaz', image: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSMMbiNBpx9abyfSTWqxKbpFPpPUh-kumH4y96vBvgUxWpvxA', contractEnd: null, marketValue: '€450k', team: 'Universidad Católica', apiTeamId: 2994, isReserve: false },
   { shortName: 'A. Mulet', fullName: 'Agustín Mulet', image: 'https://encrypted-tbn1.gstatic.com/images?q=tbn:ANd9GcTJi9w69HxCZKetEwoweuzr6QlEXgHDlpxPXImEKpKxB-AUKg', contractEnd: '30/06/2026', marketValue: '€300k', team: 'CD Olimpia', apiTeamId: 1051, isReserve: false },
   { shortName: 'N. Watson', fullName: 'Nicolás Watson', image: 'https://img.a.transfermarkt.technology/portrait/header/697045-1771011330.JPG?lm=1', contractEnd: '31/12/2026', marketValue: '€300k', team: 'Deportivo Riestra', apiTeamId: 476, isReserve: false },

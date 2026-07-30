@@ -14,22 +14,36 @@ import type { AppData, EnrichedPlayer, EvolutionEntry, TransfermarktData, Monito
 
 const DataContext = createContext<AppData | null>(null)
 
+/** Edad en años a partir de una fecha 'YYYY-MM-DD'. 0 si no hay dato o es inválida. */
+function ageFromBirthDate(birthDate: string | null | undefined): number {
+  if (!birthDate) return 0
+  const d = new Date(birthDate)
+  if (Number.isNaN(d.getTime())) return 0
+  const now = new Date()
+  let age = now.getFullYear() - d.getFullYear()
+  const monthDiff = now.getMonth() - d.getMonth()
+  if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < d.getDate())) age--
+  return age
+}
+
 // Construye un EnrichedPlayer mínimo a partir de un AgencyPlayer (cuando no está en external)
 function agencyToEnriched(a: AgencyPlayer): EnrichedPlayer {
   const marketValueRaw = parseMarketValue(a.marketValue ?? '')
+  const ageNum = ageFromBirthDate(a.birthDate)
+  const position = a.position ? (POSITION_MAP[a.position] ?? a.position) : ''
   return {
     Jugador: a.fullName,
     Liga: '',
     Equipo: a.team,
-    'Posición': '',
-    Edad: '',
+    'Posición': position,
+    Edad: ageNum ? String(ageNum) : '',
     'País de nacimiento': '',
     Pie: '', Altura: '',
     'Valor de mercado (Transfermarkt)': a.marketValue ?? '',
     'Vencimiento contrato': a.contractEnd ?? '',
     'Partidos jugados': '', 'Minutos jugados': '',
     Goles: '', xG: '', Asistencias: '', xA: '',
-    'Posición específica': '',
+    'Posición específica': position,
     id: '',
     Transfermkt: '',
     Representante: '',
@@ -42,7 +56,7 @@ function agencyToEnriched(a: AgencyPlayer): EnrichedPlayer {
     marketValueFormatted: formatMarketValue(marketValueRaw),
     marketValueRaw,
     minutesPlayed: 0,
-    ageNum: 0,
+    ageNum,
   }
 }
 
@@ -61,10 +75,24 @@ export function mergeAgencyIntoInternal(
   external: EnrichedPlayer[],
   agencyPlayers: AgencyPlayer[],
 ): EnrichedPlayer[] {
+  // "Interno" es el roster vigente de la agencia (37 filas del CSV, una por jugador
+  // representado): si alguien deja de representarlo (p. ej. Marcos Enrique, Álvaro
+  // López), su fila vieja no debe seguir apareciendo sólo porque nadie la borró del
+  // Sheet a mano. Sin roster todavía cargado (arranque en frío) no se filtra nada,
+  // para no vaciar la lista por una carrera con `loadAgencyPlayers()`.
+  const agencyKeys = new Set<string>()
+  for (const a of agencyPlayers) {
+    agencyKeys.add(identityKey(a.fullName))
+    agencyKeys.add(identityKey(a.shortName))
+  }
+  const currentBase = agencyKeys.size > 0
+    ? baseInternal.filter(p => agencyKeys.has(identityKey(p.Jugador)))
+    : baseInternal
+
   // Presencia por nombre exacto Y por clave inicial:apellido, para no re-agregar
   // a un jugador que ya está bajo otro formato de nombre (causa de duplicados).
   const present = new Set<string>()
-  for (const p of baseInternal) {
+  for (const p of currentBase) {
     present.add(normalizeName(p.Jugador))
     present.add(identityKey(p.Jugador))
   }
@@ -85,7 +113,7 @@ export function mergeAgencyIntoInternal(
     present.add(exact)
     present.add(keyFull)
   }
-  return applyAgencyOverrides([...baseInternal, ...additions], agencyPlayers)
+  return applyAgencyOverrides([...currentBase, ...additions], agencyPlayers)
 }
 
 /**
