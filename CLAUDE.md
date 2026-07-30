@@ -148,7 +148,6 @@ Cuando el usuario envíe datos GPS, **solo extraer datos de estos jugadores**. E
 | C. Bravo | Claudio Bravo |
 | Nicolás Leguizamón | Nicolás Leguizamón |
 | M. Sanabria | Mario Sanabria |
-| M. Enrique | Marcos Enrique |
 | M. Isopi | Mauro Isopi |
 | F. Paradela | Federico Paradela |
 | F. Paradela | Francesco Paradela |
@@ -158,9 +157,10 @@ Cuando el usuario envíe datos GPS, **solo extraer datos de estos jugadores**. E
 | M. Carabajal | Mateo Carabajal |
 | Nicolás Watson | Nicolás Watson |
 | F. Watson | Franco Watson |
-| Álvaro López | Álvaro López |
 | P. Guajardo | Paolo Guajardo |
-| J. Ginzo | J. Ginzo |
+| F. Loyola | Favian Loyola |
+| J. Ginzo | Juan Martín Ginzo |
+| S. Cartagena | Santiago Cartagena |
 
 ### Instrucciones para procesar datos GPS
 
