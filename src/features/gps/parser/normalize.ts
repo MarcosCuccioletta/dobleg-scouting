@@ -43,3 +43,14 @@ export function parseNumber(raw: string | number | null | undefined): number | n
   const n = Number(t)
   return Number.isFinite(n) ? n : null
 }
+
+/**
+ * Parsea una duración "H:MM:SS" (el "Tiempo de Juego" de los reportes OpenField de
+ * Catapult) a minutos. Devuelve null si no matchea el formato.
+ */
+export function parseDuration(raw: string | null | undefined): number | null {
+  const m = String(raw ?? '').trim().match(/^(\d{1,2}):(\d{2}):(\d{2})$/)
+  if (!m) return null
+  const [, h, mm, ss] = m
+  return Number(h) * 60 + Number(mm) + Number(ss) / 60
+}

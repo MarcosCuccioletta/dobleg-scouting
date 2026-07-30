@@ -58,9 +58,24 @@ describe('parseGpsPdf', () => {
     ).rejects.toThrow()
   })
 
-  it('tira el mismo error claro para un reporte OpenField individual (tarjetas, no tabla)', async () => {
+  it('sin jugador elegido, tira un error claro para un reporte OpenField individual (tarjetas, no tabla)', async () => {
     await expect(
       parseGpsPdf(fixture('postigo-individual.pdf'), { roster: BASE_AGENCY_PLAYERS, lookup: {} }),
     ).rejects.toThrow('No encontré una tabla de jugadores en el PDF')
+  })
+
+  it('con el jugador elegido, lee el reporte OpenField individual por tarjetas', async () => {
+    const result = await parseGpsPdf(fixture('postigo-individual.pdf'), {
+      roster: BASE_AGENCY_PLAYERS,
+      lookup: buildAliasLookup(metrics, aliases),
+      presetPlayerName: 'Joaquin Postigo',
+    })
+
+    expect(result.players).toHaveLength(1)
+    expect(result.players[0].rawName).toBe('Joaquin Postigo')
+    expect(result.players[0].candidates).toEqual(['Joaquin Postigo'])
+
+    const idx = result.columns.findIndex(c => c.header === 'DISTANCIA TOTAL')
+    expect(result.players[0].values[idx]).toBe(10829.9)
   })
 })

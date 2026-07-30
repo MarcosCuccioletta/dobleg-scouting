@@ -203,6 +203,12 @@ function AutoTab({ metrics, lookup, roster, rivals, competitions, teams, addMetr
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<GpsParseResult | null>(null)
   const [fileName, setFileName] = useState('')
+  const [presetPlayer, setPresetPlayer] = useState('')
+
+  const sortedRoster = useMemo(
+    () => [...roster].sort((a, b) => a.fullName.localeCompare(b.fullName, 'es')),
+    [roster],
+  )
 
   const handleFile = async (file: File) => {
     setParsing(true)
@@ -210,7 +216,10 @@ function AutoTab({ metrics, lookup, roster, rivals, competitions, teams, addMetr
     setResult(null)
     try {
       const data = await file.arrayBuffer()
-      const parsed = await parseGpsPdf(data, { roster, lookup, workerSrc: pdfWorkerSrc })
+      const parsed = await parseGpsPdf(data, {
+        roster, lookup, workerSrc: pdfWorkerSrc,
+        presetPlayerName: presetPlayer || undefined,
+      })
       setResult(parsed)
       setFileName(file.name)
     } catch (err) {
@@ -235,6 +244,26 @@ function AutoTab({ metrics, lookup, roster, rivals, competitions, teams, addMetr
 
   return (
     <div className="space-y-4">
+      <div className="bg-white dark:bg-apple-gray-800 rounded-apple-xl p-5 shadow-apple dark:shadow-apple-dark">
+        <label className="block text-xs font-medium text-apple-gray-500 dark:text-apple-gray-400 mb-1.5" htmlFor="gps-preset-jugador">
+          ¿De qué jugador es el archivo? (opcional)
+        </label>
+        <select
+          id="gps-preset-jugador"
+          className="w-full px-3 py-2.5 rounded-apple border border-apple-gray-200 dark:border-apple-gray-600 bg-white dark:bg-apple-gray-700 text-apple-gray-800 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-green/40"
+          value={presetPlayer}
+          onChange={e => setPresetPlayer(e.target.value)}
+        >
+          <option value="">Detectar automáticamente (tablas con varios jugadores)</option>
+          {sortedRoster.map(p => (
+            <option key={p.fullName} value={p.fullName}>{p.fullName}</option>
+          ))}
+        </select>
+        <p className="text-2xs text-apple-gray-400 mt-1.5">
+          Necesario para reportes individuales (una tarjeta por jugador, sin tabla): sin esto no hay forma de saber de quién son los datos.
+        </p>
+      </div>
+
       <GpsDropzone onFile={file => void handleFile(file)} disabled={parsing} />
       {error && (
         <div className="rounded-apple bg-red-500/10 text-red-500 px-4 py-3 text-sm">{error}</div>

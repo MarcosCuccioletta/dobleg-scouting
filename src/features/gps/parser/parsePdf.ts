@@ -1,5 +1,6 @@
 import { extractPdfItems } from './extractItems'
 import { groupRows, buildTable } from './buildTable'
+import { buildCardTable } from './parseCardReport'
 import { mapColumns } from './mapColumns'
 import { inferContext } from './inferContext'
 import { matchRosterName } from './matchPlayers'
@@ -12,6 +13,12 @@ export interface ParseOptions {
   lookup: Record<string, string>
   today?: Date
   workerSrc?: string
+  /**
+   * fullName del jugador elegido de antemano en la UI. Los reportes "individuales"
+   * (una tarjeta por métrica, sin tabla) no traen de dónde deducir el jugador, así
+   * que sin esto sólo se intenta la tabla multi-jugador.
+   */
+  presetPlayerName?: string
 }
 
 export class GpsParseError extends Error {}
@@ -32,9 +39,14 @@ export async function parseGpsPdf(data: ArrayBuffer, opts: ParseOptions): Promis
     throw new GpsParseError('El PDF no tiene texto seleccionable. Si es una foto o un escaneo, cargalo a mano.')
   }
 
-  const table = buildTable(groupRows(items))
+  const rows = groupRows(items)
+  const table = buildTable(rows) ?? (opts.presetPlayerName ? buildCardTable(rows, opts.presetPlayerName) : null)
   if (!table) {
-    throw new GpsParseError('No encontré una tabla de jugadores en el PDF. Revisá el archivo o cargalo a mano.')
+    throw new GpsParseError(
+      opts.presetPlayerName
+        ? 'No encontré una tabla ni tarjetas de métricas en el PDF. Revisá el archivo o cargalo a mano.'
+        : 'No encontré una tabla de jugadores en el PDF. Si es un reporte individual de un solo jugador, elegilo arriba antes de cargar el archivo.',
+    )
   }
 
   const columns = mapColumns(table.headers, opts.lookup)

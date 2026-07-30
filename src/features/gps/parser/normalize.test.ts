@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { normalizeLabel, slugify, parseNumber } from './normalize'
+import { normalizeLabel, slugify, parseNumber, parseDuration } from './normalize'
 
 describe('normalizeLabel', () => {
   it('baja a minúsculas, saca acentos y colapsa espacios', () => {
@@ -35,5 +35,18 @@ describe('parseNumber', () => {
     expect(parseNumber('DZ4')).toBeNull()
     expect(parseNumber('% EQUIPO')).toBeNull()
     expect(parseNumber('1 Tiempo')).toBeNull()
+  })
+})
+
+describe('parseDuration', () => {
+  it('convierte "H:MM:SS" a minutos', () => {
+    expect(parseDuration('01:39:37')).toBeCloseTo(99.6167, 3)
+    expect(parseDuration('00:45:00')).toBe(45)
+  })
+
+  it('devuelve null para lo que no es una duración', () => {
+    expect(parseDuration('10222')).toBeNull()
+    expect(parseDuration('')).toBeNull()
+    expect(parseDuration(null)).toBeNull()
   })
 })
