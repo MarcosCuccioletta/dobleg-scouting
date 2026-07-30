@@ -191,6 +191,67 @@ export interface ScoreLookupEntry {
   matches_played: number;
 }
 
+export interface ScoreLookupRow {
+  player_id: number;
+  name: string;
+  current_team_id: number | null;
+  score: number;
+  position: Position;
+  percentile: number | null;
+  matches_played: number;
+}
+
+/**
+ * Arma el mapa nombre→score. "Más partidos jugados gana" resuelve bien el duplicado
+ * habitual (misma persona, una fila de API-Football y otra de Sofascore) pero rompe
+ * cuando el nombre lo comparten dos personas reales distintas: ahí gana el que jugó
+ * más este semestre, sin importar si es el jugador de la agencia. Para los jugadores
+ * de la agencia con `apiTeamId` conocido, si hay una fila cuyo equipo coincide, esa
+ * pisa al heurístico de partidos jugados.
+ */
+export function buildScoreLookup(
+  rows: ScoreLookupRow[],
+  agencyPlayers: { fullName: string; shortName: string; apiTeamId: number | null }[],
+): Map<string, ScoreLookupEntry> {
+  const norm = (s: string) =>
+    s.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+
+  const toEntry = (row: ScoreLookupRow): ScoreLookupEntry => ({
+    player_id: row.player_id,
+    name: row.name,
+    score: row.score,
+    position: row.position,
+    percentile: row.percentile,
+    matches_played: row.matches_played,
+  });
+
+  const map = new Map<string, ScoreLookupEntry>();
+  for (const row of rows) {
+    if (!row.name) continue;
+    const key = norm(row.name);
+    const entry = toEntry(row);
+    const existing = map.get(key);
+    if (!existing || entry.matches_played > existing.matches_played) {
+      map.set(key, entry);
+    }
+  }
+
+  for (const ap of agencyPlayers) {
+    const fullKey = norm(ap.fullName);
+    if (ap.apiTeamId) {
+      const teamMatch = rows.find(r => norm(r.name) === fullKey && r.current_team_id === ap.apiTeamId);
+      if (teamMatch) map.set(fullKey, toEntry(teamMatch));
+    }
+    const shortKey = norm(ap.shortName);
+    const entry = map.get(fullKey);
+    if (entry && shortKey !== fullKey) {
+      map.set(shortKey, entry);
+    }
+  }
+
+  return map;
+}
+
 export async function fetchScoreLookup(
   season?: number
 ): Promise<Map<string, ScoreLookupEntry>> {
@@ -205,7 +266,7 @@ export async function fetchScoreLookup(
       .from('player_season_scores')
       .select(`
         player_id, position, avg_score, percentile, matches_played,
-        player:players!inner(name)
+        player:players!inner(name, current_team_id)
       `)
       .in('season', seasons)
       .not('avg_score', 'is', null)
@@ -218,39 +279,18 @@ export async function fetchScoreLookup(
     from += PAGE_SIZE;
   }
 
-  const norm = (s: string) =>
-    s.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-
-  const map = new Map<string, ScoreLookupEntry>();
-  for (const row of allRows) {
-    const name = (row as any).player?.name as string;
-    if (!name) continue;
-    const key = norm(name);
-    const entry: ScoreLookupEntry = {
-      player_id: row.player_id,
-      name,
-      score: row.avg_score,
-      position: row.position as Position,
-      percentile: row.percentile,
-      matches_played: row.matches_played,
-    };
-    const existing = map.get(key);
-    if (!existing || entry.matches_played > existing.matches_played) {
-      map.set(key, entry);
-    }
-  }
+  const rows: ScoreLookupRow[] = allRows.map(row => ({
+    player_id: row.player_id,
+    name: (row as any).player?.name as string,
+    current_team_id: ((row as any).player?.current_team_id as number | null) ?? null,
+    score: row.avg_score,
+    position: row.position as Position,
+    percentile: row.percentile,
+    matches_played: row.matches_played,
+  }));
 
   const { AGENCY_PLAYERS } = await import('@/constants/agencyPlayers');
-  for (const ap of AGENCY_PLAYERS) {
-    const fullKey = norm(ap.fullName);
-    const shortKey = norm(ap.shortName);
-    const entry = map.get(fullKey);
-    if (entry && shortKey !== fullKey && !map.has(shortKey)) {
-      map.set(shortKey, entry);
-    }
-  }
-
-  return map;
+  return buildScoreLookup(rows, AGENCY_PLAYERS);
 }
 
 export async function fetchPlayerMatchHistory(
