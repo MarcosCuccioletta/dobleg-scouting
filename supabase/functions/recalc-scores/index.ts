@@ -12,19 +12,21 @@ const MIN_POOL_SIZE = 5;
 serve(async (req) => {
   const supabase = getSupabaseAdmin();
   const now = new Date();
-  let seasons: number[];
-  try {
-    const body = await req.json();
-    if (body?.season) {
-      seasons = [body.season];
-    } else {
-      const euroSeason = now.getMonth() < 7 ? now.getFullYear() - 1 : now.getFullYear();
-      seasons = euroSeason === now.getFullYear() ? [now.getFullYear()] : [euroSeason, now.getFullYear()];
-    }
-  } catch {
-    const euroSeason = now.getMonth() < 7 ? now.getFullYear() - 1 : now.getFullYear();
-    seasons = euroSeason === now.getFullYear() ? [now.getFullYear()] : [euroSeason, now.getFullYear()];
-  }
+  // Las ligas de calendario europeo (ago-may) numeran la temporada por el año en que
+  // arrancó (season=2025 para la 2025/26 en curso), mientras que las de calendario
+  // anual (Sudamérica, MLS) usan el año en curso (season=2026). No hay un único "año
+  // vigente" que sirva para ambas: colapsar a un solo número (como hacía antes,
+  // adivinando por mes) dejaba de recalcular POR COMPLETO la temporada europea en
+  // curso apenas cambiaba el año calendario — la fila se congelaba desactualizada
+  // para siempre. Sin `body.season` explícito, siempre se procesan los dos últimos
+  // años para cubrir ambas convenciones.
+  const seasons: number[] = await (async () => {
+    try {
+      const body = await req.json();
+      if (body?.season) return [body.season];
+    } catch { /* sin body o no es JSON: usar default */ }
+    return [now.getFullYear() - 1, now.getFullYear()];
+  })();
 
   try {
     const { data: domesticLeagues } = await supabase
@@ -258,8 +260,11 @@ serve(async (req) => {
 
       // Reemplazar los datos de la temporada por las filas primarias frescas:
       // borra filas viejas/fragmentadas de posiciones que ya no corresponden.
-      await supabase.from('player_season_scores').delete().eq('season', season);
+      // El borrado va DENTRO del if: si el cálculo no produjo filas (una consulta que
+      // falló, la API caída), borrar igual dejaría la temporada sin scores y la app
+      // en blanco. Mejor conservar los datos viejos que quedarse sin ninguno.
       if (primaryRows.length > 0) {
+        await supabase.from('player_season_scores').delete().eq('season', season);
         const CHUNK = 500;
         for (let i = 0; i < primaryRows.length; i += CHUNK) {
           await supabase.from('player_season_scores').upsert(

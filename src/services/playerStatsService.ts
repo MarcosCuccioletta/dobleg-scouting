@@ -10,11 +10,27 @@ import type {
   RecentFormPlayer,
 } from '@/types/scoring';
 
-function currentSeasons(): number[] {
-  const now = new Date();
-  const euroSeason = now.getMonth() < 7 ? now.getFullYear() - 1 : now.getFullYear();
-  const calendarSeason = now.getFullYear();
-  return euroSeason === calendarSeason ? [calendarSeason] : [euroSeason, calendarSeason];
+/**
+ * Temporada(s) vigente(s) a incluir por defecto en las consultas de stats/scores.
+ *
+ * Las ligas de calendario europeo (ago-may: Primeira Liga, Bundesliga, Premier
+ * League, etc.) numeran la temporada por el año en que arrancó — la 2025/26 es
+ * `season = 2025` en `leagues` — mientras que las de calendario anual (Sudamérica,
+ * MLS) usan el año en curso (`season = 2026`). No existe un único "año vigente" que
+ * sirva para ambas convenciones a la vez.
+ *
+ * Antes esta función intentaba adivinar cuál de las dos aplicaba según el mes y
+ * colapsaba a un solo año cuando coincidían — en agosto 2026 devolvía sólo [2026],
+ * dejando afuera TODA fila de una liga europea (todavía en season=2025 porque la
+ * 2026/27 recién arranca) y de cualquier otra que no haya rotado. Eso vaciaba el
+ * score de jugadores en ligas enteras, no un caso puntual. Devolver siempre los dos
+ * últimos años cubre ambas convenciones sin depender de en qué mes cambia cada una;
+ * el resto del pipeline (dedup por partidos jugados / equipo) ya sabe quedarse con
+ * la fila más representativa entre las que traiga.
+ */
+export function currentSeasons(): number[] {
+  const year = new Date().getFullYear();
+  return [year - 1, year];
 }
 
 export async function fetchPlayersList(filters: {

@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
-import { buildScoreLookup, type ScoreLookupRow } from './playerStatsService'
+import { describe, it, expect, vi, afterEach } from 'vitest'
+import { buildScoreLookup, currentSeasons, type ScoreLookupRow } from './playerStatsService'
 
 const row = (over: Partial<ScoreLookupRow> & Pick<ScoreLookupRow, 'player_id' | 'name'>): ScoreLookupRow => ({
   current_team_id: null, score: 5, position: 'VC', percentile: 50, matches_played: 1,
@@ -77,5 +77,30 @@ describe('buildScoreLookup', () => {
 
     expect(map.get('jose paradela')?.score).toBe(6.5)
     expect(map.get('jose paradela')?.matches_played).toBe(31)
+  })
+})
+
+describe('currentSeasons', () => {
+  afterEach(() => vi.useRealTimers())
+
+  it('en agosto (temporada europea recién arrancada) sigue incluyendo el año anterior', () => {
+    // Caso real: 2026-08-01. Prestianni (Benfica), Palacios (Al Ain) y otros quedaban
+    // sin score porque la función vieja devolvía sólo [2026] y su fila vigente
+    // todavía estaba en season=2025 (la 2025/26 europea, en curso).
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-08-01'))
+    expect(currentSeasons()).toEqual([2025, 2026])
+  })
+
+  it('a mitad de temporada europea (marzo) también incluye ambos años', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-03-15'))
+    expect(currentSeasons()).toEqual([2025, 2026])
+  })
+
+  it('en diciembre incluye el año en curso y el anterior', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-12-20'))
+    expect(currentSeasons()).toEqual([2025, 2026])
   })
 })
