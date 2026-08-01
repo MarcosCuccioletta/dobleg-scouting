@@ -57,4 +57,25 @@ describe('buildScoreLookup', () => {
 
     expect(map.get('julian lopez')?.player_id).toBe(2)
   })
+
+  it('mismo jugador con un fragmento de 1 partido en el mismo equipo: no debe pisar el score real con el del fragmento (caso real José Paradela)', () => {
+    // Caso real: José Paradela (Cruz Azul, agencia apiTeamId 2295) tiene 31 partidos
+    // en VI con score 6.5, pero su id de API-Football también quedó con una fila
+    // fragmentada de 1 solo partido detectado como EXT y score 4.2 (misma persona,
+    // mismo equipo). El desempate por equipo agarraba "la primera fila que matchee"
+    // sin mirar partidos jugados, y en producción esa fila resultó ser el fragmento:
+    // la ficha mostraba 4.2 en vez de 6.5. El fragmento va primero en el array a
+    // propósito, para reproducir el orden real que vino de la consulta.
+    const rows = [
+      row({ player_id: 6441, name: 'José Paradela', current_team_id: 2295, matches_played: 1, score: 4.2, position: 'EXT' }),
+      row({ player_id: 6441, name: 'José Paradela', current_team_id: 2295, matches_played: 31, score: 6.5, position: 'VI' }),
+      row({ player_id: 20944623, name: 'José Paradela', current_team_id: 20001947, matches_played: 8, score: 7.7, position: 'VI' }),
+    ]
+    const agencyPlayers = [{ fullName: 'José Paradela', shortName: 'J. Paradela', apiTeamId: 2295 }]
+
+    const map = buildScoreLookup(rows, agencyPlayers)
+
+    expect(map.get('jose paradela')?.score).toBe(6.5)
+    expect(map.get('jose paradela')?.matches_played).toBe(31)
+  })
 })

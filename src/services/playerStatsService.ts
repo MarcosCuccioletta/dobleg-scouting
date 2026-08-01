@@ -225,22 +225,42 @@ export function buildScoreLookup(
     matches_played: row.matches_played,
   });
 
+  const bestByMatches = (candidates: ScoreLookupRow[]): ScoreLookupRow =>
+    candidates.reduce((best, r) => (r.matches_played > best.matches_played ? r : best));
+
   const map = new Map<string, ScoreLookupEntry>();
+  const winnerRow = new Map<string, ScoreLookupRow>();
   for (const row of rows) {
     if (!row.name) continue;
     const key = norm(row.name);
-    const entry = toEntry(row);
-    const existing = map.get(key);
-    if (!existing || entry.matches_played > existing.matches_played) {
-      map.set(key, entry);
+    const existing = winnerRow.get(key);
+    if (!existing || row.matches_played > existing.matches_played) {
+      winnerRow.set(key, row);
+      map.set(key, toEntry(row));
     }
   }
 
+  // Desambiguación por equipo: sólo corrige cuando el ganador por "más partidos"
+  // pertenece a OTRO equipo que el de la agencia (dos personas reales distintas con
+  // el mismo nombre, el caso que motivó este desempate). Si el ganador ya es del
+  // equipo de la agencia se lo respeta tal cual y, entre las filas de ese equipo, se
+  // toma la de más partidos — nunca "la primera encontrada" (`.find`): un jugador
+  // duplicado entre API-Football y Sofascore, o con un fragmento de 1 partido en otra
+  // posición detectada mal, comparte el mismo equipo, y agarrar cualquiera de esas
+  // filas al voleo podía pisar un score real y bueno con el de un fragmento de
+  // muestra mínima (caso real: José Paradela mostrando 4.2 en vez de su score real).
   for (const ap of agencyPlayers) {
     const fullKey = norm(ap.fullName);
     if (ap.apiTeamId) {
-      const teamMatch = rows.find(r => norm(r.name) === fullKey && r.current_team_id === ap.apiTeamId);
-      if (teamMatch) map.set(fullKey, toEntry(teamMatch));
+      const currentWinner = winnerRow.get(fullKey);
+      if (!currentWinner || currentWinner.current_team_id !== ap.apiTeamId) {
+        const teamRows = rows.filter(r => norm(r.name) === fullKey && r.current_team_id === ap.apiTeamId);
+        if (teamRows.length > 0) {
+          const best = bestByMatches(teamRows);
+          winnerRow.set(fullKey, best);
+          map.set(fullKey, toEntry(best));
+        }
+      }
     }
     const shortKey = norm(ap.shortName);
     const entry = map.get(fullKey);
