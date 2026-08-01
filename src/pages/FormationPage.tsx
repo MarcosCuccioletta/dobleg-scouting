@@ -14,7 +14,7 @@ import {
 } from '@/services/formationService'
 import type { PlayerWithScore, Position } from '@/types/scoring'
 import { getScoreColorClass, type ScoreScale } from '@/components/ui/ScoreBar'
-import { smartSearch } from '@/lib/search'
+import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 
 // ─── Formation definitions ────────────────────────────────────────────────────
 
@@ -196,8 +196,6 @@ interface PlayerSelectorProps {
   nationality: string
   minAge: number
   maxAge: number
-  allPlayers: PlayerWithScore[]
-  playersLoading: boolean
   currentPlayers: PositionPlayer[]
   allSelectedPlayerIds: Set<number>
   onAddPlayer: (player: PlayerWithScore) => void
@@ -212,8 +210,6 @@ function PlayerSelector({
   nationality,
   minAge,
   maxAge,
-  allPlayers,
-  playersLoading,
   currentPlayers,
   allSelectedPlayerIds,
   onAddPlayer,
@@ -236,38 +232,51 @@ function PlayerSelector({
 
   const canAddMore = currentPlayers.length < 3
   const currentPosIds = new Set(currentPlayers.map(p => p.playerId))
+  const singleLeagueId = selectedLeagueIds.length === 1 ? selectedLeagueIds[0] : undefined
 
-  // Players not already selected anywhere (use string id stored in PositionPlayer.playerId)
-  const availablePlayers = useMemo(() => {
-    return allPlayers.filter(p => {
-      const strId = String(p.id)
-      if (currentPosIds.has(strId)) return false
-      if (allSelectedPlayerIds.has(p.id)) return false
-      return true
-    })
-  }, [allPlayers, currentPosIds, allSelectedPlayerIds])
+  const isExcluded = useCallback((p: PlayerWithScore) => {
+    if (currentPosIds.has(String(p.id))) return true
+    if (allSelectedPlayerIds.has(p.id)) return true
+    return false
+  }, [currentPosIds, allSelectedPlayerIds])
 
-  // Search across all available players (no position restriction)
-  const searchResults = useMemo(() => {
-    if (!searchQuery.trim()) return []
-    return smartSearch(availablePlayers, searchQuery, p => `${p.name} ${p.team?.name ?? ''}`, 12)
-  }, [availablePlayers, searchQuery])
-
-  // Suggested candidates filtered by position + nationality
-  const candidates = useMemo(() => {
-    return availablePlayers
-      .filter(p => {
-        if (!p.primary_position) return false
-        if (!allowedPositions.includes(p.primary_position)) return false
-        if (nationality) {
-          if ((p.nationality ?? '') !== nationality) return false
+  // Sugeridos: se piden ya filtrados por posición al backend (top por Score GG DE
+  // ESA POSICIÓN), no recortados de un pool global de 300 ordenado por score total.
+  // Antes, posiciones minoritarias como lateral casi no tenían candidatos porque
+  // competían por un lugar en el top-300 general contra centrales/delanteros.
+  const { players: suggestionPool, loading: suggestionsLoading } = usePlayersList(
+    allowedPositions.length > 0
+      ? {
+          positions: allowedPositions,
+          league_id: singleLeagueId,
+          min_age: minAge > 15 ? minAge : undefined,
+          max_age: maxAge < 40 ? maxAge : undefined,
+          pageSize: 200,
         }
+      : { pageSize: 0 }
+  )
+
+  const candidates = useMemo(() => {
+    return suggestionPool
+      .filter(p => {
+        if (isExcluded(p)) return false
+        if (selectedLeagueIds.length > 1 && !(p.league && selectedLeagueIds.includes(p.league.id))) return false
+        if (nationality && (p.nationality ?? '') !== nationality) return false
         if (p.primary_score === null) return false
         return true
       })
-      .sort((a, b) => (b.primary_score ?? 0) - (a.primary_score ?? 0))
-      .slice(0, 15)
-  }, [availablePlayers, allowedPositions, nationality])
+      .slice(0, 15) // ya viene ordenado por avg_score desc desde el RPC
+  }, [suggestionPool, isExcluded, selectedLeagueIds, nationality])
+
+  // Buscar: contra la base completa, sin recorte de pool ni de posición — antes
+  // buscaba sólo dentro de ese mismo top-300 global, así que un jugador real que no
+  // estuviera entre los mejores puntuados no aparecía nunca, ni por nombre exacto.
+  const debouncedSearch = useDebouncedValue(searchQuery.trim(), 250)
+  const { players: searchPool, loading: searchLoading } = usePlayersList(
+    debouncedSearch.length >= 2 ? { search: debouncedSearch, pageSize: 15 } : { pageSize: 0 }
+  )
+  const searchResults = useMemo(() => searchPool.filter(p => !isExcluded(p)), [searchPool, isExcluded])
+  const playersLoading = activeTab === 'search' ? searchLoading : suggestionsLoading
 
   // Focus search input when tab switches
   useEffect(() => {
@@ -517,7 +526,10 @@ export default function FormationPage() {
     pageSize: 300,
   }), [selectedLeagueIds, minAge, maxAge])
 
-  const { players: apiPlayers, loading: playersLoading } = usePlayersList(playerFilters)
+  // Sólo se usa para poblar el desplegable de nacionalidades; la selección real de
+  // jugadores por posición ahora vive dentro de PlayerSelector (fetch propio,
+  // filtrado por posición en vez de recortar este pool).
+  const { players: apiPlayers } = usePlayersList(playerFilters)
 
   // Client-side filter for multiple leagues (when > 1 selected)
   const allPlayers = useMemo(() => {
@@ -873,8 +885,6 @@ export default function FormationPage() {
           nationality={nationality}
           minAge={minAge}
           maxAge={maxAge}
-          allPlayers={allPlayers}
-          playersLoading={playersLoading}
           currentPlayers={positions[selectedPos] || []}
           allSelectedPlayerIds={allSelectedPlayerIds}
           onAddPlayer={(p) => handleAddPlayer(selectedPos, p)}

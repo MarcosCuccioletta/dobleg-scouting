@@ -7,6 +7,7 @@ import {
 } from 'recharts'
 import { fuzzyMatch } from '@/lib/search'
 import { usePlayersList, usePositionMetricAverages } from '@/hooks/usePlayerStats'
+import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import type { PlayerWithScore, Position, PositionMetricAverages } from '@/types/scoring'
 import { POSITION_DISPLAY, displayPosition } from '@/types/scoring'
 import {
@@ -236,7 +237,11 @@ export default function BusquedaPage() {
   const navigate = useNavigate()
 
   // ─── Data sources ─────────────────────────────────────────────────────────
-  // Large pool from Supabase API (pageSize 500, no filters = full pool)
+  // Pool chico (500 de un total de ~8600 con score) sólo para poblar los
+  // desplegables de liga/equipo/posición del buscador — no se usa para calcular
+  // rankings ni para el pool de comparación (ver poolQuery/leagueContextQuery más
+  // abajo), que antes heredaban el mismo sesgo hacia "los mejores puntuados del
+  // mundo" y daban un "prom. liga" / "5° de 30" estadísticamente engañoso.
   const { players: allPlayers, loading } = usePlayersList({ pageSize: 500 })
   const { metricAverages } = usePositionMetricAverages()
 
@@ -300,16 +305,26 @@ export default function BusquedaPage() {
   }, [allPlayers, searchLeagueFilter, searchTeamFilter])
 
   // ─── Candidates (for search dropdown) ────────────────────────────────────
+  // Antes se filtraba en memoria sobre el pool de 500 (de ~8600 jugadores con
+  // score): buscar por nombre a cualquiera fuera de ese top por score global daba
+  // "no encontrado" aunque el jugador existiera. Ahora la búsqueda por texto va
+  // directo al backend; los chips de liga/equipo/posición siguen acotando en
+  // memoria sobre esos resultados (ya vienen acotados a 30).
+  const debouncedQuery = useDebouncedValue(query.trim(), 250)
+  const { players: searchPlayers } = usePlayersList(
+    debouncedQuery.length >= 2 ? { search: debouncedQuery, pageSize: 30 } : { pageSize: 0 }
+  )
 
   const candidates = useMemo<SearchCandidate[]>(() => {
-    return allPlayers.map(p => ({
+    const source = debouncedQuery.length >= 2 ? searchPlayers : allPlayers
+    return source.map(p => ({
       name: p.name,
       club: p.team?.name ?? '',
       league: p.league?.name ?? '',
       position: p.primary_position ? (POSITION_DISPLAY[p.primary_position] ?? p.primary_position) : '',
       player: p,
     }))
-  }, [allPlayers])
+  }, [debouncedQuery, searchPlayers, allPlayers])
 
   const filteredCandidates = useMemo<SearchCandidate[]>(() => {
     if (!query.trim() && !searchLeagueFilter && !searchPositionFilter && !searchTeamFilter) return []
@@ -326,25 +341,31 @@ export default function BusquedaPage() {
   }, [candidates, query, searchLeagueFilter, searchTeamFilter, searchPositionFilter])
 
   // ─── Pool (same position/league context for comparisons) ─────────────────
+  // Antes salían de filtrar el mismo pool de 500-por-score-global: en cualquier
+  // liga grande (Liga Profesional, MLS, Liga MX tienen 500+ jugadores puntuados
+  // cada una) el pool de comparación terminaba siendo sólo "los mejores puntuados
+  // del mundo en esa liga", no la liga real. Ahora se pide directo al backend,
+  // filtrado por liga/posición — 1500 cubre la liga con más jugadores puntuados
+  // (Liga Profesional Argentina, ~1200).
+  const { players: pool } = usePlayersList(
+    selectedPlayer
+      ? {
+          league_id: leagueIdFilter ?? undefined,
+          positions: samePosition && selectedPlayer.primary_position ? [selectedPlayer.primary_position] : undefined,
+          pageSize: 1500,
+        }
+      : { pageSize: 0 }
+  )
 
-  const pool = useMemo<PlayerWithScore[]>(() => {
-    if (!selectedPlayer) return []
-    let base = allPlayers.filter(p => p.season_scores?.length > 0)
-    if (leagueIdFilter != null) base = base.filter(p => p.league?.id === leagueIdFilter)
-    if (samePosition && selectedPlayer.primary_position) {
-      base = base.filter(p => p.primary_position === selectedPlayer.primary_position)
-    }
-    return base
-  }, [selectedPlayer, allPlayers, leagueIdFilter, samePosition])
-
-  const pool2 = useMemo<PlayerWithScore[]>(() => {
-    if (!selectedPlayer || compareLeagueId2 == null) return []
-    let base = allPlayers.filter(p => p.season_scores?.length > 0 && p.league?.id === compareLeagueId2)
-    if (samePosition && selectedPlayer.primary_position) {
-      base = base.filter(p => p.primary_position === selectedPlayer.primary_position)
-    }
-    return base
-  }, [selectedPlayer, allPlayers, compareLeagueId2, samePosition])
+  const { players: pool2 } = usePlayersList(
+    selectedPlayer && compareLeagueId2 != null
+      ? {
+          league_id: compareLeagueId2,
+          positions: samePosition && selectedPlayer.primary_position ? [selectedPlayer.primary_position] : undefined,
+          pageSize: 1500,
+        }
+      : { pageSize: 0 }
+  )
 
   const pool2Label = useMemo(() =>
     compareLeagueId2 != null
@@ -356,13 +377,22 @@ export default function BusquedaPage() {
   const availableLeagues = useMemo(() => allLeagues, [allLeagues])
 
   // ─── League score context (1-10 scale) ────────────────────────────────────
+  // Mismo motivo que el pool de arriba: el "prom. liga" y el ranking ("5° de 30")
+  // salían de filtrar el pool truncado de 500, así que en cualquier liga grande el
+  // "total" y el promedio mostrados eran de una muestra sesgada hacia los mejores,
+  // no de la liga real.
+  const { players: leagueContextPlayers } = usePlayersList(
+    selectedPlayer?.league?.id && selectedPlayer?.primary_position
+      ? { league_id: selectedPlayer.league.id, positions: [selectedPlayer.primary_position], pageSize: 1500 }
+      : { pageSize: 0 }
+  )
 
   const leagueScoreContext = useMemo(() => {
     if (!selectedPlayer || selectedPlayer.primary_score == null) return null
     const liga = selectedPlayer.league?.name ?? ''
     const leagueId = selectedPlayer.league?.id
     if (!leagueId) return null
-    const leaguePlayers = allPlayers.filter(p =>
+    const leaguePlayers = leagueContextPlayers.filter(p =>
       p.league?.id === leagueId && p.primary_score != null &&
       p.primary_position === selectedPlayer.primary_position
     )
@@ -371,7 +401,7 @@ export default function BusquedaPage() {
     const rank = sorted.findIndex(p => p.id === selectedPlayer.id) + 1
     const avg = leaguePlayers.reduce((s, p) => s + (p.primary_score ?? 0), 0) / leaguePlayers.length
     return { rank: rank > 0 ? rank : null, total: leaguePlayers.length, avg, liga }
-  }, [selectedPlayer, allPlayers])
+  }, [selectedPlayer, leagueContextPlayers])
 
   // ─── Position averages from Supabase (for radar) ─────────────────────────
 

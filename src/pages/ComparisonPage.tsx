@@ -4,6 +4,7 @@ import {
   Tooltip, Legend, ResponsiveContainer,
 } from 'recharts'
 import { usePlayersList } from '@/hooks/usePlayerStats'
+import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import type { PlayerWithScore } from '@/types/scoring'
 import {
   API_METRICS,
@@ -13,8 +14,6 @@ import {
 } from '@/constants/apiMetrics'
 import { getScoreColorClass } from '@/components/ui/ScoreBar'
 import AddToReportButton from '@/components/pdf/AddToReportButton'
-import LoadingSpinner from '@/components/ui/LoadingSpinner'
-import { fuzzyMatch } from '@/lib/search'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -48,23 +47,23 @@ function scoreColor(s: number | null | undefined) {
 // ─── PlayerSearch (API-based) ─────────────────────────────────────────────────
 
 interface PlayerSearchProps {
-  players: PlayerWithScore[]
   selected: PlayerWithScore | null
   onSelect: (p: PlayerWithScore | null) => void
   color: string
   label: string
 }
 
-function PlayerSearch({ players, selected, onSelect, color, label }: PlayerSearchProps) {
+function PlayerSearch({ selected, onSelect, color, label }: PlayerSearchProps) {
   const [searchText, setSearchText] = useState('')
   const [showDropdown, setShowDropdown] = useState(false)
 
-  const searchResults = useMemo(() => {
-    if (!searchText.trim()) return []
-    return players
-      .filter(p => fuzzyMatch(searchText, p.name) || fuzzyMatch(searchText, p.team?.name ?? ''))
-      .slice(0, 10)
-  }, [players, searchText])
+  // Búsqueda contra la base, no sobre un pool ya cargado: antes se traían los 500
+  // mejores por score de las 8573 filas de la base, así que casi ningún jugador
+  // real (fuera de ese top) se podía encontrar para comparar.
+  const debouncedSearch = useDebouncedValue(searchText.trim(), 250)
+  const { players: searchResults } = usePlayersList(
+    debouncedSearch.length >= 2 ? { search: debouncedSearch, pageSize: 10 } : { pageSize: 0 }
+  )
 
   const handleSelect = (p: PlayerWithScore) => {
     onSelect(p)
@@ -177,15 +176,19 @@ function QuickSummaryCard({
 }: {
   label: string
   players: PlayerWithScore[]
-  getValue: (p: PlayerWithScore) => number
+  getValue: (p: PlayerWithScore) => number | null
   formatValue: (v: number) => string
   higherIsBetter?: boolean
   winnerLabel?: string
   icon: React.ReactNode
 }) {
   const values = players.map(getValue)
-  const best = higherIsBetter ? Math.max(...values) : Math.min(...values)
-  const allEqual = values.every(v => v === best)
+  // Un jugador sin dato para esta métrica (edad o valor de mercado sin cargar) no
+  // debe competir por "mejor": antes se coercionaba a 0 y ganaba automáticamente
+  // (más joven / más económico) contra cualquier jugador con dato real.
+  const present = values.filter((v): v is number => v !== null)
+  const best = present.length > 0 ? (higherIsBetter ? Math.max(...present) : Math.min(...present)) : null
+  const allEqual = best !== null && present.every(v => v === best)
 
   return (
     <div className="bg-white dark:bg-apple-gray-800 rounded-2xl p-4 shadow-sm border border-apple-gray-100 dark:border-apple-gray-700">
@@ -195,7 +198,8 @@ function QuickSummaryCard({
       </div>
       <div className={`grid gap-2 ${players.length === 3 ? 'grid-cols-3' : 'grid-cols-2'}`}>
         {players.map((p, i) => {
-          const isWinner = !allEqual && values[i] === best
+          const v = values[i]
+          const isWinner = v !== null && !allEqual && v === best
           return (
             <div
               key={p.id}
@@ -206,7 +210,7 @@ function QuickSummaryCard({
               }`}
             >
               <div className={`text-xl font-bold ${isWinner ? 'text-brand-green' : 'text-apple-gray-700 dark:text-apple-gray-300'}`}>
-                {formatValue(values[i])}
+                {v !== null ? formatValue(v) : '—'}
               </div>
               <div className="text-2xs text-apple-gray-500 dark:text-apple-gray-400 mt-1 truncate">
                 {p.name.split(' ').pop()}
@@ -315,7 +319,7 @@ function ComparisonContent({ players }: { players: PlayerWithScore[] }) {
         <QuickSummaryCard
           label="Score GG"
           players={players}
-          getValue={p => p.primary_score ?? 0}
+          getValue={p => p.primary_score ?? null}
           formatValue={v => v.toFixed(1)}
           higherIsBetter={true}
           icon={
@@ -327,7 +331,7 @@ function ComparisonContent({ players }: { players: PlayerWithScore[] }) {
         <QuickSummaryCard
           label="Edad"
           players={players}
-          getValue={p => getAge(p.birth_date) ?? 0}
+          getValue={p => getAge(p.birth_date)}
           formatValue={v => `${v} años`}
           higherIsBetter={false}
           icon={
@@ -339,8 +343,8 @@ function ComparisonContent({ players }: { players: PlayerWithScore[] }) {
         <QuickSummaryCard
           label="Valor de Mercado"
           players={players}
-          getValue={p => p.market_value_eur ?? 0}
-          formatValue={v => v > 0 ? formatMarketValue(v) : '—'}
+          getValue={p => p.market_value_eur ?? null}
+          formatValue={v => formatMarketValue(v)}
           higherIsBetter={false}
           winnerLabel="Más económico"
           icon={
@@ -567,8 +571,6 @@ function ComparisonContent({ players }: { players: PlayerWithScore[] }) {
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function ComparisonPage() {
-  const { players: allPlayers, loading } = usePlayersList({ pageSize: 500 })
-
   const [playerA, setPlayerA] = useState<PlayerWithScore | null>(null)
   const [playerB, setPlayerB] = useState<PlayerWithScore | null>(null)
   const [playerC, setPlayerC] = useState<PlayerWithScore | null>(null)
@@ -576,8 +578,6 @@ export default function ComparisonPage() {
 
   const activePlayers = [playerA, playerB, ...(showC && playerC ? [playerC] : [])].filter(Boolean) as PlayerWithScore[]
   const canCompare = activePlayers.length >= 2
-
-  if (loading) return <LoadingSpinner fullScreen message="Cargando datos para comparación..." />
 
   return (
     <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 py-6">
@@ -611,7 +611,6 @@ export default function ComparisonPage() {
         <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-start gap-4 sm:gap-5">
           <div className="w-full sm:flex-1 sm:min-w-[240px]">
             <PlayerSearch
-              players={allPlayers}
               selected={playerA}
               onSelect={setPlayerA}
               color={PLAYER_COLORS[0]}
@@ -621,7 +620,6 @@ export default function ComparisonPage() {
           <div className="flex-shrink-0 text-center text-xl sm:text-2xl font-bold text-apple-gray-300 dark:text-apple-gray-600 sm:pt-8">VS</div>
           <div className="w-full sm:flex-1 sm:min-w-[240px]">
             <PlayerSearch
-              players={allPlayers}
               selected={playerB}
               onSelect={setPlayerB}
               color={PLAYER_COLORS[1]}
@@ -633,7 +631,6 @@ export default function ComparisonPage() {
               <div className="flex-shrink-0 text-center text-xl sm:text-2xl font-bold text-apple-gray-300 dark:text-apple-gray-600 sm:pt-8">VS</div>
               <div className="w-full sm:flex-1 sm:min-w-[240px]">
                 <PlayerSearch
-                  players={allPlayers}
                   selected={playerC}
                   onSelect={setPlayerC}
                   color={PLAYER_COLORS[2]}

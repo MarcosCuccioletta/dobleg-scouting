@@ -164,9 +164,13 @@ export default function ScatterChartPage() {
   // Fetch leagues for the filter chips
   const leagues = useLeagues()
 
-  // Fetch full player pool (500 max, filtered by position/league)
+  // Sin filtro de liga/posición, pedir sólo 500 (de un total de ~8600 con score)
+  // sesgaba el gráfico hacia los mejores puntuados del mundo — justo lo opuesto al
+  // propósito de un scatter (encontrar patrones fuera del score general). La liga
+  // más numerosa con score (Liga Profesional Argentina) tiene ~1200 jugadores; 1500
+  // cubre el caso real más grande sin pedir de más cuando hay filtros aplicados.
   const { players: allPlayers, loading } = usePlayersList({
-    pageSize: 500,
+    pageSize: 1500,
     positions: selectedPositions.length > 0 ? selectedPositions : undefined,
     league_id: selectedLeagueId ?? undefined,
   })
