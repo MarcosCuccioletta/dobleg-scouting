@@ -161,6 +161,7 @@ Cuando el usuario envíe datos GPS, **solo extraer datos de estos jugadores**. E
 | F. Loyola | Favian Loyola |
 | J. Ginzo | Juan Martín Ginzo |
 | S. Cartagena | Santiago Cartagena |
+| R. Schlegel | Rodrigo Schlegel |
 
 ### Instrucciones para procesar datos GPS
 

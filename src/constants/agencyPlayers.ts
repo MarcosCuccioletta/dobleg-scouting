@@ -54,6 +54,7 @@ export const BASE_AGENCY_PLAYERS: AgencyPlayer[] = [
   { shortName: 'F. Paradela', fullName: 'Francesco Paradela', image: null, contractEnd: null, marketValue: null, team: 'Gimnasia La Plata', apiTeamId: 434, isReserve: true },
   { shortName: 'M. Isopi', fullName: 'Mauro Isopi', image: null, contractEnd: '30/06/2027', marketValue: null, team: 'Santo Domingo', apiTeamId: null, isReserve: false },
   { shortName: 'T. Valdecantos Valle', fullName: 'Tomás Valdecantos', image: 'https://encrypted-tbn1.gstatic.com/images?q=tbn:ANd9GcR40YiqK6AdAQ-O3cU6kajD5P8SZGbDdGbF7kU1f7KuCUzxOw', contractEnd: null, marketValue: null, team: 'Al Ain', apiTeamId: 2865, isReserve: true },
+  { shortName: 'R. Schlegel', fullName: 'Rodrigo Schlegel', image: 'https://media.api-sports.io/football/players/5909.png', contractEnd: null, marketValue: '€2.50m', team: 'Atlas', apiTeamId: 2283, isReserve: false, birthDate: '1997-04-03', position: 'Defensor central' },
 ]
 
 // ─── Correcciones puntuales (override sobre el CSV "interno") ───────────────────
