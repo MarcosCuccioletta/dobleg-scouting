@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { useData } from '@/context/DataContext'
 import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, Legend, ResponsiveContainer, Tooltip } from 'recharts'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
-import { RADAR_METRICS as POSITION_RADAR_METRICS, METRIC_ABBREVIATIONS, sortLeaguesByPriority, API_RADAR_METRICS } from '@/constants/scoring'
+import { RADAR_METRICS as POSITION_RADAR_METRICS, METRIC_ABBREVIATIONS, sortLeaguesByPriority, API_RADAR_METRICS, FILTER_POSITION_MAP } from '@/constants/scoring'
 import { smartSearch } from '@/lib/search'
 import AddToReportButton from '@/components/pdf/AddToReportButton'
 import CopyChartButton from '@/components/ui/CopyChartButton'
@@ -134,7 +134,11 @@ export default function RadarAnalysisPage() {
     const leagueSet = new Set<string>()
     allPlayers.forEach(p => {
       const pos = p['Posición'] || p['Posicion']
-      if (pos) posSet.add(String(pos))
+      // Sin normalizar, la misma posición real llega duplicada/fragmentada según
+      // la hoja de origen (ej. "Defensor central" vs "Defensor Central" son claves
+      // separadas en POSITION_MAP) y el chip de un formato deja afuera en silencio
+      // a los jugadores cargados con el otro.
+      if (pos) posSet.add(FILTER_POSITION_MAP[String(pos)] ?? String(pos))
       if (p.Liga) leagueSet.add(p.Liga)
     })
     return {
@@ -147,7 +151,8 @@ export default function RadarAnalysisPage() {
   const filteredPlayers = useMemo(() => {
     // First apply position/league/age/marketValue/contract/minutes filters
     const preFiltered = allPlayers.filter(p => {
-      const playerPos = String(p['Posición'] || p['Posicion'] || '')
+      const rawPos = String(p['Posición'] || p['Posicion'] || '')
+      const playerPos = FILTER_POSITION_MAP[rawPos] ?? rawPos
       if (positionFilters.length > 0 && !positionFilters.includes(playerPos)) return false
       if (leagueFilters.length > 0 && !leagueFilters.includes(p.Liga)) return false
       // Minutes filter
@@ -210,7 +215,8 @@ export default function RadarAnalysisPage() {
 
     allPlayers.forEach(player => {
       // Apply filters
-      const playerPos = String(player['Posición'] || player['Posicion'] || '')
+      const rawPlayerPos = String(player['Posición'] || player['Posicion'] || '')
+      const playerPos = FILTER_POSITION_MAP[rawPlayerPos] ?? rawPlayerPos
       if (positionFilters.length > 0 && !positionFilters.includes(playerPos)) return
       if (leagueFilters.length > 0 && !leagueFilters.includes(player.Liga)) return
       // Minutes filter

@@ -6,7 +6,7 @@ import PlayerTable from '@/components/players/PlayerTable'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import EmptyState from '@/components/ui/EmptyState'
 import { FILTER_POSITION_MAP } from '@/constants/scoring'
-import { parseContractDate } from '@/utils/scoring'
+import { parseContractDate, monthsBetween } from '@/utils/scoring'
 import { fuzzyMatch } from '@/lib/search'
 import type { FilterState, EnrichedPlayer } from '@/types'
 import type { VideoFreshness } from '@/types/videos'
@@ -72,6 +72,14 @@ function applyFilters(players: EnrichedPlayer[], filters: FilterState, videoFres
         if (filters.contractFrom && cd < new Date(filters.contractFrom)) return false
         if (filters.contractTo && cd > new Date(filters.contractTo)) return false
       }
+    }
+    // "Contrato por vencer" (slider de la sidebar) nunca se aplicaba acá — el
+    // control quedaba activo en la UI (contaba en activeFiltersCount) sin filtrar
+    // nada realmente.
+    if (filters.maxContractMonths > 0) {
+      const cd = parseContractDate(p['Vencimiento contrato'])
+      if (!cd) return false
+      if (monthsBetween(new Date(), cd) > filters.maxContractMonths) return false
     }
     // Filter by pie
     if (filters.pie) {

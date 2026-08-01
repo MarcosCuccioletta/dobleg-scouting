@@ -250,7 +250,18 @@ export default function HomePage() {
     setRefreshing(false)
   }
 
-  const today = useMemo(() => new Date(), [])
+  // Recalcular al volver a primer plano: la app puede quedar horas en background
+  // (Capacitor) y si el usuario la retoma después de medianoche AR, "hoy" quedaba
+  // congelado en el día viejo hasta recargar — justo lo opuesto al requisito de
+  // abrir siempre mostrando los partidos de HOY.
+  const [today, setToday] = useState(() => new Date())
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') setToday(new Date())
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [])
 
   const todayFixtures = useMemo(
     () => getFixturesForDate(fixtures, today),

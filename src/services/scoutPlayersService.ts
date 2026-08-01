@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import type { ScoutPlayer, ScoutPlayerStatusRecord, ScoutPlayerFile } from '@/types'
 import { nameKey, playerNamesMatch } from '@/utils/nameUtils'
+import { currentSeasons } from '@/services/playerStatsService'
 
 export interface NewScoutPlayer {
   full_name: string
@@ -197,10 +198,14 @@ export async function fetchScoutPlayersWithScores(
   let playerInfoMap = new Map<number, { photo: string | null; team_name: string | null; team_logo: string | null }>()
 
   if (supabaseIds.length > 0) {
+    // Sin filtrar por temporada, un jugador con muchos partidos en una temporada
+    // vieja y completa le ganaba a su temporada vigente parcial — mismo patrón que
+    // el bug de currentSeasons() ya arreglado en playerStatsService.ts.
     const { data: scores } = await supabase
       .from('player_season_scores')
       .select('player_id, avg_score, percentile, position, matches_played')
       .in('player_id', supabaseIds)
+      .in('season', currentSeasons())
       .not('avg_score', 'is', null)
       .order('matches_played', { ascending: false })
 

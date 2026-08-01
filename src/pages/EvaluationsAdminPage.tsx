@@ -1,11 +1,20 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useData } from '@/context/DataContext'
+import { useAuth } from '@/context/AuthContext'
 import {
   fetchRecentEvaluations,
+  fetchUnmatchedEvaluations,
   updateEvaluation,
   type ScoutEvaluation,
 } from '@/services/scoutEvaluationService'
 import { matchScore as sharedMatchScore } from '@/lib/search'
+
+// La política RLS real de UPDATE en `scout_evaluations` ya restringe la escritura
+// a estos dos emails (verificado contra pg_policies) — esto sólo oculta la UI para
+// el resto, coherente con lo que el server ya exige. Sin un concepto de rol en la
+// base (AuthContext no tiene campo `role`), se gatea por email como ya hace
+// ScoutTrackingGGPage.
+const ADMIN_EMAILS = ['marcoscucho99@gmail.com', 'matiassebastianroberti@gmail.com']
 
 function findBestMatches(
   searchName: string,
@@ -48,6 +57,7 @@ function findBestMatches(
 }
 
 export default function EvaluationsAdminPage() {
+  const { user } = useAuth()
   const { external, internal } = useData()
   const [evaluations, setEvaluations] = useState<ScoutEvaluation[]>([])
   const [loading, setLoading] = useState(true)
@@ -56,16 +66,27 @@ export default function EvaluationsAdminPage() {
   const [matching, setMatching] = useState(false)
   const [filter, setFilter] = useState<'unmatched' | 'all'>('unmatched')
 
-  // Load evaluations
+  const isAdmin = !!user?.email && ADMIN_EMAILS.includes(user.email)
+
+  // Load evaluations: recientes (para "Todas") + TODAS las sin vincular (sin
+  // recorte, para no perder de vista evaluaciones viejas apenas la tabla crezca).
   useEffect(() => {
+    if (!isAdmin) { setLoading(false); return }
     async function load() {
       setLoading(true)
-      const data = await fetchRecentEvaluations(100)
-      setEvaluations(data)
+      const [recent, unmatched] = await Promise.all([
+        fetchRecentEvaluations(100),
+        fetchUnmatchedEvaluations(),
+      ])
+      const byId = new Map(recent.map(e => [e.id, e]))
+      for (const e of unmatched) byId.set(e.id, e)
+      setEvaluations(
+        Array.from(byId.values()).sort((a, b) => b.created_at.localeCompare(a.created_at))
+      )
       setLoading(false)
     }
     load()
-  }, [])
+  }, [isAdmin])
 
   // Combined player list
   const allPlayers = useMemo(() => {
@@ -145,6 +166,18 @@ export default function EvaluationsAdminPage() {
   const handleSkip = () => {
     setSelectedEval(null)
     setMatchSearch('')
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="max-w-6xl mx-auto px-6 py-10">
+        <div className="text-center py-20">
+          <p className="text-apple-gray-500 dark:text-apple-gray-400">
+            No tenés acceso a esta página.
+          </p>
+        </div>
+      </div>
+    )
   }
 
   if (loading) {
