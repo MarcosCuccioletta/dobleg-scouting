@@ -330,8 +330,6 @@ export default function ScoutEvaluationPage() {
         mental_score: mentalScore,
         notes: notes || undefined,
         recommendation: recommendation || undefined,
-        source: playerSource || undefined,
-        auto_added_to_monitoring: shouldAutoAddToMonitoring,
       },
       user.id,
       scoutName

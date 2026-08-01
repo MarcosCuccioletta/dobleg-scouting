@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import { useParams, useSearchParams, Link } from 'react-router-dom'
-import { usePlayerDetail, usePlayerMatchHistory, usePositionAverages, usePositionMetricAverages, useLeagues, useMarketValueHistory } from '@/hooks/usePlayerStats'
+import { usePlayerDetail, usePlayerMatchHistory, usePositionAverages, usePositionMetricAverages, useLeagues, useMarketValueHistory, usePreferredPlayerId } from '@/hooks/usePlayerStats'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import EmptyState from '@/components/ui/EmptyState'
 import GaugeScore from '@/components/charts/GaugeScore'
@@ -40,7 +40,12 @@ export default function SupabasePlayerDetail() {
   const { id } = useParams<{ id: string }>()
   const [searchParams] = useSearchParams()
   const apiId = searchParams.get('apiId')
-  const playerId = apiId ? parseInt(apiId) : (id ? parseInt(id) : null)
+  const rawPlayerId = apiId ? parseInt(apiId) : (id ? parseInt(id) : null)
+  // Un mismo jugador puede estar dos veces en `players` (fila de API-Football y de
+  // Sofascore). Sin esto, cualquier navegación que llegue con el id "malo" (menos
+  // partidos, sin traspasos/lesiones) se quedaba pegada a esa versión — mismo fix
+  // que ya tiene PlayerDetailPage.tsx para el roster interno.
+  const playerId = usePreferredPlayerId(rawPlayerId)
   const { data, loading } = usePlayerDetail(playerId)
   const [selectedPosition, setSelectedPosition] = useState<Position | null>(null)
   const { averages: positionAverages } = usePositionAverages()

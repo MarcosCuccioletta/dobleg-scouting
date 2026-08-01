@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { playerNamesMatch, extractNameParts } from '@/utils/nameUtils'
 
 export type PlayerSource = 'interno' | 'externo' | 'seguimiento'
 
@@ -25,9 +26,6 @@ export interface ScoutEvaluation {
   notes: string | null
   recommendation: 'fichar' | 'seguir_observando' | 'descartar' | null
 
-  source: PlayerSource | null  // Where the player comes from
-  auto_added_to_monitoring: boolean | null  // If auto-added to seguimiento
-
   scout_id: string
   scout_name: string
   created_at: string
@@ -51,8 +49,6 @@ export interface NewEvaluation {
   weaknesses?: string
   notes?: string
   recommendation?: 'fichar' | 'seguir_observando' | 'descartar'
-  source?: PlayerSource
-  auto_added_to_monitoring?: boolean
 }
 
 // Create a new evaluation
@@ -97,10 +93,15 @@ export async function fetchPlayerEvaluations(playerId: string): Promise<ScoutEva
 
 // Fetch evaluations by player name (for players not in database yet)
 export async function fetchEvaluationsByName(playerName: string): Promise<ScoutEvaluation[]> {
+  // Filtrar server-side por substring del apellido (acota la consulta) y recién ahí
+  // exigir match exacto de identidad (inicial + apellido) client-side con
+  // playerNamesMatch — un `ilike('%nombre%')` libre mezclaba evaluaciones de
+  // jugadores distintos cuyo nombre contuviera al otro como substring.
+  const { surname } = extractNameParts(playerName)
   const { data, error } = await supabase
     .from('scout_evaluations')
     .select('*')
-    .ilike('player_name', `%${playerName}%`)
+    .ilike('player_name', `%${surname}%`)
     .order('match_date', { ascending: false })
 
   if (error) {
@@ -108,7 +109,7 @@ export async function fetchEvaluationsByName(playerName: string): Promise<ScoutE
     return []
   }
 
-  return data || []
+  return (data || []).filter(e => playerNamesMatch(e.player_name, playerName))
 }
 
 // Fetch recent evaluations (for dashboard)
@@ -121,6 +122,27 @@ export async function fetchRecentEvaluations(limit = 10): Promise<ScoutEvaluatio
 
   if (error) {
     console.error('Error fetching recent evaluations:', error)
+    return []
+  }
+
+  return data || []
+}
+
+/**
+ * Todas las evaluaciones sin vincular a un jugador, sin recortar. La página de
+ * admin (EvaluationsAdminPage) filtraba esto en memoria sobre fetchRecentEvaluations(100)
+ * — en cuanto la tabla superara 100 filas, cualquier evaluación vieja sin vincular
+ * dejaba de ser visible/accionable para siempre, sin ningún aviso en la UI.
+ */
+export async function fetchUnmatchedEvaluations(): Promise<ScoutEvaluation[]> {
+  const { data, error } = await supabase
+    .from('scout_evaluations')
+    .select('*')
+    .is('player_id', null)
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    console.error('Error fetching unmatched evaluations:', error)
     return []
   }
 
@@ -149,8 +171,13 @@ export async function getPlayerScoutScore(playerId: string): Promise<number | nu
 
   if (evaluations.length === 0) return null
 
+  // `overall_score` sale de un promedio en la base que divide siempre por 5
+  // sub-scores fijos tratando los que faltan como 0 (el form de evaluación sólo
+  // pide técnico/táctico/mental hoy, nunca físico/potencial) — queda sistemáticamente
+  // deflactado. `technical_score` es el que sí carga el scout siempre; se prioriza
+  // igual que ya hacen FichaManualModal.tsx y scoutPlayersService.ts.
   const scores = evaluations
-    .map(e => e.overall_score)
+    .map(e => e.technical_score ?? e.overall_score)
     .filter((s): s is number => s !== null)
 
   if (scores.length === 0) return null
@@ -162,7 +189,7 @@ export async function getPlayerScoutScore(playerId: string): Promise<number | nu
 export async function fetchAllScoutScores(): Promise<Record<string, { avgScore: number; count: number }>> {
   const { data, error } = await supabase
     .from('scout_evaluations')
-    .select('player_id, overall_score')
+    .select('player_id, technical_score, overall_score')
     .not('player_id', 'is', null)
 
   if (error) {
@@ -173,12 +200,13 @@ export async function fetchAllScoutScores(): Promise<Record<string, { avgScore: 
   const scoreMap: Record<string, { scores: number[]; count: number }> = {}
 
   for (const record of data || []) {
-    if (!record.player_id || record.overall_score === null) continue
+    const score = record.technical_score ?? record.overall_score
+    if (!record.player_id || score === null) continue
 
     if (!scoreMap[record.player_id]) {
       scoreMap[record.player_id] = { scores: [], count: 0 }
     }
-    scoreMap[record.player_id].scores.push(record.overall_score)
+    scoreMap[record.player_id].scores.push(score)
     scoreMap[record.player_id].count++
   }
 
