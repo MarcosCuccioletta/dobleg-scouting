@@ -2,7 +2,8 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 import { buildScoreLookup, currentSeasons, type ScoreLookupRow } from './playerStatsService'
 
 const row = (over: Partial<ScoreLookupRow> & Pick<ScoreLookupRow, 'player_id' | 'name'>): ScoreLookupRow => ({
-  current_team_id: null, score: 5, position: 'VC', percentile: 50, matches_played: 1,
+  current_team_id: null, transfermarkt_id: null, birth_date: null,
+  score: 5, position: 'VC', percentile: 50, matches_played: 1,
   ...over,
 })
 
@@ -62,14 +63,12 @@ describe('buildScoreLookup', () => {
     // Caso real: José Paradela (Cruz Azul, agencia apiTeamId 2295) tiene 31 partidos
     // en VI con score 6.5, pero su id de API-Football también quedó con una fila
     // fragmentada de 1 solo partido detectado como EXT y score 4.2 (misma persona,
-    // mismo equipo). El desempate por equipo agarraba "la primera fila que matchee"
-    // sin mirar partidos jugados, y en producción esa fila resultó ser el fragmento:
-    // la ficha mostraba 4.2 en vez de 6.5. El fragmento va primero en el array a
+    // mismo equipo, mismo transfermarkt_id). El fragmento va primero en el array a
     // propósito, para reproducir el orden real que vino de la consulta.
     const rows = [
-      row({ player_id: 6441, name: 'José Paradela', current_team_id: 2295, matches_played: 1, score: 4.2, position: 'EXT' }),
-      row({ player_id: 6441, name: 'José Paradela', current_team_id: 2295, matches_played: 31, score: 6.5, position: 'VI' }),
-      row({ player_id: 20944623, name: 'José Paradela', current_team_id: 20001947, matches_played: 8, score: 7.7, position: 'VI' }),
+      row({ player_id: 6441, name: 'José Paradela', current_team_id: 2295, transfermarkt_id: 639152, matches_played: 1, score: 4.2, position: 'EXT' }),
+      row({ player_id: 6441, name: 'José Paradela', current_team_id: 2295, transfermarkt_id: 639152, matches_played: 31, score: 6.5, position: 'VI' }),
+      row({ player_id: 20944623, name: 'José Paradela', current_team_id: 20001947, transfermarkt_id: 639152, matches_played: 8, score: 7.7, position: 'VI' }),
     ]
     const agencyPlayers = [{ fullName: 'José Paradela', shortName: 'J. Paradela', apiTeamId: 2295 }]
 
@@ -77,6 +76,35 @@ describe('buildScoreLookup', () => {
 
     expect(map.get('jose paradela')?.score).toBe(6.5)
     expect(map.get('jose paradela')?.matches_played).toBe(31)
+  })
+
+  it('mismo transfermarkt_id, equipos distintos (API-Football desactualizado vs Sofascore al día): igual se fusionan como una sola identidad', () => {
+    // El id de Sofascore de un jugador puede tener el `current_team_id` distinto del
+    // id de API-Football (uno de los dos syncs se actualiza primero tras un
+    // traspaso). El id de Transfermarkt no cambia: es la señal de identidad
+    // confiable, no el equipo.
+    const rows = [
+      row({ player_id: 100, name: 'Nahuel Duplicado', current_team_id: 111, transfermarkt_id: 555, matches_played: 4 }),
+      row({ player_id: 200, name: 'Nahuel Duplicado', current_team_id: 222, transfermarkt_id: 555, matches_played: 9 }),
+    ]
+    const map = buildScoreLookup(rows, [])
+    expect(map.get('nahuel duplicado')?.player_id).toBe(200)
+  })
+
+  it('dos personas reales con el mismo nombre, sin equipo de agencia conocido: transfermarkt_id/fecha de nacimiento alcanzan para separarlas', () => {
+    // Antes esto dependía por completo del apiTeamId del jugador de agencia. Con
+    // identidad real (transfermarkt_id/fecha de nacimiento) alcanza para no
+    // mezclarlos, sin necesitar ese dato adicional.
+    const rows = [
+      row({ player_id: 5917, name: 'Julián López', transfermarkt_id: 625203, birth_date: '2000-01-08', matches_played: 3 }),
+      row({ player_id: 22036647, name: 'Julián López', transfermarkt_id: 554435, birth_date: '1991-09-14', matches_played: 15 }),
+    ]
+    // Sin agencyPlayers: nadie desempata por equipo, y aun así no se mezclan.
+    const map = buildScoreLookup(rows, [])
+    // Gana por partidos jugados entre identidades reales distintas (comportamiento
+    // esperado sin más contexto) — lo importante es que NO fusiona ambas en una.
+    expect(map.get('julian lopez')?.player_id).toBe(22036647)
+    expect(map.get('julian lopez')?.matches_played).toBe(15)
   })
 })
 

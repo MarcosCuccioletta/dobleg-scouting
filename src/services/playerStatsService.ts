@@ -211,6 +211,8 @@ export interface ScoreLookupRow {
   player_id: number;
   name: string;
   current_team_id: number | null;
+  transfermarkt_id: number | null;
+  birth_date: string | null;
   score: number;
   position: Position;
   percentile: number | null;
@@ -218,12 +220,37 @@ export interface ScoreLookupRow {
 }
 
 /**
- * Arma el mapa nombre→score. "Más partidos jugados gana" resuelve bien el duplicado
- * habitual (misma persona, una fila de API-Football y otra de Sofascore) pero rompe
- * cuando el nombre lo comparten dos personas reales distintas: ahí gana el que jugó
- * más este semestre, sin importar si es el jugador de la agencia. Para los jugadores
- * de la agencia con `apiTeamId` conocido, si hay una fila cuyo equipo coincide, esa
- * pisa al heurístico de partidos jugados.
+ * Identidad real de la persona, no de la fila: mismo criterio que `dedupePlayers()`
+ * en Informes (transfermarkt_id si lo tiene — matcheado por nombre+club+edad contra
+ * Transfermarkt — si no, nombre + fecha de nacimiento). Dos filas con el mismo id de
+ * Transfermarkt SIEMPRE son la misma persona (API-Football y Sofascore duplicando al
+ * mismo jugador, o un fragmento de 1 partido detectado en otra posición). Sin ninguno
+ * de los dos datos, cada fila queda como su propia identidad — no se fusiona a ciegas
+ * sólo por compartir nombre.
+ */
+function identityKey(row: ScoreLookupRow): string {
+  const norm = (s: string) =>
+    s.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  if (row.transfermarkt_id) return `tm:${row.transfermarkt_id}`;
+  if (row.birth_date) return `nb:${norm(row.name)}|${row.birth_date}`;
+  return `row:${row.player_id}`;
+}
+
+/**
+ * Arma el mapa nombre→score.
+ *
+ * 1) Agrupa las filas por identidad REAL (no por nombre): así un jugador duplicado
+ *    entre API-Football y Sofascore, o con un fragmento de 1 partido mal detectado en
+ *    otra posición, siempre se resuelve dentro de su propio grupo — gana quien jugó
+ *    más partidos ahí adentro (caso real: José Paradela mostraba 4.2, el score de un
+ *    fragmento de 1 partido, en vez de su 6.5 real de 31 partidos; ambas filas son la
+ *    misma persona vía transfermarkt_id).
+ * 2) Recién ahí arma el mapa por nombre. Si dos identidades REALES distintas
+ *    comparten nombre (dos personas de verdad, no un duplicado), el jugador de la
+ *    agencia con `apiTeamId` conocido desempata por equipo (caso real: "Julián López"
+ *    de Defensa y Justicia vs. otro "Julián López" de una liga menor — con
+ *    transfermarkt_id o fecha de nacimiento ya quedan en grupos separados solos; esto
+ *    es sólo el resguardo final para cuando ninguno de los dos datos está disponible).
  */
 export function buildScoreLookup(
   rows: ScoreLookupRow[],
@@ -241,13 +268,22 @@ export function buildScoreLookup(
     matches_played: row.matches_played,
   });
 
-  const bestByMatches = (candidates: ScoreLookupRow[]): ScoreLookupRow =>
-    candidates.reduce((best, r) => (r.matches_played > best.matches_played ? r : best));
-
-  const map = new Map<string, ScoreLookupEntry>();
-  const winnerRow = new Map<string, ScoreLookupRow>();
+  // Paso 1: una fila representante por identidad real (la de más partidos jugados).
+  const byIdentity = new Map<string, ScoreLookupRow>();
   for (const row of rows) {
     if (!row.name) continue;
+    const key = identityKey(row);
+    const existing = byIdentity.get(key);
+    if (!existing || row.matches_played > existing.matches_played) {
+      byIdentity.set(key, row);
+    }
+  }
+  const representatives = Array.from(byIdentity.values());
+
+  // Paso 2: por nombre, entre las identidades representantes (no entre filas sueltas).
+  const map = new Map<string, ScoreLookupEntry>();
+  const winnerRow = new Map<string, ScoreLookupRow>();
+  for (const row of representatives) {
     const key = norm(row.name);
     const existing = winnerRow.get(key);
     if (!existing || row.matches_played > existing.matches_played) {
@@ -256,21 +292,18 @@ export function buildScoreLookup(
     }
   }
 
-  // Desambiguación por equipo: sólo corrige cuando el ganador por "más partidos"
-  // pertenece a OTRO equipo que el de la agencia (dos personas reales distintas con
-  // el mismo nombre, el caso que motivó este desempate). Si el ganador ya es del
-  // equipo de la agencia se lo respeta tal cual y, entre las filas de ese equipo, se
-  // toma la de más partidos — nunca "la primera encontrada" (`.find`): un jugador
-  // duplicado entre API-Football y Sofascore, o con un fragmento de 1 partido en otra
-  // posición detectada mal, comparte el mismo equipo, y agarrar cualquiera de esas
-  // filas al voleo podía pisar un score real y bueno con el de un fragmento de
-  // muestra mínima (caso real: José Paradela mostrando 4.2 en vez de su score real).
+  // Desempate por equipo: sólo entre identidades reales distintas que comparten
+  // nombre (ver punto 2 del comentario de arriba). Si el ganador ya es del equipo de
+  // la agencia se lo respeta tal cual.
+  const bestByMatches = (candidates: ScoreLookupRow[]): ScoreLookupRow =>
+    candidates.reduce((best, r) => (r.matches_played > best.matches_played ? r : best));
+
   for (const ap of agencyPlayers) {
     const fullKey = norm(ap.fullName);
     if (ap.apiTeamId) {
       const currentWinner = winnerRow.get(fullKey);
       if (!currentWinner || currentWinner.current_team_id !== ap.apiTeamId) {
-        const teamRows = rows.filter(r => norm(r.name) === fullKey && r.current_team_id === ap.apiTeamId);
+        const teamRows = representatives.filter(r => norm(r.name) === fullKey && r.current_team_id === ap.apiTeamId);
         if (teamRows.length > 0) {
           const best = bestByMatches(teamRows);
           winnerRow.set(fullKey, best);
@@ -302,7 +335,7 @@ export async function fetchScoreLookup(
       .from('player_season_scores')
       .select(`
         player_id, position, avg_score, percentile, matches_played,
-        player:players!inner(name, current_team_id)
+        player:players!inner(name, current_team_id, transfermarkt_id, birth_date)
       `)
       .in('season', seasons)
       .not('avg_score', 'is', null)
@@ -319,6 +352,8 @@ export async function fetchScoreLookup(
     player_id: row.player_id,
     name: (row as any).player?.name as string,
     current_team_id: ((row as any).player?.current_team_id as number | null) ?? null,
+    transfermarkt_id: ((row as any).player?.transfermarkt_id as number | null) ?? null,
+    birth_date: ((row as any).player?.birth_date as string | null) ?? null,
     score: row.avg_score,
     position: row.position as Position,
     percentile: row.percentile,
