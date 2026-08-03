@@ -1,8 +1,10 @@
 import type { ApiResponse, ApiFixture, AgencyFixture } from '@/types/footballApi'
 import { getPlayersByTeamId, getUniqueTeamIds } from '@/constants/agencyPlayers'
 
-const API_KEY = import.meta.env.VITE_FOOTBALL_API_KEY as string
-const BASE_URL = 'https://v3.football.api-sports.io'
+// Las llamadas a API-Football pasan por /api/football (proxy server-side:
+// netlify/functions/football.js en prod, proxy de vite.config.ts en dev) para
+// que la key nunca viaje al bundle del browser.
+const PROXY_URL = '/api/football'
 const CACHE_KEY = 'dg-fixtures-cache-v2'
 const CACHE_TTL = 4 * 60 * 60 * 1000
 const AR_TZ = 'America/Argentina/Buenos_Aires'
@@ -13,14 +15,11 @@ interface CachedData {
 }
 
 async function apiFetch<T>(endpoint: string, params: Record<string, string>): Promise<ApiResponse<T>> {
-  if (!API_KEY) throw new Error('VITE_FOOTBALL_API_KEY no configurada')
-
-  const url = new URL(`${BASE_URL}${endpoint}`)
+  const url = new URL(PROXY_URL, window.location.origin)
+  url.searchParams.set('endpoint', endpoint)
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v)
 
-  const res = await fetch(url.toString(), {
-    headers: { 'x-apisports-key': API_KEY },
-  })
+  const res = await fetch(url.toString())
 
   if (!res.ok) throw new Error(`API error: ${res.status}`)
   const data = await res.json()
@@ -113,8 +112,6 @@ function setCache(fixtures: AgencyFixture[]) {
 }
 
 export async function fetchAllAgencyFixtures(forceRefresh = false): Promise<AgencyFixture[]> {
-  if (!API_KEY) throw new Error('API key no configurada. Agregá VITE_FOOTBALL_API_KEY en las variables de entorno.')
-
   if (!forceRefresh) {
     const cached = getCached()
     if (cached) return cached
@@ -184,8 +181,6 @@ const PLAYER_ID_CACHE_KEY = 'dg-playerid-cache'
 const PLAYER_ID_CACHE_TTL = 7 * 24 * 60 * 60 * 1000
 
 export async function searchApiPlayerId(playerName: string, teamId: number): Promise<number | null> {
-  if (!API_KEY) return null
-
   const cacheKey = `${PLAYER_ID_CACHE_KEY}:${playerName}:${teamId}`
   try {
     const raw = localStorage.getItem(cacheKey)
@@ -246,8 +241,6 @@ const INJURY_CACHE_KEY = 'dg-injuries-cache'
 const INJURY_CACHE_TTL = 12 * 60 * 60 * 1000
 
 export async function fetchPlayerInjuries(playerId: number): Promise<PlayerSidelined[]> {
-  if (!API_KEY) return []
-
   const cacheKey = `${INJURY_CACHE_KEY}:${playerId}`
   try {
     const raw = localStorage.getItem(cacheKey)
@@ -285,8 +278,6 @@ const TRANSFER_CACHE_KEY = 'dg-transfers-cache'
 const TRANSFER_CACHE_TTL = 24 * 60 * 60 * 1000
 
 export async function fetchPlayerTransfers(playerId: number): Promise<PlayerTransfer[]> {
-  if (!API_KEY) return []
-
   const cacheKey = `${TRANSFER_CACHE_KEY}:${playerId}`
   try {
     const raw = localStorage.getItem(cacheKey)
@@ -335,7 +326,6 @@ async function fetchSquadCached(teamId: number): Promise<Array<{ id: number; nam
     }
   } catch { /* ignore */ }
 
-  if (!API_KEY) return []
   try {
     const res = await apiFetch<any>('/players/squads', { team: String(teamId) })
     const squad = res.response?.[0]
@@ -429,7 +419,6 @@ export interface ResolvedTeam { teamId: number; teamName: string }
 
 /** Resuelve el equipo actual de un jugador por su id API-Football (best-effort). */
 export async function resolvePlayerTeam(apiPlayerId: number): Promise<ResolvedTeam | null> {
-  if (!API_KEY) return null
   const season = String(new Date().getFullYear())
   try {
     const res = await apiFetch<any[]>('/players', { id: String(apiPlayerId), season })
