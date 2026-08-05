@@ -10,10 +10,11 @@ const pad = (n: number): string => String(n).padStart(2, '0')
 
 function inferRival(lines: string[]): string | null {
   for (const line of lines) {
-    const m = line.match(/\bvs\.?\s+(.+?)\s*(?:\((?:L|V|H|A)\))?\s*$/i)
-    if (!m) continue
-    const rival = m[1].trim()
-    if (rival && rival.length <= 40) return rival
+    const vs = line.match(/\bvs\.?\s+(.+?)\s*(?:\((?:L|V|H|A)\))?\s*$/i)
+    if (vs && vs[1].trim().length <= 40) return vs[1].trim()
+
+    const labeled = line.match(/^rival:\s*(.+)$/i)
+    if (labeled && labeled[1].trim().length <= 40) return labeled[1].trim()
   }
   return null
 }
