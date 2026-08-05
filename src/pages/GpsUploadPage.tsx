@@ -82,7 +82,7 @@ export default function GpsUploadPage() {
         <HistorialTab
           metrics={metrics} lookup={lookup} roster={roster}
           teams={teams} competitions={competitions}
-          addMetric={addMetric} onSaved={reloadEntries}
+          addMetric={addMetric} learnAlias={learnAlias} onSaved={reloadEntries}
         />
       ) : (
         <AutoTab
@@ -284,13 +284,14 @@ function AutoTab({ metrics, lookup, roster, rivals, competitions, teams, addMetr
 
 // ─── Pestaña Historial ─────────────────────────────────────────────────────────
 
-function HistorialTab({ metrics, lookup, roster, teams, competitions, addMetric, onSaved }: {
+function HistorialTab({ metrics, lookup, roster, teams, competitions, addMetric, learnAlias, onSaved }: {
   metrics: ReturnType<typeof useGpsCatalog>['metrics']
   lookup: ReturnType<typeof useGpsCatalog>['lookup']
   roster: ReturnType<typeof getAgencyPlayers>
   teams: string[]
   competitions: string[]
   addMetric: ReturnType<typeof useGpsCatalog>['addMetric']
+  learnAlias: ReturnType<typeof useGpsCatalog>['learnAlias']
   onSaved: () => Promise<void>
 }) {
   const [player, setPlayer] = useState('')
@@ -327,7 +328,7 @@ function HistorialTab({ metrics, lookup, roster, teams, competitions, addMetric,
       <HistoryReviewPanel
         result={result} playerName={player} fileName={fileName} metrics={metrics}
         teams={teams} competitions={competitions} defaultEquipo={selectedPlayer?.team ?? ''}
-        addMetric={addMetric} onSaved={onSaved} onCancel={() => setResult(null)}
+        addMetric={addMetric} learnAlias={learnAlias} onSaved={onSaved} onCancel={() => setResult(null)}
       />
     )
   }

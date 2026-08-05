@@ -13,6 +13,7 @@ interface Props {
   competitions: string[]
   defaultEquipo: string
   addMetric: ReturnType<typeof useGpsCatalog>['addMetric']
+  learnAlias: ReturnType<typeof useGpsCatalog>['learnAlias']
   onSaved: () => Promise<void>
   onCancel: () => void
 }
@@ -29,7 +30,7 @@ interface RowDraft {
 
 export default function HistoryReviewPanel({
   result, playerName, fileName, metrics, teams, competitions, defaultEquipo,
-  addMetric, onSaved, onCancel,
+  addMetric, learnAlias, onSaved, onCancel,
 }: Props) {
   const [equipo, setEquipo] = useState(defaultEquipo)
   const [competenciaDefault, setCompetenciaDefault] = useState('')
@@ -74,6 +75,7 @@ export default function HistoryReviewPanel({
     setSaving(true)
     setStatus(null)
 
+    const entryRowIndexes: number[] = []
     const entries = rows.flatMap((r, i) => {
       if (!r.include || !r.matchDate) return []
       const match = result.matches[i]
@@ -84,6 +86,7 @@ export default function HistoryReviewPanel({
         if (target === IGNORE || value === null || value === undefined) continue
         metricsPayload[target] = value
       }
+      entryRowIndexes.push(i)
       return [{
         playerName,
         matchDate: r.matchDate,
@@ -101,13 +104,30 @@ export default function HistoryReviewPanel({
     const saveResult = await saveGpsEntries(entries, {})
     setSaving(false)
 
+    // Las filas que sí se guardaron se destildan para que no se reintenten si se vuelve
+    // a apretar Guardar; "últimas cargas" se refresca apenas algo se escribió, haya
+    // habido conflicto o no, porque un guardado parcial igual escribió filas.
+    const savedRowIndexes = entryRowIndexes.filter((_, i) => saveResult.results[i] === 'saved')
+    if (savedRowIndexes.length > 0) {
+      setRows(prev => prev.map((r, i) => savedRowIndexes.includes(i) ? { ...r, include: false } : r))
+      await onSaved()
+    }
+
+    if (!saveResult.error) {
+      await Promise.all(metricColumns
+        .filter(c => c.role === 'unmapped' && mapping[c.index] && mapping[c.index] !== IGNORE)
+        .map(c => learnAlias(mapping[c.index], c.header, fileName)))
+    }
+
     if (saveResult.error) { setStatus({ kind: 'error', text: `No se pudo guardar: ${saveResult.error}` }); return }
     if (saveResult.conflicts.length > 0) {
-      setStatus({ kind: 'conflict', text: `Ya había cargas para: ${saveResult.conflicts.join(', ')}.` })
+      setStatus({
+        kind: 'conflict',
+        text: `Se guardaron ${saveResult.saved} partido(s). ${saveResult.conflicts.length} ya tenían una carga para esa fecha y rival — revisá esas filas.`,
+      })
       return
     }
     setStatus({ kind: 'ok', text: `Se guardaron ${saveResult.saved} partido(s).` })
-    await onSaved()
     onCancel()
   }
 

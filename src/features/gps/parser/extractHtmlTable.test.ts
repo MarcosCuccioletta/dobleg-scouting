@@ -29,4 +29,11 @@ describe('extractHtmlTable', () => {
     expect(extractHtmlTable('<html><body><p>sin tabla</p></body></html>')).toBeNull()
     expect(extractHtmlTable('<table><tr><th>Solo header</th></tr></table>')).toBeNull()
   })
+
+  it('sin data-v, trata un punto como separador de miles si el patrón calza (grupos de 3 dígitos)', () => {
+    const html = '<table><tr><th>Rival</th><th>Dist</th></tr><tr><td>X</td><td>1.617</td></tr><tr><td>Y</td><td>28.8</td></tr></table>'
+    const table = extractHtmlTable(html)
+    expect(table!.rows[0][1]).toBe('1617')
+    expect(table!.rows[1][1]).toBe('28.8')
+  })
 })

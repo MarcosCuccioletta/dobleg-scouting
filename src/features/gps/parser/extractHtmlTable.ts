@@ -1,5 +1,14 @@
 import type { HtmlTable } from '../types'
 
+/** "1.617" (separador de miles europeo) → "1617". No toca "28.8": el patrón exige
+ * grupos de exactamente 3 dígitos después de cada punto, así que nunca confunde un
+ * decimal real con miles agrupados. */
+const THOUSANDS_RE = /^\d{1,3}(\.\d{3})+$/
+
+function normalizeCellText(text: string): string {
+  return THOUSANDS_RE.test(text) ? text.replace(/\./g, '') : text
+}
+
 /**
  * Lee la primera <table> del HTML con más de una fila de datos. Prioriza el
  * atributo `data-v` de cada celda (valor numérico "limpio" que algunos reportes ya
@@ -17,7 +26,7 @@ export function extractHtmlTable(html: string): HtmlTable | null {
   const rows = trs.slice(1)
     .map(tr => Array.from(tr.querySelectorAll('td, th')).map(cell => {
       const dataV = cell.getAttribute('data-v')
-      return dataV !== null ? dataV : (cell.textContent?.trim() ?? '')
+      return dataV !== null ? dataV : normalizeCellText(cell.textContent?.trim() ?? '')
     }))
     .filter(row => row.some(cell => cell !== ''))
 

@@ -25,17 +25,20 @@ function side(x: number): 'PT' | 'ST' {
 }
 
 /** Página con "Primer Tiempo", "Segundo Tiempo" y "Minutos jugados" — la plantilla
- * siempre trae el detalle del partido ahí. */
+ * siempre trae el detalle del partido ahí. Primer Tiempo y Segundo Tiempo tienen que
+ * estar en la MISMA fila (no solo en la misma página): es la condición que ya usa el
+ * bloque de "Minutos jugados" más abajo, y evita falsos positivos con otra plantilla
+ * que mencione las tres frases pero en un layout distinto. */
 function findAnchorPage(rows: PdfRow[]): number | null {
-  const textByPage = new Map<number, string>()
-  for (const r of rows) {
-    const text = r.cells.map(c => c.text.toLowerCase()).join(' ')
-    textByPage.set(r.page, `${textByPage.get(r.page) ?? ''} ${text}`)
-  }
-  for (const [page, text] of textByPage) {
-    if (text.includes('primer tiempo') && text.includes('segundo tiempo') && text.includes('minutos jugados')) {
-      return page
-    }
+  const pages = [...new Set(rows.map(r => r.page))]
+  for (const page of pages) {
+    const pageRows = rows.filter(r => r.page === page)
+    const text = pageRows.map(r => r.cells.map(c => c.text.toLowerCase()).join(' ')).join(' ')
+    if (!text.includes('primer tiempo') || !text.includes('segundo tiempo') || !text.includes('minutos jugados')) continue
+    const sameRow = pageRows.some(r =>
+      r.cells.some(c => c.text.trim().toLowerCase() === 'primer tiempo') &&
+      r.cells.some(c => c.text.trim().toLowerCase() === 'segundo tiempo'))
+    if (sameRow) return page
   }
   return null
 }
