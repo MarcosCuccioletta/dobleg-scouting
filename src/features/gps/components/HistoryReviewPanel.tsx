@@ -55,7 +55,7 @@ export default function HistoryReviewPanel({
     setRows(prev => prev.map((r, idx) => idx === i ? { ...r, ...patch } : r))
 
   const changeMapping = async (index: number, value: string) => {
-    if (value === '__nova__') {
+    if (value === '__nueva__') {
       const header = result.columns[index].header
       const created = await addMetric({ label: header, unit: '', decimals: 0, category: 'otro' })
       if (created) setMapping(prev => ({ ...prev, [index]: created.key }))
