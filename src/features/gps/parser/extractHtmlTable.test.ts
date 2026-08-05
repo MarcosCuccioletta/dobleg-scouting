@@ -1,12 +1,12 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
-import path from 'node:path'
+import { join } from 'node:path'
 import { extractHtmlTable } from './extractHtmlTable'
 
 function fixture(name: string): string {
-  const fixturePath = path.join(__dirname, '__fixtures__', name)
-  return readFileSync(fixturePath, 'utf8')
+  const path = join(import.meta.dirname, '__fixtures__', name)
+  return readFileSync(path, 'utf8')
 }
 
 describe('extractHtmlTable', () => {
