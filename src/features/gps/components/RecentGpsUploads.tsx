@@ -79,7 +79,11 @@ export default function RecentGpsUploads({ entries, metrics, onChanged }: Props)
                   {e.minutos !== null && ` · ${e.minutos}'`}
                 </div>
                 <div className="text-2xs text-apple-gray-400 mt-1">
-                  {metricCount(e)} métrica(s) · {e.source === 'pdf' ? `PDF${e.file_name ? `: ${e.file_name}` : ''}` : 'carga manual'}
+                  {metricCount(e)} métrica(s) · {
+                    e.source === 'pdf' ? `PDF${e.file_name ? `: ${e.file_name}` : ''}` :
+                    e.source === 'html' ? `Historial${e.file_name ? `: ${e.file_name}` : ''}` :
+                    'carga manual'
+                  }
                 </div>
               </div>
 
