@@ -1,6 +1,7 @@
 import { extractPdfItems } from './extractItems'
 import { groupRows, buildTable } from './buildTable'
 import { buildCardTable } from './parseCardReport'
+import { parsePowerBiReport } from './parsePowerBiReport'
 import { mapColumns } from './mapColumns'
 import { inferContext } from './inferContext'
 import { matchRosterName } from './matchPlayers'
@@ -40,7 +41,9 @@ export async function parseGpsPdf(data: ArrayBuffer, opts: ParseOptions): Promis
   }
 
   const rows = groupRows(items)
-  const table = buildTable(rows) ?? (opts.presetPlayerName ? buildCardTable(rows, opts.presetPlayerName) : null)
+  const table = (opts.presetPlayerName ? parsePowerBiReport(rows, opts.presetPlayerName) : null)
+    ?? buildTable(rows)
+    ?? (opts.presetPlayerName ? buildCardTable(rows, opts.presetPlayerName) : null)
   if (!table) {
     throw new GpsParseError(
       opts.presetPlayerName

@@ -90,4 +90,19 @@ describe('parseGpsPdf', () => {
     const idx = result.columns.findIndex(c => c.header === 'DISTANCIA TOTAL')
     expect(result.players[0].values[idx]).toBe(10829.9)
   })
+
+  it('con el jugador elegido, lee un reporte Power BI/Catapult de un partido', async () => {
+    const result = await parseGpsPdf(fixture('powerbi-steimbach.pdf'), {
+      roster: BASE_AGENCY_PLAYERS,
+      lookup: buildAliasLookup(metrics, aliases),
+      presetPlayerName: 'Alexis Steimbach',
+    })
+
+    expect(result.players).toHaveLength(1)
+    expect(result.players[0].rawName).toBe('Alexis Steimbach')
+    expect(result.context.rival).toBe('River Plate')
+
+    const idx = result.columns.findIndex(c => c.header === 'Distancia total (m) (PT)')
+    expect(result.players[0].values[idx]).toBe(5334)
+  })
 })
