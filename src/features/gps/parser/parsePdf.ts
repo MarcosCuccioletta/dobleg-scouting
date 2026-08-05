@@ -52,12 +52,14 @@ export async function parseGpsPdf(data: ArrayBuffer, opts: ParseOptions): Promis
   const columns = mapColumns(table.headers, opts.lookup)
   const context = inferContext(table.preambleLines, opts.today ?? new Date())
 
-  const players: DetectedPlayer[] = []
-  for (const row of table.rows) {
-    const candidates = matchRosterName(row.name, opts.roster)
-    if (candidates.length === 0) continue
-    players.push({ rawName: row.name, candidates, values: row.values })
-  }
+  // Se guardan también las filas sin match (candidates: []): la revisión las muestra
+  // aparte para que el usuario pueda asignarles un jugador Doble G a mano si el
+  // matching automático no reconoció el nombre (variante, apodo, etc).
+  const players: DetectedPlayer[] = table.rows.map(row => ({
+    rawName: row.name,
+    candidates: matchRosterName(row.name, opts.roster),
+    values: row.values,
+  }))
 
   return { table, context, columns, players }
 }
