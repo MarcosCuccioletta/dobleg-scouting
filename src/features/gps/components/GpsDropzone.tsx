@@ -3,13 +3,20 @@ import { useRef, useState } from 'react'
 interface Props {
   onFile: (file: File) => void
   disabled?: boolean
+  accept?: string
+  label?: string
+  hint?: string
 }
 
 /**
  * Arrastrar o tocar. En la app nativa y en mobile el arrastre no existe, por eso todo
  * el bloque es un botón que abre el selector de archivos del sistema.
  */
-export default function GpsDropzone({ onFile, disabled }: Props) {
+export default function GpsDropzone({
+  onFile, disabled, accept = 'application/pdf,.pdf',
+  label = 'Arrastrá el PDF o tocá para elegirlo',
+  hint = 'PDFs de GPS con texto. Las fotos y capturas hay que cargarlas a mano.',
+}: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [over, setOver] = useState(false)
 
@@ -40,17 +47,15 @@ export default function GpsDropzone({ onFile, disabled }: Props) {
           </svg>
         </div>
         <div className="text-sm font-medium text-apple-gray-800 dark:text-white">
-          {disabled ? 'Leyendo el PDF…' : 'Arrastrá el PDF o tocá para elegirlo'}
+          {disabled ? 'Leyendo el archivo…' : label}
         </div>
-        <div className="text-xs text-apple-gray-400 mt-1">
-          PDFs de GPS con texto. Las fotos y capturas hay que cargarlas a mano.
-        </div>
+        <div className="text-xs text-apple-gray-400 mt-1">{hint}</div>
       </button>
 
       <input
         ref={inputRef}
         type="file"
-        accept="application/pdf,.pdf"
+        accept={accept}
         className="hidden"
         onChange={e => { take(e.target.files); e.target.value = '' }}
       />
