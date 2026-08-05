@@ -1,12 +1,18 @@
-// @vitest-environment jsdom
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeAll } from 'vitest'
 import { readFileSync } from 'node:fs'
-import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { JSDOM } from 'jsdom'
 import { extractHtmlTable } from './extractHtmlTable'
 
+// Set up DOM globals without using jsdom environment directive
+beforeAll(() => {
+  const { window } = new JSDOM('<!DOCTYPE html>')
+  globalThis.DOMParser = window.DOMParser as any
+})
+
 function fixture(name: string): string {
-  const fixturePath = path.join(__dirname, '__fixtures__', name)
-  return readFileSync(fixturePath, 'utf8')
+  const path = fileURLToPath(new URL(`./__fixtures__/${name}`, import.meta.url))
+  return readFileSync(path, 'utf8')
 }
 
 describe('extractHtmlTable', () => {
