@@ -10,6 +10,7 @@ import RecentGpsUploads from '@/features/gps/components/RecentGpsUploads'
 import MetricCatalogManager from '@/features/gps/components/MetricCatalogManager'
 import { mergeCompetitions } from '@/features/gps/competitions'
 import { parseGpsPdf, GpsParseError } from '@/features/gps/parser/parsePdf'
+import { parseGpsXlsx } from '@/features/gps/parser/parseXlsx'
 import pdfWorkerSrc from '@/features/gps/parser/pdfWorker'
 import { EMPTY_MATCH_CONTEXT, type MatchContextValue, type GpsEntryRow, type GpsParseResult } from '@/features/gps/types'
 import HistoryReviewPanel from '@/features/gps/components/HistoryReviewPanel'
@@ -226,10 +227,13 @@ function AutoTab({ metrics, lookup, roster, rivals, competitions, teams, addMetr
     setResult(null)
     try {
       const data = await file.arrayBuffer()
-      const parsed = await parseGpsPdf(data, {
-        roster, lookup, workerSrc: pdfWorkerSrc,
-        presetPlayerName: presetPlayer || undefined,
-      })
+      const isExcel = /\.xlsx?$/i.test(file.name)
+      const parsed = isExcel
+        ? await parseGpsXlsx(data, { roster, lookup })
+        : await parseGpsPdf(data, {
+            roster, lookup, workerSrc: pdfWorkerSrc,
+            presetPlayerName: presetPlayer || undefined,
+          })
       setResult(parsed)
       setFileName(file.name)
     } catch (err) {
@@ -274,7 +278,13 @@ function AutoTab({ metrics, lookup, roster, rivals, competitions, teams, addMetr
         </p>
       </div>
 
-      <GpsDropzone onFile={file => void handleFile(file)} disabled={parsing} />
+      <GpsDropzone
+        onFile={file => void handleFile(file)}
+        disabled={parsing}
+        accept="application/pdf,.pdf,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+        label="Arrastrá el PDF o Excel, o tocá para elegirlo"
+        hint="PDFs de GPS con texto o Excel con tabla de jugadores (hoja TOTAL). Las fotos y capturas hay que cargarlas a mano."
+      />
       {error && (
         <div className="rounded-apple bg-red-500/10 text-red-500 px-4 py-3 text-sm">{error}</div>
       )}
