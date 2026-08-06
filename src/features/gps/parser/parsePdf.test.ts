@@ -91,6 +91,22 @@ describe('parseGpsPdf', () => {
     expect(result.players[0].values[idx]).toBe(10829.9)
   })
 
+  it('lee un Reporte de Sesión de Catapult (tabla multi-jugador sin columna de nombre en la cabecera)', async () => {
+    const result = await parseGpsPdf(fixture('reporte-sesion-instituto.pdf'), {
+      roster: BASE_AGENCY_PLAYERS,
+      lookup: buildAliasLookup(metrics, aliases),
+    })
+
+    const matched = result.players.filter(p => p.candidates.length > 0)
+    expect(matched.map(p => p.rawName)).toEqual(['FRANCO WATSON'])
+    expect(matched[0].candidates).toEqual(['Franco Watson'])
+    // El nombre del rival y la fecha vienen en la misma celda ("FECHA 3 VS INSTITUTO
+    // CBA (L)" + "02/08/2026" pegados): igual que con el resto de los reportes donde
+    // el contexto viene "enredado", no se inventa un rival prolijo, el usuario lo
+    // corrige a mano en la revisión. La fecha sí se puede ubicar sin ambigüedad.
+    expect(result.context.matchDate).toBe('2026-08-02')
+  })
+
   it('con el jugador elegido, lee un reporte Power BI/Catapult de un partido', async () => {
     const result = await parseGpsPdf(fixture('powerbi-steimbach.pdf'), {
       roster: BASE_AGENCY_PLAYERS,

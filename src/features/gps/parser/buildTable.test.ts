@@ -74,6 +74,35 @@ describe('buildTable sobre el PDF de Estudiantes vs Tigre', () => {
   })
 })
 
+describe('buildTable sobre un Reporte de Sesión de Catapult (cabecera sin columna de nombre)', () => {
+  it('arma la cabecera envuelta en varias líneas y reconoce a los jugadores', async () => {
+    const items = await extractPdfItems(fixture('reporte-sesion-instituto.pdf'))
+    const table = buildTable(groupRows(items))!
+
+    expect(table).not.toBeNull()
+    expect(table.headers[0]).toBe('')
+    expect(table.headers).toContain('Tot Dist (m)')
+    expect(table.headers).toContain('Mts 20 - 25 km/h')
+    expect(table.headers).toContain('Veloc Max (km/h)')
+
+    const names = table.rows.map(r => r.name)
+    expect(names).toContain('FRANCO WATSON')
+    expect(names).not.toContain('Promedio')
+
+    const watson = table.rows.find(r => r.name === 'FRANCO WATSON')!
+    const distIdx = table.headers.indexOf('Tot Dist (m)')
+    expect(watson.values[distIdx]).toBe(7666)
+  })
+
+  it('infiere el rival y la fecha del texto previo a la cabecera', async () => {
+    const items = await extractPdfItems(fixture('reporte-sesion-instituto.pdf'))
+    const table = buildTable(groupRows(items))!
+
+    expect(table.preambleLines.some(l => /VS INSTITUTO CBA/i.test(l))).toBe(true)
+    expect(table.preambleLines.some(l => /02\/08\/2026/.test(l))).toBe(true)
+  })
+})
+
 describe('buildTable sobre un reporte OpenField individual (una tarjeta por jugador)', () => {
   it('no confunde la celda suelta "JUGADOR" de la tarjeta con una cabecera de tabla', async () => {
     // No es un formato tabular: cada métrica es una tarjeta con título, valor y
