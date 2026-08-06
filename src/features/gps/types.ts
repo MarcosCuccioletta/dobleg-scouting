@@ -31,7 +31,7 @@ export interface GpsEntryRow {
   resultado: string | null
   minutos: number | null
   metrics: Record<string, number>
-  source: 'manual' | 'pdf'
+  source: 'manual' | 'pdf' | 'html'
   file_name: string | null
   created_by: string | null
   created_by_name: string | null
@@ -48,7 +48,7 @@ export interface GpsEntryInput {
   resultado?: string | null
   minutos?: number | null
   metrics: Record<string, number>
-  source: 'manual' | 'pdf'
+  source: 'manual' | 'pdf' | 'html'
   fileName?: string | null
 }
 
@@ -116,6 +116,38 @@ export interface GpsParseResult {
   context: ParsedContext
   columns: ColumnMapping[]
   players: DetectedPlayer[]
+}
+
+// ─── Historial (fila = partido de un jugador) ──────────────────────────────────
+
+export interface HtmlTable {
+  headers: string[]
+  rows: string[][]
+}
+
+export type HistoryColumnRole = 'date' | 'rival' | 'competencia' | 'minutes' | 'metric' | 'unmapped'
+
+export interface HistoryColumnMapping {
+  header: string
+  index: number
+  /** key de gps_metrics, o null si el rol no es 'metric'/'unmapped' resuelto. */
+  metricKey: string | null
+  role: HistoryColumnRole
+}
+
+export interface HistoryMatchRow {
+  rawCells: string[]
+  matchDate: string | null      // 'YYYY-MM-DD', null si el archivo no traía fecha
+  rival: string
+  competencia: string | null
+  minutos: number | null
+  /** Alineado 1:1 con `HistoryParseResult.columns` por índice. */
+  values: (number | null)[]
+}
+
+export interface HistoryParseResult {
+  columns: HistoryColumnMapping[]
+  matches: HistoryMatchRow[]
 }
 
 // ─── Formulario ───────────────────────────────────────────────────────────────

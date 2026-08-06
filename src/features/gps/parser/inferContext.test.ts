@@ -26,6 +26,11 @@ describe('inferContext', () => {
     expect(inferContext(['2026-05-03 vs Ajax'], TODAY).matchDate).toBe('2026-05-03')
   })
 
+  it('reconoce el rival en formato "Rival: X" (reportes Power BI)', () => {
+    const result = inferContext(['Instancia: Fecha 2 TC', 'Rival: River Plate', 'Torneo: LPF Apertura 2026'])
+    expect(result.rival).toBe('River Plate')
+  })
+
   it('devuelve nulls cuando no hay nada que inferir', () => {
     expect(inferContext([], TODAY)).toEqual({ rival: null, matchDate: null, teamText: null })
   })

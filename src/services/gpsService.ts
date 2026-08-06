@@ -136,6 +136,10 @@ export interface SaveResult {
   saved: number
   /** Nombres que ya tenían una carga en esa fecha y no se pisaron. */
   conflicts: string[]
+  /** Resultado de cada fila efectivamente intentada, mismo orden que `entries`. Si el
+   * batch corta por un error "duro" a mitad de camino, las filas no llegadas no
+   * aparecen acá. */
+  results: Array<'saved' | 'conflict'>
   error: string | null
 }
 
@@ -147,7 +151,7 @@ export async function saveGpsEntries(
   entries: GpsEntryInput[],
   opts: { replace?: boolean } = {},
 ): Promise<SaveResult> {
-  if (entries.length === 0) return { saved: 0, conflicts: [], error: null }
+  if (entries.length === 0) return { saved: 0, conflicts: [], results: [], error: null }
 
   const { data: { user } } = await supabase.auth.getUser()
   const rows = entries.map(e => ({
@@ -175,24 +179,25 @@ export async function saveGpsEntries(
         .eq('player_key', row.player_key)
         .eq('match_date', row.match_date)
       const { error } = await (row.rival ? del.ilike('rival', row.rival) : del.is('rival', null))
-      if (error) { console.error('saveGpsEntries delete error:', error); return { saved: 0, conflicts: [], error: error.message } }
+      if (error) { console.error('saveGpsEntries delete error:', error); return { saved: 0, conflicts: [], results: [], error: error.message } }
     }
     const { error } = await supabase.from('gps_entries').insert(rows)
-    if (error) { console.error('saveGpsEntries error:', error); return { saved: 0, conflicts: [], error: error.message } }
-    return { saved: rows.length, conflicts: [], error: null }
+    if (error) { console.error('saveGpsEntries error:', error); return { saved: 0, conflicts: [], results: [], error: error.message } }
+    return { saved: rows.length, conflicts: [], results: rows.map(() => 'saved' as const), error: null }
   }
 
   // Sin replace: se insertan de a una para saber cuáles chocaron.
   const conflicts: string[] = []
+  const results: Array<'saved' | 'conflict'> = []
   let saved = 0
   for (const row of rows) {
     const { error } = await supabase.from('gps_entries').insert(row)
-    if (!error) { saved++; continue }
-    if (error.code === '23505') { conflicts.push(row.player_name); continue }
+    if (!error) { saved++; results.push('saved'); continue }
+    if (error.code === '23505') { conflicts.push(row.player_name); results.push('conflict'); continue }
     console.error('saveGpsEntries error:', error)
-    return { saved, conflicts, error: error.message }
+    return { saved, conflicts, results, error: error.message }
   }
-  return { saved, conflicts, error: null }
+  return { saved, conflicts, results, error: null }
 }
 
 export async function updateGpsEntry(

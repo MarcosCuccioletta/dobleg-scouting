@@ -12,8 +12,12 @@ import { mergeCompetitions } from '@/features/gps/competitions'
 import { parseGpsPdf, GpsParseError } from '@/features/gps/parser/parsePdf'
 import pdfWorkerSrc from '@/features/gps/parser/pdfWorker'
 import { EMPTY_MATCH_CONTEXT, type MatchContextValue, type GpsEntryRow, type GpsParseResult } from '@/features/gps/types'
+import HistoryReviewPanel from '@/features/gps/components/HistoryReviewPanel'
+import { extractHtmlTable } from '@/features/gps/parser/extractHtmlTable'
+import { buildHistoryTable } from '@/features/gps/parser/buildHistoryTable'
+import type { HistoryParseResult } from '@/features/gps/types'
 
-type Tab = 'auto' | 'manual'
+type Tab = 'auto' | 'historial' | 'manual'
 
 export default function GpsUploadPage() {
   const [tab, setTab] = useState<Tab>('auto')
@@ -45,7 +49,7 @@ export default function GpsUploadPage() {
       </header>
 
       <div className="flex gap-1 bg-apple-gray-100 dark:bg-apple-gray-700/50 p-1 rounded-apple w-full sm:w-fit">
-        {([['auto', 'Automática'], ['manual', 'Manual']] as const).map(([id, text]) => (
+        {([['auto', 'Automática'], ['historial', 'Historial'], ['manual', 'Manual']] as const).map(([id, text]) => (
           <button
             key={id}
             onClick={() => setTab(id)}
@@ -73,6 +77,12 @@ export default function GpsUploadPage() {
           teams={teams}
           addMetric={addMetric}
           onSaved={reloadEntries}
+        />
+      ) : tab === 'historial' ? (
+        <HistorialTab
+          metrics={metrics} lookup={lookup} roster={roster}
+          teams={teams} competitions={competitions}
+          addMetric={addMetric} learnAlias={learnAlias} onSaved={reloadEntries}
         />
       ) : (
         <AutoTab
@@ -268,6 +278,90 @@ function AutoTab({ metrics, lookup, roster, rivals, competitions, teams, addMetr
       {error && (
         <div className="rounded-apple bg-red-500/10 text-red-500 px-4 py-3 text-sm">{error}</div>
       )}
+    </div>
+  )
+}
+
+// ─── Pestaña Historial ─────────────────────────────────────────────────────────
+
+function HistorialTab({ metrics, lookup, roster, teams, competitions, addMetric, learnAlias, onSaved }: {
+  metrics: ReturnType<typeof useGpsCatalog>['metrics']
+  lookup: ReturnType<typeof useGpsCatalog>['lookup']
+  roster: ReturnType<typeof getAgencyPlayers>
+  teams: string[]
+  competitions: string[]
+  addMetric: ReturnType<typeof useGpsCatalog>['addMetric']
+  learnAlias: ReturnType<typeof useGpsCatalog>['learnAlias']
+  onSaved: () => Promise<void>
+}) {
+  const [player, setPlayer] = useState('')
+  const [parsing, setParsing] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [result, setResult] = useState<HistoryParseResult | null>(null)
+  const [fileName, setFileName] = useState('')
+
+  const sortedRoster = useMemo(
+    () => [...roster].sort((a, b) => a.fullName.localeCompare(b.fullName, 'es')),
+    [roster],
+  )
+
+  const handleFile = async (file: File) => {
+    setParsing(true)
+    setError(null)
+    setResult(null)
+    try {
+      const html = await file.text()
+      const table = extractHtmlTable(html)
+      if (!table) throw new Error('No encontré ninguna tabla en el archivo.')
+      setResult(buildHistoryTable(table, lookup))
+      setFileName(file.name)
+    } catch (err) {
+      setError(`No pude leer el archivo: ${(err as Error).message}`)
+    } finally {
+      setParsing(false)
+    }
+  }
+
+  if (result) {
+    const selectedPlayer = roster.find(p => p.fullName === player)
+    return (
+      <HistoryReviewPanel
+        result={result} playerName={player} fileName={fileName} metrics={metrics}
+        teams={teams} competitions={competitions} defaultEquipo={selectedPlayer?.team ?? ''}
+        addMetric={addMetric} learnAlias={learnAlias} onSaved={onSaved} onCancel={() => setResult(null)}
+      />
+    )
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="bg-white dark:bg-apple-gray-800 rounded-apple-xl p-5 shadow-apple dark:shadow-apple-dark">
+        <label className="block text-xs font-medium text-apple-gray-500 dark:text-apple-gray-400 mb-1.5" htmlFor="gps-hist-jugador">
+          ¿De qué jugador es el historial?
+        </label>
+        <select
+          id="gps-hist-jugador"
+          className="w-full px-3 py-2.5 rounded-apple border border-apple-gray-200 dark:border-apple-gray-600 bg-white dark:bg-apple-gray-700 text-apple-gray-800 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-green/40"
+          value={player}
+          onChange={e => setPlayer(e.target.value)}
+        >
+          <option value="">Elegí un jugador</option>
+          {sortedRoster.map(p => <option key={p.fullName} value={p.fullName}>{p.fullName}</option>)}
+        </select>
+        <p className="text-2xs text-apple-gray-400 mt-1.5">
+          Para archivos con muchos partidos de un solo jugador (una fila por partido).
+        </p>
+      </div>
+
+      <GpsDropzone
+        onFile={file => void handleFile(file)}
+        disabled={parsing || !player}
+        accept=".html,text/html"
+        label="Arrastrá el HTML del historial o tocá para elegirlo"
+        hint="Un archivo HTML con una tabla de partidos de un solo jugador."
+      />
+      {!player && <p className="text-xs text-apple-gray-400">Elegí el jugador antes de subir el archivo.</p>}
+      {error && <div className="rounded-apple bg-red-500/10 text-red-500 px-4 py-3 text-sm">{error}</div>}
     </div>
   )
 }

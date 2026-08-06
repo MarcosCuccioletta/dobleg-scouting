@@ -29,7 +29,8 @@ describe('parseGpsPdf', () => {
       today: new Date('2026-07-29T12:00:00Z'),
     })
 
-    expect(result.players.map(p => p.rawName).sort()).toEqual(['Gonzalez G', 'Lo Celso'])
+    const matched = result.players.filter(p => p.candidates.length > 0)
+    expect(matched.map(p => p.rawName).sort()).toEqual(['Gonzalez G', 'Lo Celso'])
 
     const gonzalez = result.players.find(p => p.rawName === 'Gonzalez G')!
     expect(gonzalez.candidates).toEqual(['Gonzalo González'])
@@ -37,6 +38,17 @@ describe('parseGpsPdf', () => {
 
     expect(result.context.rival).toBe('Tigre')
     expect(result.context.matchDate).toBe('2026-07-25')
+  })
+
+  it('conserva las filas sin match para que se puedan asignar a mano en la revisión', async () => {
+    const result = await parseGpsPdf(fixture('estudiantes-tigre.pdf'), {
+      roster: BASE_AGENCY_PLAYERS,
+      lookup: buildAliasLookup(metrics, aliases),
+    })
+
+    const unmatched = result.players.filter(p => p.candidates.length === 0)
+    expect(unmatched.length).toBeGreaterThan(0)
+    expect(unmatched.every(p => p.values.length > 0)).toBe(true)
   })
 
   it('marca qué columnas quedaron sin mapear', async () => {
@@ -77,5 +89,20 @@ describe('parseGpsPdf', () => {
 
     const idx = result.columns.findIndex(c => c.header === 'DISTANCIA TOTAL')
     expect(result.players[0].values[idx]).toBe(10829.9)
+  })
+
+  it('con el jugador elegido, lee un reporte Power BI/Catapult de un partido', async () => {
+    const result = await parseGpsPdf(fixture('powerbi-steimbach.pdf'), {
+      roster: BASE_AGENCY_PLAYERS,
+      lookup: buildAliasLookup(metrics, aliases),
+      presetPlayerName: 'Alexis Steimbach',
+    })
+
+    expect(result.players).toHaveLength(1)
+    expect(result.players[0].rawName).toBe('Alexis Steimbach')
+    expect(result.context.rival).toBe('River Plate')
+
+    const idx = result.columns.findIndex(c => c.header === 'Distancia total (m) (PT)')
+    expect(result.players[0].values[idx]).toBe(5334)
   })
 })

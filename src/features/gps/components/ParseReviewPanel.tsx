@@ -40,11 +40,23 @@ export default function ParseReviewPanel({
   const [mapping, setMapping] = useState<Record<number, string>>(() =>
     Object.fromEntries(result.columns.map(c => [c.index, c.metricKey ?? IGNORE])))
 
-  // Selección y desambiguación por jugador detectado.
+  // Selección y desambiguación por jugador detectado. Las filas sin match
+  // (candidates: []) arrancan destildadas y sin asignar: el usuario decide si son de
+  // la agencia y a quién corresponden.
   const [selected, setSelected] = useState<Record<number, boolean>>(() =>
-    Object.fromEntries(result.players.map((_, i) => [i, true])))
+    Object.fromEntries(result.players.map((p, i) => [i, p.candidates.length > 0])))
   const [chosen, setChosen] = useState<Record<number, string>>(() =>
-    Object.fromEntries(result.players.map((p, i) => [i, p.candidates[0]])))
+    Object.fromEntries(result.players.map((p, i) => [i, p.candidates[0] ?? ''])))
+
+  const sortedRoster = useMemo(
+    () => [...roster].sort((a, b) => a.fullName.localeCompare(b.fullName, 'es')),
+    [roster],
+  )
+
+  const assign = (i: number, fullName: string) => {
+    setChosen(prev => ({ ...prev, [i]: fullName }))
+    setSelected(prev => ({ ...prev, [i]: fullName !== '' }))
+  }
 
   const [status, setStatus] = useState<{ kind: 'ok' | 'error' | 'conflict'; text: string } | null>(null)
   const [saving, setSaving] = useState(false)
@@ -54,6 +66,10 @@ export default function ParseReviewPanel({
   const canSave = selectedCount > 0 && Boolean(context.matchDate)
 
   const metricByKey = useMemo(() => new Map(metrics.map(m => [m.key, m])), [metrics])
+
+  // Una fila sin match pasa a la lista de arriba en cuanto se le asigna un jugador.
+  const resolvedIdx = result.players.map((_, i) => i).filter(i => chosen[i] !== '')
+  const unresolvedIdx = result.players.map((_, i) => i).filter(i => chosen[i] === '')
 
   /**
    * El equipo se prefillea con el club que figura en el roster, que puede estar
@@ -194,70 +210,96 @@ export default function ParseReviewPanel({
       {/* ── Jugadores detectados ── */}
       <div className="bg-white dark:bg-apple-gray-800 rounded-apple-xl p-5 shadow-apple dark:shadow-apple-dark">
         <h3 className="text-sm font-semibold text-apple-gray-800 dark:text-white">
-          Jugadores Doble G en el archivo ({result.players.length})
+          Jugadores Doble G en el archivo ({resolvedIdx.length})
         </h3>
         <p className="text-xs text-apple-gray-400 mt-0.5 mb-4">Destildá los que no quieras cargar.</p>
 
         {result.players.length === 0 && (
-          <div className="text-sm text-apple-gray-500 space-y-2">
-            <p>No encontré jugadores de la agencia en este PDF. Revisá el archivo o cargalo a mano.</p>
-            {result.table.rows.length > 0 && (
-              <div>
-                <p className="text-xs text-apple-gray-400">Nombres que sí reconocí en la tabla (ninguno matcheó con el roster):</p>
-                <p className="text-xs text-apple-gray-400 mt-1">
-                  {result.table.rows.map(r => r.name).join(' · ')}
-                </p>
-              </div>
-            )}
-          </div>
+          <p className="text-sm text-apple-gray-500">No encontré ninguna tabla con nombres en este archivo.</p>
         )}
 
         <div className="space-y-3">
-          {result.players.map((p, i) => (
-            <div key={i} className="rounded-apple border border-apple-gray-100 dark:border-apple-gray-700 p-4">
-              <div className="flex items-center gap-3 flex-wrap">
-                <input
-                  type="checkbox" id={`p-${i}`} checked={selected[i]}
-                  onChange={e => setSelected(prev => ({ ...prev, [i]: e.target.checked }))}
-                  className="w-5 h-5 accent-brand-green"
-                />
-                <label htmlFor={`p-${i}`} className="text-sm font-medium text-apple-gray-800 dark:text-white">
-                  {p.rawName}
-                </label>
-                {p.candidates.length === 1 ? (
-                  <span className="text-xs text-apple-gray-500">→ {p.candidates[0]}</span>
-                ) : (
-                  <select
-                    className="px-2 py-1.5 rounded-apple border border-amber-400 bg-white dark:bg-apple-gray-700 text-xs"
-                    value={chosen[i]}
-                    onChange={e => setChosen(prev => ({ ...prev, [i]: e.target.value }))}
-                  >
-                    {p.candidates.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                )}
-              </div>
+          {resolvedIdx.map(i => {
+            const p = result.players[i]
+            return (
+              <div key={i} className="rounded-apple border border-apple-gray-100 dark:border-apple-gray-700 p-4">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <input
+                    type="checkbox" id={`p-${i}`} checked={selected[i]}
+                    onChange={e => setSelected(prev => ({ ...prev, [i]: e.target.checked }))}
+                    className="w-5 h-5 accent-brand-green"
+                  />
+                  <label htmlFor={`p-${i}`} className="text-sm font-medium text-apple-gray-800 dark:text-white">
+                    {p.rawName}
+                  </label>
+                  {p.candidates.length === 1 ? (
+                    <span className="text-xs text-apple-gray-500">→ {p.candidates[0]}</span>
+                  ) : (
+                    <select
+                      className="px-2 py-1.5 rounded-apple border border-amber-400 bg-white dark:bg-apple-gray-700 text-xs"
+                      value={chosen[i]}
+                      onChange={e => setChosen(prev => ({ ...prev, [i]: e.target.value }))}
+                    >
+                      {p.candidates.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  )}
+                </div>
 
-              <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2">
-                {result.columns.filter(c => c.index > 0).map(col => {
-                  const target = mapping[col.index]
-                  const value = p.values[col.index]
-                  if (target === IGNORE || value === null || value === undefined) return null
-                  const metric = metricByKey.get(target)
-                  const name = target === MINUTES_KEY ? 'Minutos' : metric?.label ?? col.header
-                  return (
-                    <div key={col.index} className="rounded-apple bg-apple-gray-50 dark:bg-apple-gray-700/40 px-2.5 py-2">
-                      <div className="text-2xs text-apple-gray-400 truncate" title={name}>{name}</div>
-                      <div className="text-sm font-semibold text-apple-gray-800 dark:text-white tabular-nums">
-                        {value}{metric?.unit ? <span className="text-2xs font-normal text-apple-gray-400 ml-0.5">{metric.unit}</span> : null}
+                <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2">
+                  {result.columns.filter(c => c.index > 0).map(col => {
+                    const target = mapping[col.index]
+                    const value = p.values[col.index]
+                    if (target === IGNORE || value === null || value === undefined) return null
+                    const metric = metricByKey.get(target)
+                    const name = target === MINUTES_KEY ? 'Minutos' : metric?.label ?? col.header
+                    return (
+                      <div key={col.index} className="rounded-apple bg-apple-gray-50 dark:bg-apple-gray-700/40 px-2.5 py-2">
+                        <div className="text-2xs text-apple-gray-400 truncate" title={name}>{name}</div>
+                        <div className="text-sm font-semibold text-apple-gray-800 dark:text-white tabular-nums">
+                          {value}{metric?.unit ? <span className="text-2xs font-normal text-apple-gray-400 ml-0.5">{metric.unit}</span> : null}
+                        </div>
                       </div>
-                    </div>
-                  )
-                })}
+                    )
+                  })}
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </div>
+
+      {/* ── Filas sin match: puede haber más jugadores Doble G que el matching no reconoció ── */}
+      {unresolvedIdx.length > 0 && (
+        <div className="bg-white dark:bg-apple-gray-800 rounded-apple-xl p-5 shadow-apple dark:shadow-apple-dark">
+          <h3 className="text-sm font-semibold text-apple-gray-800 dark:text-white">
+            Otros nombres en la tabla ({unresolvedIdx.length})
+          </h3>
+          <p className="text-xs text-apple-gray-400 mt-0.5 mb-4">
+            No los reconocí contra el roster. Si alguno es de la agencia, asignalo acá.
+          </p>
+
+          <div className="space-y-2">
+            {unresolvedIdx.map(i => {
+              const p = result.players[i]
+              return (
+                <div key={i} className="flex items-center gap-3 flex-wrap">
+                  <span className="text-sm text-apple-gray-700 dark:text-apple-gray-300 w-32 shrink-0 truncate" title={p.rawName}>
+                    {p.rawName}
+                  </span>
+                  <select
+                    className="px-2 py-1.5 rounded-apple border border-apple-gray-200 dark:border-apple-gray-600 bg-white dark:bg-apple-gray-700 text-xs"
+                    value={chosen[i]}
+                    onChange={e => assign(i, e.target.value)}
+                  >
+                    <option value="">No es de la agencia</option>
+                    {sortedRoster.map(rp => <option key={rp.fullName} value={rp.fullName}>{rp.fullName}</option>)}
+                  </select>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {status && (
         <div className={`rounded-apple px-4 py-3 text-sm ${
