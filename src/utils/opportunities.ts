@@ -30,6 +30,20 @@ export function monthsToContractEnd(date: string | null): number | null {
   return (end.getFullYear() - now.getFullYear()) * 12 + (end.getMonth() - now.getMonth())
 }
 
+export const CONTRACT_BOOST_MAX = 1.5
+export const CONTRACT_BOOST_MONTHS = 12
+
+export function contractBoostFor(contractEndDate: string | null): number {
+  const months = monthsToContractEnd(contractEndDate)
+  if (months === null || months > CONTRACT_BOOST_MONTHS) return 0
+  const proximity = 1 - months / CONTRACT_BOOST_MONTHS
+  return CONTRACT_BOOST_MAX * Math.min(Math.max(proximity, 0), 1)
+}
+
+export function opportunityScoreFor(p: RecentFormPlayer): number {
+  return p.recent_avg + contractBoostFor(p.contract_end_date)
+}
+
 export function detectOpportunities(players: PlayerWithScore[]) {
   const withScore = players.filter(p => p.primary_score != null)
 
