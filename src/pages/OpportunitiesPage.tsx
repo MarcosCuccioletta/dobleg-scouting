@@ -12,6 +12,7 @@ import {
   marketTagsFor,
   ageFromBirthDate,
   monthsToContractEnd,
+  opportunityScoreFor,
   type MarketTag,
 } from '@/utils/opportunities'
 import type { RecentFormPlayer } from '@/types/scoring'
@@ -111,7 +112,8 @@ export default function OpportunitiesPage() {
       })
     }
 
-    return result
+    // Ranking: Score GG reciente + boost por cercanía a fin de contrato.
+    return [...result].sort((a, b) => opportunityScoreFor(b) - opportunityScoreFor(a))
   }, [players, tagsById, typeFilter, positionFilter, minAge, maxAge, minValue, maxValue, maxContract])
 
   const hasActiveFilters =
