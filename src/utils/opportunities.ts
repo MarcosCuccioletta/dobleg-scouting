@@ -1,4 +1,4 @@
-import type { PlayerWithScore, RecentFormPlayer } from '@/types/scoring'
+import type { PlayerWithScore, Position, RecentFormPlayer } from '@/types/scoring'
 
 export type MarketTag = 'contract' | 'cheap'
 
@@ -68,4 +68,21 @@ export function detectOpportunities(players: PlayerWithScore[]) {
     .map(x => x.p)
 
   return { undervalued, youngTalent, expiringContract, valueForMoney }
+}
+
+export const OPPORTUNITY_POSITIONS: Position[] = ['ARQ', 'LD', 'CB', 'LI', 'VC', 'VI', 'EXT', 'DEL']
+
+export function topByPosition(
+  players: RecentFormPlayer[],
+  positions: Position[] = OPPORTUNITY_POSITIONS,
+  n = 8,
+): Record<string, RecentFormPlayer[]> {
+  const result: Record<string, RecentFormPlayer[]> = {}
+  for (const pos of positions) {
+    result[pos] = players
+      .filter(p => p.primary_position === pos)
+      .sort((a, b) => opportunityScoreFor(b) - opportunityScoreFor(a))
+      .slice(0, n)
+  }
+  return result
 }
