@@ -1,4 +1,4 @@
-import type { PlayerWithScore, RecentFormPlayer } from '@/types/scoring'
+import type { PlayerWithScore, Position, RecentFormPlayer } from '@/types/scoring'
 
 export type MarketTag = 'contract' | 'cheap'
 
@@ -30,6 +30,23 @@ export function monthsToContractEnd(date: string | null): number | null {
   return (end.getFullYear() - now.getFullYear()) * 12 + (end.getMonth() - now.getMonth())
 }
 
+export const CONTRACT_BOOST_MAX = 1.5
+export const CONTRACT_BOOST_MONTHS = 12
+
+export function contractBoostFor(contractEndDate: string | null): number {
+  const months = monthsToContractEnd(contractEndDate)
+  // Una fecha ya pasada es mucho más probable que sea un dato de Transfermarkt
+  // desactualizado (renovación o transferencia que no se reflejó) que un agente
+  // libre confirmado — no la tratamos como la máxima urgencia posible.
+  if (months === null || months < 0 || months > CONTRACT_BOOST_MONTHS) return 0
+  const proximity = 1 - months / CONTRACT_BOOST_MONTHS
+  return CONTRACT_BOOST_MAX * Math.min(Math.max(proximity, 0), 1)
+}
+
+export function opportunityScoreFor(p: RecentFormPlayer): number {
+  return p.recent_avg + contractBoostFor(p.contract_end_date)
+}
+
 export function detectOpportunities(players: PlayerWithScore[]) {
   const withScore = players.filter(p => p.primary_score != null)
 
@@ -54,4 +71,21 @@ export function detectOpportunities(players: PlayerWithScore[]) {
     .map(x => x.p)
 
   return { undervalued, youngTalent, expiringContract, valueForMoney }
+}
+
+export const OPPORTUNITY_POSITIONS: Position[] = ['ARQ', 'LD', 'CB', 'LI', 'VC', 'VI', 'EXT', 'DEL']
+
+export function topByPosition(
+  players: RecentFormPlayer[],
+  positions: Position[] = OPPORTUNITY_POSITIONS,
+  n = 8,
+): Record<string, RecentFormPlayer[]> {
+  const result: Record<string, RecentFormPlayer[]> = {}
+  for (const pos of positions) {
+    result[pos] = players
+      .filter(p => p.primary_position === pos)
+      .sort((a, b) => opportunityScoreFor(b) - opportunityScoreFor(a))
+      .slice(0, n)
+  }
+  return result
 }
