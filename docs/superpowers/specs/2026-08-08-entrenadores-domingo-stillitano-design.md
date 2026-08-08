@@ -19,10 +19,18 @@ export interface AgencyCoach {
   club: string | null
   apiTeamId: number | null       // null si status === 'sin_club'
   reserveApiTeamId?: number | null  // opcional, solo si el club tiene reserva como equipo separado en API-Football
+  leagueApiId?: number | null    // id de liga en API-Football, para la tabla de posiciones
+  leagueName?: string | null
+  leagueSeason?: number | null
 }
 
 export const AGENCY_COACHES: AgencyCoach[] = [
-  { key: 'domingo', fullName: 'Nicolás Domingo', photo: '/coaches/domingo.png', status: 'activo', club: 'Temperley', apiTeamId: 454 },  // verificado 2026-08-08 vía /teams?search=Temperley
+  {
+    key: 'domingo', fullName: 'Nicolás Domingo', photo: '/coaches/domingo.png', status: 'activo', club: 'Temperley',
+    apiTeamId: 454,           // verificado 2026-08-08 vía /teams?search=Temperley
+    leagueApiId: 129,         // verificado 2026-08-08 vía /leagues?search=Primera Nacional — Argentina
+    leagueName: 'Primera Nacional', leagueSeason: 2026,
+  },
   { key: 'stillitano', fullName: 'Leandro Stillitano', photo: '/coaches/stillitano.png', status: 'sin_club', club: null, apiTeamId: null },
 ]
 
@@ -67,6 +75,38 @@ export async function fetchSquadCached(teamId: number): Promise<SquadPlayer[]> {
 ```
 
 **c) Reusar tal cual, sin cambios:** `fetchPlayerInjuries(playerId)` — no se llama por todo el plantel en v1 (costo de N llamados), pero queda disponible para v2 si se decide agregar "lesionados del plantel" con un botón manual ("cargar estado físico") en vez de automático en cada carga de página.
+
+**d) Tabla de posiciones** (nuevo, investigado y verificado en vivo el 2026-08-08 contra `/standings?league=129&season=2026`):
+
+```ts
+export interface StandingRow {
+  rank: number
+  teamId: number
+  teamName: string
+  teamLogo: string
+  points: number
+  goalsDiff: number
+  form: string          // ej. "LWWDW", últimos 5 resultados
+  played: number; win: number; draw: number; lose: number
+  goalsFor: number; goalsAgainst: number
+  group: string          // "Group 1" / "Group 2" — Primera Nacional tiene 2 zonas de 18 equipos
+}
+
+const STANDINGS_CACHE_PREFIX = 'dg-standings-cache'
+const STANDINGS_CACHE_TTL = 6 * 60 * 60 * 1000  // 6h
+
+export async function fetchLeagueStandings(leagueId: number, season: number, forceRefresh = false): Promise<StandingRow[][]> {
+  // GET /standings?league={leagueId}&season={season}, cache por (leagueId, season), mapea a StandingRow[][] (un array por zona/grupo)
+}
+```
+
+Verificado en vivo (2026-08-08): Primera Nacional 2026 devuelve **2 zonas de 18 equipos**, cada fila con `points`, `goalsDiff`, `form`, split `all`/`home`/`away` (`played`/`win`/`draw`/`lose`/`goals.for`/`goals.against`), y `description` de zona de promoción/descenso. Temperley: 4° en su zona, 37 pts, racha `LWWDW`, 24 GF / 20 GC.
+
+**Confirmado que NO está disponible** (coverage flags del endpoint `/leagues` en `false` para la temporada 2026 de esta liga, y `/players/topscorers?league=129&season=2026` devolvió 0 resultados en vivo):
+- Goleadores, asistencias, tarjetas — cubiertos en temporadas pasadas de esta liga, no en la 2026 actual.
+- Posesión, remates, remates al arco, córners — no cubierto por API-Football para esta liga ni siquiera partido a partido (`statistics_fixtures: false`).
+
+Hay una vía alternativa no confirmada: el proyecto ya integra la API pública (no oficial) de Sofascore para el scoring de esta misma liga (`supabase/functions/_shared/sofascore.ts`, `SOFASCORE_TOURNAMENTS[131] = 703`), que normalmente sí expone estos datos. No se pudo verificar en vivo durante este diseño porque devolvió `403` (mismo tipo de bloqueo de IP ya documentado como problema abierto del proyecto en el sync de Uruguay). **Queda fuera de este v1** — no se construye nada sobre una base no confirmada; se investiga aparte si se decide perseguirlo.
 
 ## 3. Datos nuevos en Supabase
 
@@ -129,13 +169,15 @@ Si `status === 'activo'`, tabs (mismo patrón visual de tabs que ya usa `PlayerD
 4. **Entrenamientos** — lista/agenda de `coach_training_sessions`, con alta/edición/borrado (fecha, hora, tipo, título, notas). Sin calendario de arrastrar-soltar en v1 — formulario simple + lista ordenada por fecha.
 5. **Notas de partidos** — lista de los últimos resultados (de `fetchTeamFixtures`, los que ya se jugaron) con un textarea de nota por partido, `upsertMatchNote` al guardar.
 6. **Reserva** — solo si `reserveApiTeamId` está cargado: mismos sub-tabs de Plantel y Resultados apuntando a ese id. Si no está cargado, el tab ni aparece.
+7. **Liga** — tabla de posiciones completa vía `fetchLeagueStandings(leagueApiId, leagueSeason)`. Primera Nacional tiene 2 zonas: selector para ver Zona A / Zona B, con la zona de Temperley abierta por default y su fila resaltada. Columnas: Pos, Equipo (escudo), PJ, PG, PE, PP, GF, GC, DG, Pts, Racha (últimos 5, iconos de color W/D/L). Selector de orden (Puntos / GF / GC) sobre la misma tabla ya traída — sin llamados nuevos a la API, cubre el pedido de "ranking de goles a favor/en contra" sin duplicar UI. Solo aparece si `leagueApiId` está cargado.
 
 ## 5. Testing
 
 - `agencyCoaches.ts`: `getCoachByKey` (casos: existe, no existe).
 - `coachService.ts`: CRUD de sesiones y notas contra un mock de Supabase (mismo patrón que tests existentes de otros services, ej. `gpsService.test.ts`).
 - Fusión calendario partidos+entrenamientos: función pura que combina `AgencyFixture[]` + `CoachTrainingSession[]` en el `Map<string, DayEvent[]>` — testeable sin red ni DB.
-- `fetchSquadCached`/`fetchTeamFixtures`: no se testean contra la API real (igual que el resto de `footballApiService.ts`, que no tiene tests de red hoy — se prueba manualmente).
+- `fetchSquadCached`/`fetchTeamFixtures`/`fetchLeagueStandings`: no se testean contra la API real (igual que el resto de `footballApiService.ts`, que no tiene tests de red hoy — se prueba manualmente).
+- Mapeo de la respuesta cruda de `/standings` a `StandingRow[][]`: función pura, testeable con el fixture real ya guardado en `src/services/__fixtures__/primera-nacional-standings-2026-08-08.json` (respuesta real capturada durante este diseño, 2 zonas de 18 equipos, Temperley incluido).
 
 ## Fuera de alcance (v1)
 
@@ -144,3 +186,5 @@ Si `status === 'activo'`, tabs (mismo patrón visual de tabs que ya usa `PlayerD
 - Lesiones/suspensiones de todo el plantel — requeriría un llamado a la API por jugador; queda para v2 si hace falta.
 - Asistencia jugador-por-jugador a entrenamientos — la agenda es a nivel sesión, no lista de presentes.
 - Drag-and-drop en el calendario de entrenamientos — alta por formulario simple.
+- **Goleadores/asistencias/tarjetas de la liga** — no cubierto por API-Football para la temporada 2026 de Primera Nacional (confirmado en vivo). No se construye.
+- **Posesión, remates, remates al arco, córners por equipo** — no cubierto por API-Football para esta liga. Existe una vía posible vía Sofascore (ya integrado para el scoring de esta misma liga) pero no se pudo confirmar en vivo por bloqueo de IP (403) durante este diseño — **pendiente de investigar aparte**, no se promete ni se construye en este v1.
