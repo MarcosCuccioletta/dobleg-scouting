@@ -27,7 +27,7 @@
 - Consumes: `monthsToContractEnd(date: string | null): number | null` (ya existe en el mismo archivo), `RecentFormPlayer` de `@/types/scoring`.
 - Produces: `contractBoostFor(contractEndDate: string | null): number`, `opportunityScoreFor(p: RecentFormPlayer): number`, constantes `CONTRACT_BOOST_MAX = 1.5` y `CONTRACT_BOOST_MONTHS = 12` — usadas por el Task 2 y por `OpportunitiesPage.tsx` (Task 4).
 
-- [ ] **Step 1: Escribir los tests que fallan**
+- [x] **Step 1: Escribir los tests que fallan**
 
 En `src/utils/opportunities.test.ts`, cambiar la línea de import del principio del archivo de:
 
@@ -85,12 +85,12 @@ describe('opportunityScoreFor', () => {
 
 Nota: `mk(...)` ya está definido arriba en el archivo — no crear una segunda copia.
 
-- [ ] **Step 2: Correr los tests y verificar que fallan**
+- [x] **Step 2: Correr los tests y verificar que fallan**
 
 Run: `npm test -- opportunities.test.ts`
 Expected: FAIL — `contractBoostFor` y `opportunityScoreFor` no existen todavía (`does not provide an export named 'contractBoostFor'`).
 
-- [ ] **Step 3: Implementar**
+- [x] **Step 3: Implementar**
 
 Agregar en `src/utils/opportunities.ts`, después de `monthsToContractEnd` y antes de `detectOpportunities`:
 
@@ -110,12 +110,12 @@ export function opportunityScoreFor(p: RecentFormPlayer): number {
 }
 ```
 
-- [ ] **Step 4: Correr los tests y verificar que pasan**
+- [x] **Step 4: Correr los tests y verificar que pasan**
 
 Run: `npm test -- opportunities.test.ts`
 Expected: PASS, todos los tests en verde.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/utils/opportunities.ts src/utils/opportunities.test.ts
@@ -134,7 +134,7 @@ git commit -m "feat(oportunidades): boost por contrato en el ranking (opportunit
 - Consumes: `opportunityScoreFor` (Task 1), `Position` de `@/types/scoring`, `RecentFormPlayer`.
 - Produces: `OPPORTUNITY_POSITIONS: Position[]`, `topByPosition(players: RecentFormPlayer[], positions?: Position[], n?: number): Record<string, RecentFormPlayer[]>` — usado por `OpportunityHero.tsx` en el Task 3.
 
-- [ ] **Step 1: Escribir los tests que fallan**
+- [x] **Step 1: Escribir los tests que fallan**
 
 En `src/utils/opportunities.test.ts`, extender otra vez la línea de import del principio del archivo (la que quedó del Task 1) de:
 
@@ -183,12 +183,12 @@ describe('topByPosition', () => {
 })
 ```
 
-- [ ] **Step 2: Correr los tests y verificar que fallan**
+- [x] **Step 2: Correr los tests y verificar que fallan**
 
 Run: `npm test -- opportunities.test.ts`
 Expected: FAIL — `topByPosition` y `OPPORTUNITY_POSITIONS` no existen todavía.
 
-- [ ] **Step 3: Implementar**
+- [x] **Step 3: Implementar**
 
 Agregar al final de `src/utils/opportunities.ts`. Requiere importar `Position` — cambiar la línea de import del principio del archivo:
 
@@ -217,12 +217,12 @@ export function topByPosition(
 }
 ```
 
-- [ ] **Step 4: Correr los tests y verificar que pasan**
+- [x] **Step 4: Correr los tests y verificar que pasan**
 
 Run: `npm test -- opportunities.test.ts`
 Expected: PASS, todos los tests en verde (incluye los del Task 1).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/utils/opportunities.ts src/utils/opportunities.test.ts
@@ -242,7 +242,7 @@ git commit -m "feat(oportunidades): agrupar top-8 por posición (topByPosition)"
 
 No lleva test propio (es un componente visual sin lógica nueva — la lógica de agrupado y boost ya está testeada en el Task 1 y 2). Se verifica manualmente en el Task 5.
 
-- [ ] **Step 1: Reemplazar el contenido completo de `src/components/dashboard/OpportunityHero.tsx`**
+- [x] **Step 1: Reemplazar el contenido completo de `src/components/dashboard/OpportunityHero.tsx`**
 
 ```tsx
 import { useEffect, useMemo, useState } from 'react'
@@ -367,12 +367,12 @@ export default function OpportunityHero() {
 }
 ```
 
-- [ ] **Step 2: Verificar que compila**
+- [x] **Step 2: Verificar que compila**
 
 Run: `npx tsc --noEmit`
 Expected: sin errores nuevos relacionados a `OpportunityHero.tsx`.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/components/dashboard/OpportunityHero.tsx
@@ -390,7 +390,7 @@ git commit -m "feat(oportunidades): widget de Inicio con pestañas por puesto (t
 - Consumes: `opportunityScoreFor` de `@/utils/opportunities` (Task 1).
 - Produces: mismo `filteredPlayers` que ya consume el render de la grilla — solo cambia el orden, no el tipo ni el resto del contrato.
 
-- [ ] **Step 1: Agregar el import**
+- [x] **Step 1: Agregar el import**
 
 En `src/pages/OpportunitiesPage.tsx`, la importación actual (línea 11-16) es:
 
@@ -415,7 +415,7 @@ import {
 } from '@/utils/opportunities'
 ```
 
-- [ ] **Step 2: Ordenar antes de devolver `filteredPlayers`**
+- [x] **Step 2: Ordenar antes de devolver `filteredPlayers`**
 
 En el mismo archivo, el `useMemo` de `filteredPlayers` termina hoy así (alrededor de la línea 106-115):
 
@@ -450,12 +450,12 @@ Cambiar el `return result` final por:
 
 `[...result]` es necesario porque cuando no hay filtros activos `result` es la misma referencia que `players` (el array que viene del hook) — ordenar in-place la mutaría.
 
-- [ ] **Step 3: Verificar que compila**
+- [x] **Step 3: Verificar que compila**
 
 Run: `npx tsc --noEmit`
 Expected: sin errores nuevos.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/pages/OpportunitiesPage.tsx
@@ -468,17 +468,17 @@ git commit -m "feat(oportunidades): ordenar la grilla por opportunity_score (boo
 
 **Files:** ninguno nuevo — corre la suite completa y hace un smoke test manual.
 
-- [ ] **Step 1: Correr toda la suite de tests**
+- [x] **Step 1: Correr toda la suite de tests**
 
 Run: `npm test`
 Expected: PASS, incluye los tests de `opportunities.test.ts` de los Tasks 1-2 y el resto de la suite sin regresiones.
 
-- [ ] **Step 2: Typecheck y build completo**
+- [x] **Step 2: Typecheck y build completo**
 
 Run: `npm run build`
 Expected: compila sin errores (incluye `tsc` + bundle de Vite).
 
-- [ ] **Step 3: Smoke test manual en el navegador**
+- [x] **Step 3: Smoke test manual en el navegador**
 
 Run: `npm run dev`, abrir `http://localhost:5173`.
 
@@ -486,6 +486,6 @@ Run: `npm run dev`, abrir `http://localhost:5173`.
 - En `/oportunidades`: los jugadores con "Fin de contrato" y pocos meses restantes aparecen más arriba que antes en relación a su Score GG (comparar contra el orden que tenía antes del cambio, si se puede).
 - Confirmar que el número mostrado en cada tarjeta (Home y `/oportunidades`) sigue siendo el Score GG puro (`recent_avg`), no un valor con el boost sumado.
 
-- [ ] **Step 4: Commit final si hubo ajustes del smoke test**
+- [x] **Step 4: Commit final si hubo ajustes del smoke test**
 
 Solo si el Step 3 encontró algo para corregir — de lo contrario no hay nada que commitear en esta tarea.
