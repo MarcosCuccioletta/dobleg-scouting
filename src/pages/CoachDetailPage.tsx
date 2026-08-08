@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import { getCoachByKey } from '@/constants/agencyCoaches'
 import CoachSummaryTab from '@/features/coaches/components/CoachSummaryTab'
 import TeamRosterPanel from '@/features/coaches/components/TeamRosterPanel'
+import CoachLeagueTab from '@/features/coaches/components/CoachLeagueTab'
 
 type CoachTab = 'resumen' | 'plantel' | 'liga' | 'calendario' | 'entrenamientos' | 'notas' | 'reserva'
 
@@ -144,6 +145,7 @@ export default function CoachDetailPage() {
       {activeTab === 'resumen' && <CoachSummaryTab coach={coach} />}
       {activeTab === 'plantel' && coach.apiTeamId && <TeamRosterPanel teamId={coach.apiTeamId} />}
       {activeTab === 'reserva' && coach.reserveApiTeamId && <TeamRosterPanel teamId={coach.reserveApiTeamId} />}
+      {activeTab === 'liga' && coach.leagueApiId && <CoachLeagueTab coach={coach} />}
     </div>
   )
 }
