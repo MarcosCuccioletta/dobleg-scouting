@@ -17,6 +17,7 @@
 - Fuera de alcance explícito (no construir nada de esto): roles/login individual, lesiones/suspensiones de todo el plantel, asistencia jugador-por-jugador a entrenamientos, drag-and-drop en el calendario, goleadores/asistencias/tarjetas de liga, posesión/remates/córners por equipo (ninguno de estos 2 últimos está cubierto por API-Football para esta liga/temporada — verificado en vivo).
 - `apiTeamId` de Temperley = **454**, `leagueApiId` de Primera Nacional = **129**, `leagueSeason` = **2026** — verificados en vivo el 2026-08-08 (ver fixture `src/services/__fixtures__/primera-nacional-standings-2026-08-08.json`).
 - **Diseño visual de toda página/componente nuevo de este plan: usar la skill `frontend-design`** (pedido explícito del usuario) — no dejar el look genérico por defecto. Se invoca al empezar cada tarea de UI (Tasks 9 en adelante), antes de escribir el JSX final.
+- **Responsive real en mobile, tablet y desktop — no opcional.** Esta plataforma corre además como app nativa (Capacitor, "Doble G Scout", ver `[[mobile_app_capacitor]]` en memoria) y los propios entrenadores pueden llegar a usar esto desde el celular en la cancha. Cada tarea de UI (Tasks 9-16) tiene que probarse en los 3 anchos, no solo desktop: tablas con `overflow-x-auto` (ya así en Task 13), grillas con breakpoints `sm:`/`md:` (ya así en Task 12), tabs en fila horizontal con scroll (`overflow-x-auto`) en vez de recortarse, y ningún botón/target táctil por debajo de ~40px de alto. El smoke test de Task 17 se hace en los 3 tamaños de viewport, no solo desktop.
 
 ---
 
@@ -1910,6 +1911,7 @@ Run: `npm run dev`, abrir `http://localhost:5173`.
 - `/entrenadores/domingo`: cargan los 6 tabs. Resumen muestra próximo partido real de Temperley y últimos 5 resultados. Plantel muestra ~31 jugadores con foto/dorsal/posición. Liga muestra la tabla de Primera Nacional con la Zona B abierta por default y Temperley resaltado en 4° lugar. Calendario muestra los próximos 14 días. Entrenamientos permite agregar una sesión de prueba y borrarla. Notas permite escribir y guardar una nota en un partido jugado, recargar la página y confirmar que la nota persiste.
 - `/entrenadores/stillitano`: muestra el placeholder "Sin club actualmente", sin tabs.
 - Confirmar look and feel: no debe verse genérico — si algo quedó con estilos por defecto sin pasar por `frontend-design`, ajustar ahí antes de cerrar.
+- **Repetir el recorrido de arriba en 3 anchos de viewport**: mobile (~390px), tablet (~768px) y desktop (~1440px). Puntos concretos a revisar en cada uno: los tabs de `CoachDetailPage` no se cortan (scrollean horizontal); la tabla de posiciones de Task 13 no rompe el layout en mobile (`overflow-x-auto` scrollea, no desborda la página); la grilla de plantel de Task 12 pasa de 2 a 4 columnas según ancho sin superponerse; los botones de Entrenamientos/Notas son tocables con el dedo (alto ≥ ~40px). Si algo falla en algún ancho, corregirlo ahí mismo antes de cerrar la tarea.
 
 - [ ] **Step 5: Commit final si hubo ajustes del smoke test**
 
