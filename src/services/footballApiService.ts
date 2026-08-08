@@ -326,7 +326,16 @@ const AGENCY_TRANSFERS_CACHE_TTL = 24 * 60 * 60 * 1000
 const SQUAD_CACHE_KEY = 'dg-squad-cache'
 const SQUAD_CACHE_TTL = 7 * 24 * 60 * 60 * 1000
 
-async function fetchSquadCached(teamId: number): Promise<Array<{ id: number; name: string }>> {
+export interface SquadPlayer {
+  id: number
+  name: string
+  age: number | null
+  number: number | null
+  position: string | null
+  photo: string | null
+}
+
+export async function fetchSquadCached(teamId: number): Promise<SquadPlayer[]> {
   const cacheKey = `${SQUAD_CACHE_KEY}:${teamId}`
   try {
     const raw = localStorage.getItem(cacheKey)
@@ -339,7 +348,14 @@ async function fetchSquadCached(teamId: number): Promise<Array<{ id: number; nam
   try {
     const res = await apiFetch<any>('/players/squads', { team: String(teamId) })
     const squad = res.response?.[0]
-    const players: Array<{ id: number; name: string }> = (squad?.players ?? []).map((p: any) => ({ id: p.id as number, name: (p.name ?? '') as string }))
+    const players: SquadPlayer[] = (squad?.players ?? []).map((p: any) => ({
+      id: p.id as number,
+      name: (p.name ?? '') as string,
+      age: (p.age ?? null) as number | null,
+      number: (p.number ?? null) as number | null,
+      position: (p.position ?? null) as string | null,
+      photo: (p.photo ?? null) as string | null,
+    }))
     try { localStorage.setItem(cacheKey, JSON.stringify({ data: players, timestamp: Date.now() })) } catch { /* quota */ }
     return players
   } catch {
