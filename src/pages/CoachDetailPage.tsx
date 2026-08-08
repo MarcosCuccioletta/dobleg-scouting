@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { getCoachByKey } from '@/constants/agencyCoaches'
+import CoachSummaryTab from '@/features/coaches/components/CoachSummaryTab'
 
 type CoachTab = 'resumen' | 'plantel' | 'liga' | 'calendario' | 'entrenamientos' | 'notas' | 'reserva'
 
@@ -139,6 +140,7 @@ export default function CoachDetailPage() {
       </div>
 
       {/* Cada Task 11-16 agrega su bloque acá, condicionado por activeTab === 'resumen' | 'plantel' | 'liga' | 'calendario' | 'entrenamientos' | 'notas' | 'reserva' */}
+      {activeTab === 'resumen' && <CoachSummaryTab coach={coach} />}
     </div>
   )
 }
