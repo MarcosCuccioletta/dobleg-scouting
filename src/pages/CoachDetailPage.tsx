@@ -6,6 +6,7 @@ import TeamRosterPanel from '@/features/coaches/components/TeamRosterPanel'
 import CoachLeagueTab from '@/features/coaches/components/CoachLeagueTab'
 import CoachCalendarTab from '@/features/coaches/components/CoachCalendarTab'
 import CoachTrainingTab from '@/features/coaches/components/CoachTrainingTab'
+import CoachNotesTab from '@/features/coaches/components/CoachNotesTab'
 
 type CoachTab = 'resumen' | 'plantel' | 'liga' | 'calendario' | 'entrenamientos' | 'notas' | 'reserva'
 
@@ -150,6 +151,7 @@ export default function CoachDetailPage() {
       {activeTab === 'liga' && coach.leagueApiId && <CoachLeagueTab coach={coach} />}
       {activeTab === 'calendario' && <CoachCalendarTab coach={coach} />}
       {activeTab === 'entrenamientos' && <CoachTrainingTab coach={coach} />}
+      {activeTab === 'notas' && <CoachNotesTab coach={coach} />}
     </div>
   )
 }
