@@ -47,8 +47,8 @@ describe('contractBoostFor', () => {
   it('boost cero sin fecha de contrato', () => {
     expect(contractBoostFor(null)).toBe(0)
   })
-  it('contrato ya vencido satura en el boost máximo', () => {
-    expect(contractBoostFor(dateInMonths(-3))).toBeCloseTo(1.5, 1)
+  it('contrato ya vencido (dato viejo/stale) no suma boost', () => {
+    expect(contractBoostFor(dateInMonths(-3))).toBe(0)
   })
 })
 

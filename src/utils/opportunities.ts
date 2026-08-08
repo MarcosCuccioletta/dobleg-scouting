@@ -35,7 +35,10 @@ export const CONTRACT_BOOST_MONTHS = 12
 
 export function contractBoostFor(contractEndDate: string | null): number {
   const months = monthsToContractEnd(contractEndDate)
-  if (months === null || months > CONTRACT_BOOST_MONTHS) return 0
+  // Una fecha ya pasada es mucho más probable que sea un dato de Transfermarkt
+  // desactualizado (renovación o transferencia que no se reflejó) que un agente
+  // libre confirmado — no la tratamos como la máxima urgencia posible.
+  if (months === null || months < 0 || months > CONTRACT_BOOST_MONTHS) return 0
   const proximity = 1 - months / CONTRACT_BOOST_MONTHS
   return CONTRACT_BOOST_MAX * Math.min(Math.max(proximity, 0), 1)
 }

@@ -18,7 +18,7 @@ const CONTRACT_BOOST_MONTHS = 12    // a partir de acá, boost = 0
 
 function contractBoostFor(contractEndDate: string | null): number {
   const months = monthsToContractEnd(contractEndDate)
-  if (months === null || months > CONTRACT_BOOST_MONTHS) return 0
+  if (months === null || months < 0 || months > CONTRACT_BOOST_MONTHS) return 0
   const proximity = 1 - months / CONTRACT_BOOST_MONTHS   // 0 en 12m, 1 en 0m
   return CONTRACT_BOOST_MAX * Math.min(Math.max(proximity, 0), 1)
 }
@@ -30,7 +30,7 @@ function opportunityScoreFor(p: RecentFormPlayer): number {
 
 Notas:
 - Crece gradual (12m → ~0, 6m → 0.75, 0m → 1.5). Sin escalones bruscos.
-- Contrato ya vencido (`months < 0`, dato viejo/stale) satura en el boost máximo vía el `clamp` — no rompe, no necesita caso especial.
+- Contrato ya vencido (`months < 0`) → boost 0, igual que sin `contract_end_date`. **Cambiado tras el smoke test del 2026-08-08**: el `contract_end_date` viene de Transfermarkt vía sync semanal (`enrich-player`, cron domingos 3am UTC) y puede quedar desactualizado tras una renovación o transferencia que Transfermarkt no reflejó a tiempo. Verificado con 2 casos reales (Carlos Moreno, Pachuca: renovó hasta 2028 pero el dato en base decía 2026-06-30; Jorge Hurtado, préstamo en Tolima: contrato real hasta 2027, dato en base decía 2026-06-30) — ambos habrían recibido el boost máximo (1.5) por error, superando a jugadores con contrato realmente por vencer y tag visible. Una fecha vencida es más señal de dato stale que de agente libre confirmado, así que no suma boost.
 - Sin `contract_end_date`, boost 0 — no penaliza, solo no suma.
 - El rendimiento (`recent_avg`) sigue pesando más que el contrato: un +1.5 no alcanza para que un jugador mediocre le gane a uno realmente destacado.
 
