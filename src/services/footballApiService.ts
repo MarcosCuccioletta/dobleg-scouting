@@ -459,3 +459,59 @@ export async function resolvePlayerTeam(apiPlayerId: number): Promise<ResolvedTe
     return null
   }
 }
+
+// ─── STANDINGS ──────────────────────────────────────────────────────────────
+
+export interface StandingRow {
+  rank: number
+  teamId: number
+  teamName: string
+  teamLogo: string
+  points: number
+  goalsDiff: number
+  form: string
+  played: number
+  win: number
+  draw: number
+  lose: number
+  goalsFor: number
+  goalsAgainst: number
+  group: string
+}
+
+export function mapStandingsResponse(raw: any): StandingRow[][] {
+  const groups: any[][] = raw?.response?.[0]?.league?.standings ?? []
+  return groups.map(group =>
+    group.map((row: any): StandingRow => ({
+      rank: row.rank,
+      teamId: row.team.id,
+      teamName: row.team.name,
+      teamLogo: row.team.logo,
+      points: row.points,
+      goalsDiff: row.goalsDiff,
+      form: row.form ?? '',
+      played: row.all.played,
+      win: row.all.win,
+      draw: row.all.draw,
+      lose: row.all.lose,
+      goalsFor: row.all.goals.for,
+      goalsAgainst: row.all.goals.against,
+      group: row.group,
+    })),
+  )
+}
+
+const STANDINGS_CACHE_PREFIX = 'dg-standings-cache'
+const STANDINGS_CACHE_TTL = 6 * 60 * 60 * 1000 // 6h
+
+export async function fetchLeagueStandings(leagueId: number, season: number, forceRefresh = false): Promise<StandingRow[][]> {
+  const cacheKey = `${STANDINGS_CACHE_PREFIX}:${leagueId}:${season}`
+  if (!forceRefresh) {
+    const cached = getCachedGeneric<StandingRow[][]>(cacheKey, STANDINGS_CACHE_TTL)
+    if (cached) return cached
+  }
+  const raw = await apiFetch<any>('/standings', { league: String(leagueId), season: String(season) })
+  const groups = mapStandingsResponse(raw)
+  setCacheGeneric(cacheKey, groups)
+  return groups
+}
