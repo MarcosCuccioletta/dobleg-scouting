@@ -37,6 +37,7 @@ const inicioGroup: NavGroup = {
 const directLinks: NavItem[] = [
   { to: '/scouting', label: 'Scout Externo', icon: 'globe' },
   { to: '/interno', label: 'Scout Interno', icon: 'users' },
+  { to: '/entrenadores', label: 'Entrenadores', icon: 'whistle' },
 ]
 
 const seguimientoGroup: NavGroup = {
@@ -85,6 +86,7 @@ function NavIcon({ icon, className = "w-5 h-5" }: { icon: string; className?: st
     folder: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />,
     shield: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />,
     calendar: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />,
+    whistle: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h3m6-13H9a4 4 0 00-4 4v2a7 7 0 007 7h1a7 7 0 007-7v-1a5 5 0 00-5-5zM6 8a2 2 0 11-4 0 2 2 0 014 0z" />,
   }
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
