@@ -18,6 +18,7 @@ const FormationPage = lazy(() => import('@/pages/FormationPage'))
 const SimilarPlayersPage = lazy(() => import('@/pages/SimilarPlayersPage'))
 const OpportunitiesPage = lazy(() => import('@/pages/OpportunitiesPage'))
 const CoachesListPage = lazy(() => import('@/pages/CoachesListPage'))
+const CoachDetailPage = lazy(() => import('@/pages/CoachDetailPage'))
 const DashboardPage = lazy(() => import('@/pages/DashboardPage'))
 const ScoutingWorksPage = lazy(() => import('@/pages/ScoutingWorksPage'))
 const ScatterChartPage = lazy(() => import('@/pages/ScatterChartPage'))
@@ -44,6 +45,7 @@ export default function App() {
             <Route path="/seguimiento-datos" element={<MonitoringPage />} />
             <Route path="/oportunidades" element={<OpportunitiesPage />} />
             <Route path="/entrenadores" element={<CoachesListPage />} />
+            <Route path="/entrenadores/:coachKey" element={<CoachDetailPage />} />
             <Route path="/similares" element={<SimilarPlayersPage />} />
             <Route path="/jugador/:id" element={<PlayerDetailPage />} />
             <Route path="/comparacion" element={<ComparisonPage />} />
