@@ -9,11 +9,6 @@ const CACHE_KEY = 'dg-fixtures-cache-v2'
 const CACHE_TTL = 4 * 60 * 60 * 1000
 const AR_TZ = 'America/Argentina/Buenos_Aires'
 
-interface CachedData {
-  fixtures: AgencyFixture[]
-  timestamp: number
-}
-
 async function apiFetch<T>(endpoint: string, params: Record<string, string>): Promise<ApiResponse<T>> {
   const url = new URL(PROXY_URL, window.location.origin)
   url.searchParams.set('endpoint', endpoint)
@@ -90,30 +85,30 @@ function mapFixture(fixture: ApiFixture, teamId: number): AgencyFixture {
   }
 }
 
-function getCached(): AgencyFixture[] | null {
+function getCachedGeneric<T>(key: string, ttl: number): T | null {
   try {
-    const raw = localStorage.getItem(CACHE_KEY)
+    const raw = localStorage.getItem(key)
     if (!raw) return null
-    const cached: CachedData = JSON.parse(raw)
-    if (Date.now() - cached.timestamp > CACHE_TTL) {
-      localStorage.removeItem(CACHE_KEY)
+    const cached: { data: T; timestamp: number } = JSON.parse(raw)
+    if (Date.now() - cached.timestamp > ttl) {
+      localStorage.removeItem(key)
       return null
     }
-    return cached.fixtures
+    return cached.data
   } catch {
     return null
   }
 }
 
-function setCache(fixtures: AgencyFixture[]) {
+function setCacheGeneric<T>(key: string, data: T) {
   try {
-    localStorage.setItem(CACHE_KEY, JSON.stringify({ fixtures, timestamp: Date.now() }))
+    localStorage.setItem(key, JSON.stringify({ data, timestamp: Date.now() }))
   } catch { /* quota exceeded */ }
 }
 
 export async function fetchAllAgencyFixtures(forceRefresh = false): Promise<AgencyFixture[]> {
   if (!forceRefresh) {
-    const cached = getCached()
+    const cached = getCachedGeneric<AgencyFixture[]>(CACHE_KEY, CACHE_TTL)
     if (cached) return cached
   }
 
@@ -151,8 +146,23 @@ export async function fetchAllAgencyFixtures(forceRefresh = false): Promise<Agen
   }
 
   const merged = Array.from(fixtureMap.values()).sort((a, b) => a.timestamp - b.timestamp)
-  setCache(merged)
+  setCacheGeneric(CACHE_KEY, merged)
   return merged
+}
+
+const TEAM_FIXTURES_CACHE_PREFIX = 'dg-team-fixtures-cache'
+const TEAM_FIXTURES_CACHE_TTL = 4 * 60 * 60 * 1000 // 4h, igual que el cache general
+
+export async function fetchTeamFixtures(teamId: number, forceRefresh = false): Promise<AgencyFixture[]> {
+  const cacheKey = `${TEAM_FIXTURES_CACHE_PREFIX}:${teamId}`
+  if (!forceRefresh) {
+    const cached = getCachedGeneric<AgencyFixture[]>(cacheKey, TEAM_FIXTURES_CACHE_TTL)
+    if (cached) return cached
+  }
+  const raw = await getTeamFixtures(teamId)
+  const fixtures = raw.map(f => mapFixture(f, teamId))
+  setCacheGeneric(cacheKey, fixtures)
+  return fixtures
 }
 
 export function toArDateKey(date: Date | string): string {
