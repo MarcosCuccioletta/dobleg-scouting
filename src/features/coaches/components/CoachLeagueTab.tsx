@@ -26,11 +26,10 @@ function EmptyState({ message }: { message: string }) {
   )
 }
 
-/** Nombre de la zona a partir del campo `group` de la API (ej. "Primera Nacional - Zona A"),
- *  con fallback a Zona A/B/C... por índice si la API no trae ese detalle. */
-function zoneLabel(rows: StandingRow[], index: number): string {
-  const match = rows[0]?.group?.match(/zona\s+\S+/i)
-  if (match) return match[0].replace(/^zona/i, 'Zona')
+/** La API de Primera Nacional devuelve `group` como "Group 1" / "Group 2" (sin
+ *  traducir), así que el label mostrado se arma directamente por posición en el
+ *  array: Zona A, Zona B, Zona C... */
+function zoneLabel(index: number): string {
   return `Zona ${String.fromCharCode(65 + index)}`
 }
 
@@ -72,7 +71,7 @@ export default function CoachLeagueTab({ coach }: { coach: AgencyCoach }) {
     <div className="animate-fade-in">
       <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
         <div className="flex gap-2 overflow-x-auto scrollbar-thin">
-          {groups.map((group, i) => (
+          {groups.map((_, i) => (
             <button
               key={i}
               onClick={() => setActiveGroup(i)}
@@ -82,7 +81,7 @@ export default function CoachLeagueTab({ coach }: { coach: AgencyCoach }) {
                   : 'bg-apple-gray-100 dark:bg-apple-gray-800 text-apple-gray-500 dark:text-apple-gray-400 hover:text-apple-gray-700 dark:hover:text-apple-gray-200'
               }`}
             >
-              {zoneLabel(group, i)}
+              {zoneLabel(i)}
             </button>
           ))}
         </div>
