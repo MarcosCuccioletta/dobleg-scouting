@@ -726,7 +726,7 @@ git commit -m "feat(entrenadores): coachService — CRUD de entrenamientos y not
 
 **Interfaces:**
 - Consumes: `AgencyFixture` (`@/types/footballApi`), `toArDateKey` (`@/services/footballApiService`), `CoachTrainingSession` (`@/services/coachService`).
-- Produces: `export interface CoachCalendarDay { date: string; fixtures: AgencyFixture[]; sessions: CoachTrainingSession[]; isAbroad: boolean }`, `export function mergeCalendarEvents(fixtures: AgencyFixture[], sessions: CoachTrainingSession[]): Map<string, CoachCalendarDay>` — usado por Task 14.
+- Produces: `export interface CoachCalendarDay { date: string; fixtures: AgencyFixture[]; sessions: CoachTrainingSession[]; isAbroad: boolean }`, `export function mergeCalendarEvents(fixtures: AgencyFixture[], sessions: CoachTrainingSession[]): Map<string, CoachCalendarDay>` — usado por Task 14. `export function isMatchFinished(statusShort: string): boolean` — helper compartido, usado por Task 11 y Task 16 (evita duplicar la misma función en 2 archivos).
 
 - [ ] **Step 1: Escribir el test que falla**
 
@@ -788,6 +788,29 @@ describe('mergeCalendarEvents', () => {
     expect(merged.get('2026-08-20')?.isAbroad).toBe(false)
   })
 })
+
+describe('isMatchFinished', () => {
+  it('FT, AET y PEN cuentan como terminado', () => {
+    expect(isMatchFinished('FT')).toBe(true)
+    expect(isMatchFinished('AET')).toBe(true)
+    expect(isMatchFinished('PEN')).toBe(true)
+  })
+  it('NS (not started) no cuenta como terminado', () => {
+    expect(isMatchFinished('NS')).toBe(false)
+  })
+})
+```
+
+Y actualizar el import del principio del archivo de test de:
+
+```ts
+import { mergeCalendarEvents } from './coachCalendar'
+```
+
+a:
+
+```ts
+import { mergeCalendarEvents, isMatchFinished } from './coachCalendar'
 ```
 
 - [ ] **Step 2: Correr el test y verificar que falla**
@@ -813,6 +836,10 @@ export interface CoachCalendarDay {
 
 function isAbroad(fixture: AgencyFixture): boolean {
   return fixture.leagueCountry !== 'Argentina'
+}
+
+export function isMatchFinished(statusShort: string): boolean {
+  return ['FT', 'AET', 'PEN'].includes(statusShort)
 }
 
 function getOrCreate(map: Map<string, CoachCalendarDay>, date: string): CoachCalendarDay {
@@ -849,7 +876,7 @@ export function mergeCalendarEvents(
 - [ ] **Step 4: Correr el test y verificar que pasa**
 
 Run: `npx vitest run coachCalendar.test.ts`
-Expected: PASS, 4 tests en verde.
+Expected: PASS, 6 tests en verde.
 
 - [ ] **Step 5: Commit**
 
@@ -1114,7 +1141,7 @@ git commit -m "feat(entrenadores): shell de /entrenadores/:coachKey con tabs y p
 - Modify: `src/pages/CoachDetailPage.tsx` (montar el tab)
 
 **Interfaces:**
-- Consumes: `fetchTeamFixtures` (Task 2), `AgencyCoach` (Task 1).
+- Consumes: `fetchTeamFixtures` (Task 2), `AgencyCoach` (Task 1), `isMatchFinished` (Task 7, `@/utils/coachCalendar`).
 - Produces: componente `CoachSummaryTab({ coach: AgencyCoach })`, montado cuando `activeTab === 'resumen'`.
 
 - [ ] **Step 1: Invocar la skill de diseño**
@@ -1129,13 +1156,10 @@ Crear `src/features/coaches/components/CoachSummaryTab.tsx`:
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { fetchTeamFixtures } from '@/services/footballApiService'
+import { isMatchFinished } from '@/utils/coachCalendar'
 import type { AgencyFixture } from '@/types/footballApi'
 import type { AgencyCoach } from '@/constants/agencyCoaches'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
-
-function isFinished(statusShort: string): boolean {
-  return ['FT', 'AET', 'PEN'].includes(statusShort)
-}
 
 export default function CoachSummaryTab({ coach }: { coach: AgencyCoach }) {
   const [fixtures, setFixtures] = useState<AgencyFixture[] | null>(null)
@@ -1150,8 +1174,8 @@ export default function CoachSummaryTab({ coach }: { coach: AgencyCoach }) {
   if (fixtures === null) return <LoadingSpinner message="Cargando resumen..." />
 
   const sorted = [...fixtures].sort((a, b) => a.timestamp - b.timestamp)
-  const next = sorted.find(f => !isFinished(f.statusShort))
-  const lastFive = [...sorted].filter(f => isFinished(f.statusShort)).reverse().slice(0, 5)
+  const next = sorted.find(f => !isMatchFinished(f.statusShort))
+  const lastFive = [...sorted].filter(f => isMatchFinished(f.statusShort)).reverse().slice(0, 5)
 
   return (
     <div className="space-y-6">
@@ -1769,7 +1793,7 @@ git commit -m "feat(entrenadores): tab Entrenamientos — agenda con alta/borrad
 - Modify: `src/pages/CoachDetailPage.tsx`
 
 **Interfaces:**
-- Consumes: `fetchTeamFixtures` (Task 2), `getMatchNote`, `upsertMatchNote` (Task 6).
+- Consumes: `fetchTeamFixtures` (Task 2), `getMatchNote`, `upsertMatchNote` (Task 6), `isMatchFinished` (Task 7, `@/utils/coachCalendar`).
 - Produces: componente `CoachNotesTab({ coach: AgencyCoach })`, montado cuando `activeTab === 'notas'`.
 
 - [ ] **Step 1: Invocar la skill de diseño**
@@ -1784,13 +1808,10 @@ Crear `src/features/coaches/components/CoachNotesTab.tsx`:
 import { useEffect, useState } from 'react'
 import { fetchTeamFixtures } from '@/services/footballApiService'
 import { getMatchNote, upsertMatchNote } from '@/services/coachService'
+import { isMatchFinished } from '@/utils/coachCalendar'
 import type { AgencyFixture } from '@/types/footballApi'
 import type { AgencyCoach } from '@/constants/agencyCoaches'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
-
-function isFinished(statusShort: string): boolean {
-  return ['FT', 'AET', 'PEN'].includes(statusShort)
-}
 
 function NoteRow({ coach, fixture }: { coach: AgencyCoach; fixture: AgencyFixture }) {
   const [note, setNote] = useState('')
@@ -1844,7 +1865,7 @@ export default function CoachNotesTab({ coach }: { coach: AgencyCoach }) {
   if (fixtures === null) return <LoadingSpinner message="Cargando partidos..." />
 
   const played = [...fixtures]
-    .filter(f => isFinished(f.statusShort))
+    .filter(f => isMatchFinished(f.statusShort))
     .sort((a, b) => b.timestamp - a.timestamp)
 
   return (
