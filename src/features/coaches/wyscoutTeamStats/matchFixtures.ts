@@ -1,4 +1,4 @@
-import { normalizeForSearch } from '@/lib/search'
+import { normalizeForSearch, fuzzyMatch } from '@/lib/search'
 import { toArDateKey, fetchFixtureLineups } from '@/services/footballApiService'
 import type { AgencyFixture } from '@/types/footballApi'
 import type { WyscoutMatch } from './parseWyscoutTeamStats'
@@ -23,5 +23,6 @@ export async function verifyCoachForFixture(
   const ownLineup = lineups.find(l => l.team.id === ownTeamId)
   const coachName = ownLineup?.coach?.name ?? null
   if (!coachName) return { verified: false, coachName: null }
-  return { verified: normalizeForSearch(coachName) === normalizeForSearch(coachFullName), coachName }
+  const verified = fuzzyMatch(coachName, coachFullName) || fuzzyMatch(coachFullName, coachName)
+  return { verified, coachName }
 }

@@ -28,10 +28,12 @@ export default function CoachWyscoutUploadPanel({
   const [fileName, setFileName] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [parseError, setParseError] = useState<string | null>(null)
 
   const handleFile = async (file: File) => {
     if (!coach.club || !coach.apiTeamId) return
     setParsing(true)
+    setParseError(null)
     setFileName(file.name)
     try {
       const data = await file.arrayBuffer()
@@ -47,9 +49,18 @@ export default function CoachWyscoutUploadPanel({
         }),
       )
       setRows(withFixtures)
+    } catch {
+      setParseError('No pudimos leer este archivo. Verificá que sea el Excel de Wyscout.')
+      setFileName(null)
     } finally {
       setParsing(false)
     }
+  }
+
+  const resetUpload = () => {
+    setRows(null)
+    setFileName(null)
+    setParseError(null)
   }
 
   const toggleIncluded = (index: number) => {
@@ -87,13 +98,37 @@ export default function CoachWyscoutUploadPanel({
 
   if (!rows) {
     return (
-      <GpsDropzone
-        onFile={file => void handleFile(file)}
-        disabled={parsing}
-        accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
-        label={parsing ? 'Leyendo el Excel…' : 'Arrastrá el Excel de Wyscout o tocá para elegirlo'}
-        hint="Export 'Team Stats' de Wyscout. Se revisa antes de guardar."
-      />
+      <div className="space-y-3">
+        {parseError && (
+          <div className="rounded-apple-lg border border-brand-red/40 bg-brand-red/10 px-3 sm:px-4 py-2.5 text-sm text-brand-red">
+            {parseError}
+          </div>
+        )}
+        <GpsDropzone
+          onFile={file => void handleFile(file)}
+          disabled={parsing}
+          accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+          label={parsing ? 'Leyendo el Excel…' : 'Arrastrá el Excel de Wyscout o tocá para elegirlo'}
+          hint="Export 'Team Stats' de Wyscout. Se revisa antes de guardar."
+        />
+      </div>
+    )
+  }
+
+  if (rows.length === 0) {
+    return (
+      <div className="space-y-3">
+        <div className="rounded-apple-lg border border-apple-gray-200/60 dark:border-apple-gray-700/40 bg-apple-gray-50 dark:bg-apple-gray-900/40 px-3 sm:px-4 py-4 text-sm text-apple-gray-500 dark:text-apple-gray-400 text-center">
+          No se detectó ningún partido de {coach.club} en este archivo. Revisá que sea el export correcto.
+        </div>
+        <button
+          type="button"
+          onClick={resetUpload}
+          className="text-sm text-apple-gray-500 hover:text-apple-gray-700 dark:hover:text-apple-gray-300"
+        >
+          Probar con otro archivo
+        </button>
+      </div>
     )
   }
 
@@ -148,7 +183,7 @@ export default function CoachWyscoutUploadPanel({
         </button>
         <button
           type="button"
-          onClick={() => { setRows(null); setFileName(null) }}
+          onClick={resetUpload}
           disabled={saving}
           className="text-sm text-apple-gray-500 hover:text-apple-gray-700 dark:hover:text-apple-gray-300 disabled:opacity-50"
         >

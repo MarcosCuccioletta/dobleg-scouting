@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { listCoachMatchTeamStats, type CoachMatchTeamStats } from '@/services/coachService'
 import { computeSeasonStats } from '@/features/coaches/seasonStats'
 import { isMatchFinished } from '@/utils/coachCalendar'
+import { fetchSeasonFixtures } from '@/services/footballApiService'
 import CoachWyscoutUploadPanel from './CoachWyscoutUploadPanel'
 import type { AgencyCoach } from '@/constants/agencyCoaches'
 import type { AgencyFixture } from '@/types/footballApi'
@@ -23,8 +24,9 @@ function fmtDecimal(v: number | null): string {
   return v === null ? '–' : v.toFixed(2)
 }
 
-export default function CoachSeasonStatsCard({ coach, fixtures }: { coach: AgencyCoach; fixtures: AgencyFixture[] }) {
+export default function CoachSeasonStatsCard({ coach }: { coach: AgencyCoach }) {
   const [statsRows, setStatsRows] = useState<CoachMatchTeamStats[] | null>(null)
+  const [fixtures, setFixtures] = useState<AgencyFixture[] | null>(null)
   const [showUpload, setShowUpload] = useState(false)
 
   const reload = () => {
@@ -36,7 +38,19 @@ export default function CoachSeasonStatsCard({ coach, fixtures }: { coach: Agenc
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [coach.key])
 
-  if (statsRows === null) return null
+  useEffect(() => {
+    if (!coach.apiTeamId || !coach.leagueSeason) return
+    let active = true
+    fetchSeasonFixtures(coach.apiTeamId, coach.leagueSeason).then(f => {
+      if (active) setFixtures(f)
+    })
+    return () => {
+      active = false
+    }
+  }, [coach.key])
+
+  if (!coach.apiTeamId || !coach.leagueSeason) return null
+  if (statsRows === null || fixtures === null) return null
 
   const stats = computeSeasonStats(fixtures, statsRows)
   const finishedFixtureIds = new Set(fixtures.filter(f => isMatchFinished(f.statusShort)).map(f => f.fixtureId))

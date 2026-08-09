@@ -1,6 +1,7 @@
 import type { AgencyFixture } from '@/types/footballApi'
 import type { CoachMatchTeamStats } from '@/services/coachService'
 import { matchOutcome } from './matchResult'
+import { isMatchFinished } from '@/utils/coachCalendar'
 
 export interface SeasonStats {
   played: number
@@ -23,7 +24,7 @@ function average(values: number[]): number | null {
 
 export function computeSeasonStats(fixtures: AgencyFixture[], statsRows: CoachMatchTeamStats[]): SeasonStats {
   const statsByFixture = new Map(statsRows.map(s => [s.fixture_id, s]))
-  const confirmed = fixtures.filter(f => statsByFixture.has(f.fixtureId))
+  const confirmed = fixtures.filter(f => statsByFixture.has(f.fixtureId) && isMatchFinished(f.statusShort))
 
   let won = 0, drawn = 0, lost = 0, goalsFor = 0, goalsAgainst = 0
   const possessionValues: number[] = []

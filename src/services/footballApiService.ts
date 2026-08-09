@@ -168,6 +168,20 @@ export async function fetchTeamFixtures(teamId: number, forceRefresh = false): P
   return fixtures
 }
 
+const SEASON_FIXTURES_CACHE_PREFIX = 'dg-season-fixtures-cache'
+
+export async function fetchSeasonFixtures(teamId: number, season: number, forceRefresh = false): Promise<AgencyFixture[]> {
+  const cacheKey = `${SEASON_FIXTURES_CACHE_PREFIX}:${teamId}:${season}`
+  if (!forceRefresh) {
+    const cached = getCachedGeneric<AgencyFixture[]>(cacheKey, CACHE_TTL)
+    if (cached) return cached
+  }
+  const res = await apiFetch<ApiFixture[]>('/fixtures', { team: String(teamId), season: String(season) }).catch(() => null)
+  const fixtures = (res?.response ?? []).map(f => mapFixture(f, teamId))
+  if (fixtures.length > 0) setCacheGeneric(cacheKey, fixtures)
+  return fixtures
+}
+
 export function toArDateKey(date: Date | string): string {
   const d = typeof date === 'string' ? new Date(date) : date
   return new Intl.DateTimeFormat('sv-SE', { timeZone: AR_TZ }).format(d)
