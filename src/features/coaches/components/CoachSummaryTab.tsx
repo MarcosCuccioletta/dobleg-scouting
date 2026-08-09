@@ -4,6 +4,7 @@ import { fetchTeamFixtures } from '@/services/footballApiService'
 import { isMatchFinished } from '@/utils/coachCalendar'
 import { matchOutcome, RESULT_STYLES } from '../matchResult'
 import CoachStreakStrip from './CoachStreakStrip'
+import CoachRivalPanel from './CoachRivalPanel'
 import type { AgencyFixture } from '@/types/footballApi'
 import type { AgencyCoach } from '@/constants/agencyCoaches'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
@@ -18,6 +19,7 @@ function EmptyState({ message }: { message: string }) {
 
 export default function CoachSummaryTab({ coach }: { coach: AgencyCoach }) {
   const [fixtures, setFixtures] = useState<AgencyFixture[] | null>(null)
+  const [showRival, setShowRival] = useState(false)
 
   useEffect(() => {
     if (!coach.apiTeamId) return
@@ -90,16 +92,22 @@ export default function CoachSummaryTab({ coach }: { coach: AgencyCoach }) {
           </p>
 
           <div className="flex justify-center mt-4">
-            <Link
-              to="/scouting"
+            <button
+              onClick={() => setShowRival(v => !v)}
               className="inline-flex items-center gap-1.5 min-h-[40px] px-4 rounded-full bg-brand-green text-apple-gray-900 text-sm font-semibold transition-transform duration-200 ease-apple hover:-translate-y-0.5"
             >
-              Cargar informe del próximo rival
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+              {showRival ? 'Ocultar rival' : 'Ver rival'}
+              <svg
+                className={`w-4 h-4 transition-transform ${showRival ? 'rotate-180' : ''}`}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
               </svg>
-            </Link>
+            </button>
           </div>
+          {showRival && <CoachRivalPanel teamId={next.isHome ? next.awayTeam.id : next.homeTeam.id} />}
         </div>
       ) : (
         <EmptyState message="No hay partidos programados por el momento." />
