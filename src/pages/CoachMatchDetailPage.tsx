@@ -60,7 +60,11 @@ export default function CoachMatchDetailPage() {
   const [note, setNote] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!coach?.apiTeamId || !fixtureId) return
+    if (!fixtureId) return
+    if (!coach?.apiTeamId) {
+      setFixture(null)
+      return
+    }
     let active = true
     fetchTeamFixtures(coach.apiTeamId).then(fixtures => {
       if (active) setFixture(fixtures.find(f => f.fixtureId === Number(fixtureId)) ?? null)
