@@ -31,7 +31,10 @@ export default function CoachDetailPage() {
   const { coachKey } = useParams<{ coachKey: string }>()
   const coach = coachKey ? getCoachByKey(coachKey) : undefined
   const [searchParams, setSearchParams] = useSearchParams()
-  const activeTab = (searchParams.get('tab') as CoachTab) || 'resumen'
+  const tabParam = searchParams.get('tab')
+  const isValidTab = (val: string): val is CoachTab =>
+    ['resumen', 'plantel', 'liga', 'calendario', 'entrenamientos', 'notas', 'reserva'].includes(val)
+  const activeTab: CoachTab = tabParam && isValidTab(tabParam) ? tabParam : 'resumen'
   const setActiveTab = (tab: CoachTab) => setSearchParams(prev => {
     const next = new URLSearchParams(prev)
     next.set('tab', tab)
