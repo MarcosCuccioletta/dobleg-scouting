@@ -30,16 +30,35 @@ describe('matchFixtureForRow', () => {
     expect(result?.fixtureId).toBe(1)
   })
 
-  it('no matchea si la fecha no coincide', () => {
+  it('matchea con hasta 1 dia de diferencia de fecha (desfasaje visto en exports reales de Wyscout)', () => {
     const row = mkWyscoutMatch({ fecha: '2026-08-03' })
     const fixture = mkFixture()
+    expect(matchFixtureForRow(row, [fixture])?.fixtureId).toBe(1)
+  })
+
+  it('no matchea si la fecha difiere en mas de 1 dia', () => {
+    const row = mkWyscoutMatch({ fecha: '2026-08-05' })
+    const fixture = mkFixture()
     expect(matchFixtureForRow(row, [fixture])).toBeNull()
+  })
+
+  it('con varios candidatos dentro de la tolerancia, elige el de fecha mas cercana', () => {
+    const row = mkWyscoutMatch({ fecha: '2026-08-02' })
+    const exact = mkFixture({ fixtureId: 1, date: '2026-08-02T18:00:00+00:00' })
+    const offByOne = mkFixture({ fixtureId: 2, date: '2026-08-03T18:00:00+00:00' })
+    expect(matchFixtureForRow(row, [offByOne, exact])?.fixtureId).toBe(1)
   })
 
   it('no matchea si el rival no coincide aunque la fecha si', () => {
     const row = mkWyscoutMatch({ equipoRival: 'Otro Equipo' })
     const fixture = mkFixture()
     expect(matchFixtureForRow(row, [fixture])).toBeNull()
+  })
+
+  it('matchea variantes de nombre de club (con/sin "de", visto en datos reales)', () => {
+    const row = mkWyscoutMatch({ equipoRival: 'Atlético Rafaela' })
+    const fixture = mkFixture({ awayTeam: { id: 2, name: 'Atlético DE Rafaela', logo: '' } })
+    expect(matchFixtureForRow(row, [fixture])?.fixtureId).toBe(1)
   })
 
   it('devuelve null si no hay ningun fixture', () => {
