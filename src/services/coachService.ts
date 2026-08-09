@@ -77,6 +77,24 @@ export async function deleteTrainingSession(id: number): Promise<{ success: bool
   return { success: true }
 }
 
+export async function listMatchNotes(coachKey: string): Promise<Record<number, string>> {
+  const { data, error } = await supabase
+    .from('coach_match_notes')
+    .select('fixture_id, note')
+    .eq('coach_key', coachKey)
+
+  if (error || !data) {
+    console.error('Error listando notas de partido:', error)
+    return {}
+  }
+
+  const result: Record<number, string> = {}
+  for (const row of data as unknown as Array<{ fixture_id: number; note: string }>) {
+    result[row.fixture_id] = row.note
+  }
+  return result
+}
+
 export async function getMatchNote(coachKey: string, fixtureId: number): Promise<string | null> {
   const { data, error } = await supabase
     .from('coach_match_notes')

@@ -41,12 +41,16 @@ export default function CoachLeagueTab({ coach }: { coach: AgencyCoach }) {
   useEffect(() => {
     if (!coach.leagueApiId || !coach.leagueSeason) return
     let active = true
-    fetchLeagueStandings(coach.leagueApiId, coach.leagueSeason).then(g => {
-      if (!active) return
-      setGroups(g)
-      const ownGroupIndex = g.findIndex(group => group.some(row => row.teamId === coach.apiTeamId))
-      if (ownGroupIndex >= 0) setActiveGroup(ownGroupIndex)
-    })
+    fetchLeagueStandings(coach.leagueApiId, coach.leagueSeason)
+      .then(g => {
+        if (!active) return
+        setGroups(g)
+        const ownGroupIndex = g.findIndex(group => group.some(row => row.teamId === coach.apiTeamId))
+        if (ownGroupIndex >= 0) setActiveGroup(ownGroupIndex)
+      })
+      .catch(() => {
+        if (active) setGroups([])
+      })
     return () => {
       active = false
     }
@@ -75,7 +79,7 @@ export default function CoachLeagueTab({ coach }: { coach: AgencyCoach }) {
             <button
               key={i}
               onClick={() => setActiveGroup(i)}
-              className={`min-h-[32px] px-3 rounded-full text-xs font-semibold whitespace-nowrap flex-shrink-0 transition-all duration-200 ease-apple ${
+              className={`min-h-[40px] px-3 rounded-full text-xs font-semibold whitespace-nowrap flex-shrink-0 transition-all duration-200 ease-apple ${
                 i === activeGroup
                   ? 'bg-brand-green text-apple-gray-900'
                   : 'bg-apple-gray-100 dark:bg-apple-gray-800 text-apple-gray-500 dark:text-apple-gray-400 hover:text-apple-gray-700 dark:hover:text-apple-gray-200'
@@ -88,7 +92,7 @@ export default function CoachLeagueTab({ coach }: { coach: AgencyCoach }) {
         <select
           value={sortKey}
           onChange={e => setSortKey(e.target.value as SortKey)}
-          className="text-xs font-medium rounded-lg border border-apple-gray-200 dark:border-apple-gray-700 bg-white dark:bg-apple-gray-800 px-2.5 py-1.5 text-apple-gray-700 dark:text-apple-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-green/40 focus:border-brand-green"
+          className="min-h-[40px] text-xs font-medium rounded-lg border border-apple-gray-200 dark:border-apple-gray-700 bg-white dark:bg-apple-gray-800 px-2.5 py-2 text-apple-gray-700 dark:text-apple-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-green/40 focus:border-brand-green"
         >
           {(Object.keys(SORT_LABEL) as SortKey[]).map(key => (
             <option key={key} value={key}>

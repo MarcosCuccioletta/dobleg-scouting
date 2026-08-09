@@ -161,7 +161,10 @@ export async function fetchTeamFixtures(teamId: number, forceRefresh = false): P
   }
   const raw = await getTeamFixtures(teamId)
   const fixtures = raw.map(f => mapFixture(f, teamId))
-  setCacheGeneric(cacheKey, fixtures)
+  // No cachear resultados vacíos: getTeamFixtures traga sus propios errores y
+  // devuelve [] ante una falla transitoria de la API. Cachear ese [] por 4h
+  // dejaría Resumen/Calendario/Notas en blanco sin forma de reintentar.
+  if (fixtures.length > 0) setCacheGeneric(cacheKey, fixtures)
   return fixtures
 }
 
