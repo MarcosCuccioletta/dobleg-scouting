@@ -34,6 +34,19 @@ export interface CoachMatchNote {
   updated_at: string
 }
 
+export interface CoachMatchTeamStats {
+  id: number
+  coach_key: string
+  fixture_id: number
+  possession_pct: number | null
+  xg_for: number | null
+  xg_against: number | null
+  raw_metrics: Record<string, unknown>
+  source_file: string | null
+  created_at: string
+  updated_at: string
+}
+
 export async function listTrainingSessions(coachKey: string): Promise<CoachTrainingSession[]> {
   const { data, error } = await supabase
     .from('coach_training_sessions')
@@ -122,6 +135,50 @@ export async function upsertMatchNote(coachKey: string, fixtureId: number, note:
 
   if (error) {
     console.error('Error guardando nota de partido:', error)
+    return { success: false, error: error.message }
+  }
+  return { success: true }
+}
+
+export async function listCoachMatchTeamStats(coachKey: string): Promise<CoachMatchTeamStats[]> {
+  const { data, error } = await supabase
+    .from('coach_match_team_stats')
+    .select('*')
+    .eq('coach_key', coachKey)
+
+  if (error || !data) {
+    console.error('Error listando estadisticas de partido:', error)
+    return []
+  }
+  return data
+}
+
+export async function upsertCoachMatchTeamStats(
+  coachKey: string,
+  fixtureId: number,
+  stats: {
+    possessionPct: number | null
+    xgFor: number | null
+    xgAgainst: number | null
+    rawMetrics: Record<string, unknown>
+    sourceFile: string | null
+  },
+): Promise<{ success: boolean; error?: string }> {
+  const { error } = await supabase.from('coach_match_team_stats').upsert({
+    coach_key: coachKey,
+    fixture_id: fixtureId,
+    possession_pct: stats.possessionPct,
+    xg_for: stats.xgFor,
+    xg_against: stats.xgAgainst,
+    raw_metrics: stats.rawMetrics,
+    source_file: stats.sourceFile,
+    updated_at: new Date().toISOString(),
+  }, {
+    onConflict: 'coach_key,fixture_id',
+  })
+
+  if (error) {
+    console.error('Error guardando estadisticas de partido:', error)
     return { success: false, error: error.message }
   }
   return { success: true }
