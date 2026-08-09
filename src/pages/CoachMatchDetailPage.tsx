@@ -21,28 +21,106 @@ function EmptyState({ message }: { message: string }) {
   )
 }
 
-const EVENT_ICON: Record<string, string> = {
-  Goal: '⚽',
-  subst: '🔁',
+function GoalIcon() {
+  return (
+    <span className="w-6 h-6 rounded-full bg-brand-green flex items-center justify-center flex-shrink-0">
+      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={2}>
+        <circle cx="12" cy="12" r="8.5" />
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M12 8.2l2.7 2-1 3.1H10.3l-1-3.1L12 8.2zM12 8.2V5.3M9.5 9.7L7 8M14.5 9.7L17 8M10.4 12.8l-2 2.7M13.6 12.8l2 2.7M11 15.3l-.6 3M13 15.3l.6 3"
+        />
+      </svg>
+    </span>
+  )
 }
 
-function eventIcon(e: ApiFixtureEvent): string {
-  if (e.detail === 'Yellow Card') return '🟨'
-  if (e.detail === 'Red Card') return '🟥'
-  return EVENT_ICON[e.type] ?? ''
+function CardIcon({ color }: { color: 'yellow' | 'red' }) {
+  return (
+    <span
+      className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${
+        color === 'yellow' ? 'bg-amber-400' : 'bg-brand-red'
+      }`}
+    >
+      <span className={`w-2 h-3 rounded-[1.5px] ${color === 'yellow' ? 'bg-amber-900/40' : 'bg-white/90'}`} />
+    </span>
+  )
+}
+
+function SubstIcon() {
+  return (
+    <span className="w-6 h-6 rounded-full bg-apple-gray-200 dark:bg-apple-gray-700 flex items-center justify-center flex-shrink-0">
+      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2}>
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="text-brand-green"
+          d="M7 15V6m0 0L4 9m3-3l3 3"
+        />
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="text-brand-red"
+          d="M17 9v9m0 0l3-3m-3 3l-3-3"
+        />
+      </svg>
+    </span>
+  )
+}
+
+function EventIcon({ e }: { e: ApiFixtureEvent }) {
+  if (e.detail === 'Yellow Card') return <CardIcon color="yellow" />
+  if (e.detail === 'Red Card') return <CardIcon color="red" />
+  if (e.type === 'subst') return <SubstIcon />
+  if (e.type === 'Goal') return <GoalIcon />
+  return <span className="w-6 h-6 rounded-full bg-apple-gray-200 dark:bg-apple-gray-700 flex-shrink-0" />
+}
+
+function EventContent({ e, align }: { e: ApiFixtureEvent; align: 'left' | 'right' }) {
+  const alignClass = align === 'right' ? 'text-right items-end' : 'text-left items-start'
+  if (e.type === 'subst') {
+    return (
+      <div className={`flex flex-col min-w-0 ${alignClass}`}>
+        <p className="text-sm font-medium text-apple-gray-800 dark:text-white truncate w-full">
+          <span className="text-brand-green">↑</span> {e.assist.name ?? 'Ingresa'}
+        </p>
+        <p className="text-2xs text-apple-gray-400 truncate w-full">
+          <span className="text-brand-red">↓</span> {e.player.name ?? 'Sale'}
+        </p>
+      </div>
+    )
+  }
+  return (
+    <div className={`flex flex-col min-w-0 ${alignClass}`}>
+      <p className="text-sm font-medium text-apple-gray-800 dark:text-white truncate w-full">
+        {e.player.name ?? e.detail}
+        {e.detail === 'Own Goal' && <span className="text-apple-gray-400 font-normal"> (en contra)</span>}
+        {e.detail === 'Penalty' && <span className="text-apple-gray-400 font-normal"> (penal)</span>}
+      </p>
+      {e.assist.name && <p className="text-2xs text-apple-gray-400 truncate w-full">Asistencia: {e.assist.name}</p>}
+    </div>
+  )
 }
 
 function LineupGroupList({ grouped }: { grouped: ReturnType<typeof groupLineupByPosition> }) {
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       {LINEUP_GROUP_ORDER.filter(g => grouped[g].length > 0).map(group => (
         <div key={group}>
-          <p className="text-[10px] font-bold text-apple-gray-300 dark:text-apple-gray-600 uppercase tracking-wide">
+          <p className="text-[10px] font-bold text-apple-gray-300 dark:text-apple-gray-600 uppercase tracking-wide mb-1">
             {group}
           </p>
-          <p className="text-xs text-apple-gray-700 dark:text-apple-gray-300 leading-relaxed">
-            {grouped[group].map(p => (p.number ? `#${p.number} ${p.name}` : p.name)).join(' · ')}
-          </p>
+          <div className="space-y-1">
+            {grouped[group].map(p => (
+              <div key={p.id} className="flex items-center gap-2">
+                <span className="w-5 h-5 rounded-full bg-apple-gray-100 dark:bg-apple-gray-700 text-[10px] font-bold text-apple-gray-500 dark:text-apple-gray-400 flex items-center justify-center flex-shrink-0">
+                  {p.number ?? '–'}
+                </span>
+                <span className="text-xs text-apple-gray-700 dark:text-apple-gray-300 truncate">{p.name}</span>
+              </div>
+            ))}
+          </div>
         </div>
       ))}
     </div>
@@ -151,24 +229,25 @@ export default function CoachMatchDetailPage() {
         ) : events.length === 0 ? (
           <EmptyState message="No hay eventos registrados para este partido." />
         ) : (
-          <div className="space-y-2">
+          <div className="bg-white dark:bg-apple-gray-800/60 rounded-apple-lg border border-apple-gray-200/60 dark:border-apple-gray-700/40 divide-y divide-apple-gray-100 dark:divide-apple-gray-700/40">
             {[...events]
               .sort((a, b) => a.time.elapsed - b.time.elapsed)
-              .map((e, i) => (
-                <div
-                  key={i}
-                  className="flex items-center gap-3 bg-white dark:bg-apple-gray-800/60 rounded-apple-lg border border-apple-gray-200/60 dark:border-apple-gray-700/40 px-3 sm:px-4 py-2.5"
-                >
-                  <span className="text-2xs font-bold text-apple-gray-400 w-8 flex-shrink-0">{e.time.elapsed}'</span>
-                  <img src={e.team.logo} alt="" className="w-5 h-5 object-contain flex-shrink-0" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-apple-gray-800 dark:text-white truncate">
-                      {eventIcon(e)} {e.player.name ?? e.detail}
-                    </p>
-                    {e.assist.name && <p className="text-2xs text-apple-gray-400">Asistencia: {e.assist.name}</p>}
+              .map((e, i) => {
+                const isHome = e.team.id === fixture.homeTeam.id
+                return (
+                  <div key={i} className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2.5">
+                    <div className="min-w-0">{isHome && <EventContent e={e} align="right" />}</div>
+                    <div className="flex flex-col items-center gap-1 w-10 flex-shrink-0">
+                      <EventIcon e={e} />
+                      <span className="text-2xs font-bold text-apple-gray-400">
+                        {e.time.elapsed}
+                        {e.time.extra ? `+${e.time.extra}` : ''}'
+                      </span>
+                    </div>
+                    <div className="min-w-0">{!isHome && <EventContent e={e} align="left" />}</div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
           </div>
         )}
       </div>
