@@ -9,6 +9,8 @@ export const RESULT_STYLES: Record<MatchResult, string> = {
   P: 'bg-brand-red/10 text-brand-red',
 }
 
+// scoreLabel is team-perspective ("<team goals> - <opponent goals>"), NOT home/away — do not use
+// directly for a home/away-oriented scoreboard (use fixture.goalsHome/goalsAway for that instead).
 export function matchOutcome(f: AgencyFixture): { result: MatchResult | null; scoreLabel: string } {
   const teamGoals = f.isHome ? f.goalsHome : f.goalsAway
   const oppGoals = f.isHome ? f.goalsAway : f.goalsHome
@@ -17,9 +19,11 @@ export function matchOutcome(f: AgencyFixture): { result: MatchResult | null; sc
   return { result, scoreLabel: `${teamGoals} - ${oppGoals}` }
 }
 
+export const RECENT_MATCHES_COUNT = 10
+
 export function buildStreak(
   fixtures: AgencyFixture[],
-  size = 10,
+  size = RECENT_MATCHES_COUNT,
 ): { fixtureId: number; result: MatchResult | null }[] {
   return [...fixtures]
     .filter(f => isMatchFinished(f.statusShort))

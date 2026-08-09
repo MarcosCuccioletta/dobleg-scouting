@@ -39,7 +39,7 @@ export default function CoachDetailPage() {
     const next = new URLSearchParams(prev)
     next.set('tab', tab)
     return next
-  })
+  }, { replace: true })
 
   if (!coach) {
     return (

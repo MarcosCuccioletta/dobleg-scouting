@@ -10,7 +10,6 @@ import {
 } from '@/services/footballApiService'
 import { getMatchNote } from '@/services/coachService'
 import { groupLineupByPosition, LINEUP_GROUP_ORDER } from '@/features/coaches/lineupGrouping'
-import { matchOutcome } from '@/features/coaches/matchResult'
 import type { AgencyFixture, ApiFixtureLineup, ApiFixtureEvent } from '@/types/footballApi'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 
@@ -93,8 +92,6 @@ export default function CoachMatchDetailPage() {
   if (fixture === undefined) return <LoadingSpinner message="Cargando partido..." />
   if (fixture === null) return <EmptyState message="No pudimos encontrar este partido." />
 
-  const { scoreLabel } = matchOutcome(fixture)
-
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 animate-fade-in">
       <Link
@@ -120,7 +117,7 @@ export default function CoachMatchDetailPage() {
             </span>
           </div>
           <span className="text-xl sm:text-2xl font-bold text-apple-gray-800 dark:text-white flex-shrink-0">
-            {scoreLabel}
+            {fixture.goalsHome ?? '-'} - {fixture.goalsAway ?? '-'}
           </span>
           <div className="flex flex-col items-center gap-2 min-w-0">
             <img src={fixture.awayTeam.logo} alt="" className="w-12 h-12 sm:w-16 sm:h-16 object-contain" />

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { matchOutcome, buildStreak } from './matchResult'
+import { matchOutcome, buildStreak, RECENT_MATCHES_COUNT } from './matchResult'
 import type { AgencyFixture } from '@/types/footballApi'
 
 function mkFixture(over: Partial<AgencyFixture> = {}): AgencyFixture {
@@ -50,13 +50,13 @@ describe('buildStreak', () => {
       mkFixture({ fixtureId: 1, timestamp: 100, statusShort: 'FT', goalsHome: 1, goalsAway: 0 }),
       mkFixture({ fixtureId: 2, timestamp: 200, statusShort: 'NS', goalsHome: null, goalsAway: null }),
     ]
-    const streak = buildStreak(fixtures, 10)
+    const streak = buildStreak(fixtures, RECENT_MATCHES_COUNT)
     expect(streak.map(s => s.fixtureId)).toEqual([1])
   })
 
   it('devuelve racha parcial si hay menos partidos que el tamano pedido', () => {
     const fixtures = [mkFixture({ fixtureId: 1, timestamp: 100, statusShort: 'FT', goalsHome: 1, goalsAway: 0 })]
-    const streak = buildStreak(fixtures, 10)
+    const streak = buildStreak(fixtures, RECENT_MATCHES_COUNT)
     expect(streak).toHaveLength(1)
   })
 })

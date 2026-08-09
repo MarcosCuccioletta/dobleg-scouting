@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { fetchTeamFixtures } from '@/services/footballApiService'
 import { isMatchFinished } from '@/utils/coachCalendar'
-import { matchOutcome, RESULT_STYLES } from '../matchResult'
+import { matchOutcome, RESULT_STYLES, RECENT_MATCHES_COUNT } from '../matchResult'
 import CoachStreakStrip from './CoachStreakStrip'
 import CoachRivalPanel from './CoachRivalPanel'
 import type { AgencyFixture } from '@/types/footballApi'
@@ -40,10 +40,8 @@ export default function CoachSummaryTab({ coach }: { coach: AgencyCoach }) {
 
   const sorted = [...fixtures].sort((a, b) => a.timestamp - b.timestamp)
   const next = sorted.find(f => !isMatchFinished(f.statusShort))
-  const lastTen = [...sorted]
-    .filter(f => isMatchFinished(f.statusShort))
-    .reverse()
-    .slice(0, 10)
+  const finished = [...sorted].filter(f => isMatchFinished(f.statusShort))
+  const lastTen = [...finished].reverse().slice(0, RECENT_MATCHES_COUNT)
 
   return (
     <div className="space-y-6 sm:space-y-8 animate-fade-in">
@@ -114,9 +112,11 @@ export default function CoachSummaryTab({ coach }: { coach: AgencyCoach }) {
       )}
 
       <div>
-        <div className="mb-3">
-          <CoachStreakStrip fixtures={sorted} />
-        </div>
+        {finished.length > 0 && (
+          <div className="mb-3">
+            <CoachStreakStrip fixtures={sorted} />
+          </div>
+        )}
         <p className="text-xs font-semibold text-apple-gray-400 uppercase tracking-wide mb-3">
           Últimos 10 resultados
         </p>
