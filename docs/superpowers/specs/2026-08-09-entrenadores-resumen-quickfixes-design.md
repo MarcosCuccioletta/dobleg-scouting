@@ -60,7 +60,7 @@ Gráfico de momentum, análisis táctico completo del rival, formación con coor
 
 ## Testing
 
-- `matchOutcome()` y el nuevo helper de agrupación de racha: tests unitarios puros (ya hay precedente de tests para `coachCalendar.ts`).
-- `CoachStreakStrip`: test de que ordena ascendente y corta en 10.
-- Agrupación de alineación por posición vía cruce con el plantel (`Goalkeeper/Defender/Midfielder/Attacker` → 4 grupos en español, más "Otros" para jugadores sin match): tests unitarios, casos borde (jugador sin match en el plantel, `position: null`).
-- `CoachMatchDetailPage`: smoke test de render con fixtures mockeadas (patrón ya usado en los tests existentes de `features/coaches`).
+El proyecto testea solo lógica pura (`vitest`, `environment: 'node'`, `include: ['src/**/*.test.ts', ...]` — **no incluye `.test.tsx`**, no hay React Testing Library configurada; precedente: `coachCalendar.test.ts` testea funciones, no componentes). Se sigue el mismo patrón acá, nada de smoke tests de render:
+
+- `matchOutcome()` y el helper de racha (`buildStreak(fixtures) → orden ascendente, corta en 10`): tests unitarios puros en `src/features/coaches/matchResult.test.ts`.
+- Agrupación de alineación por posición vía cruce con el plantel (`groupLineupByPosition`, `Goalkeeper/Defender/Midfielder/Attacker` → 4 grupos en español, más "Otros" para jugadores sin match): tests unitarios en `src/features/coaches/lineupGrouping.test.ts`, casos borde (jugador sin match por id en el plantel, `position: null`).
