@@ -33,7 +33,7 @@ CREATE POLICY "write_coach_training_sessions" ON public.coach_training_sessions
   FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 DROP POLICY IF EXISTS "read_coach_match_notes" ON public.coach_match_notes;
-CREATE POLICY "read_coach_match_notes" ON public.coach_match_notes FOR SELECT USING (true);
+CREATE POLICY "read_coach_match_notes" ON public.coach_match_notes FOR SELECT TO authenticated USING (true);
 DROP POLICY IF EXISTS "write_coach_match_notes" ON public.coach_match_notes;
 CREATE POLICY "write_coach_match_notes" ON public.coach_match_notes
   FOR ALL TO authenticated USING (true) WITH CHECK (true);
