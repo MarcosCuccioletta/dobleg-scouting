@@ -2,25 +2,10 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { fetchTeamFixtures } from '@/services/footballApiService'
 import { isMatchFinished } from '@/utils/coachCalendar'
+import { matchOutcome, RESULT_STYLES } from '../matchResult'
 import type { AgencyFixture } from '@/types/footballApi'
 import type { AgencyCoach } from '@/constants/agencyCoaches'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
-
-type MatchResult = 'G' | 'E' | 'P'
-
-const RESULT_STYLES: Record<MatchResult, string> = {
-  G: 'bg-brand-green/15 text-brand-green',
-  E: 'bg-apple-gray-100 dark:bg-apple-gray-700 text-apple-gray-500 dark:text-apple-gray-400',
-  P: 'bg-brand-red/10 text-brand-red',
-}
-
-function matchOutcome(f: AgencyFixture): { result: MatchResult | null; scoreLabel: string } {
-  const teamGoals = f.isHome ? f.goalsHome : f.goalsAway
-  const oppGoals = f.isHome ? f.goalsAway : f.goalsHome
-  if (teamGoals === null || oppGoals === null) return { result: null, scoreLabel: '-' }
-  const result: MatchResult = teamGoals > oppGoals ? 'G' : teamGoals < oppGoals ? 'P' : 'E'
-  return { result, scoreLabel: `${teamGoals} - ${oppGoals}` }
-}
 
 function EmptyState({ message }: { message: string }) {
   return (
