@@ -5,7 +5,7 @@
 Primer sub-proyecto de una tanda de 8 pedidos sobre la sección Entrenadores (feedback del usuario tras probar la rama `worktree-feat+entrenadores-domingo-stillitano` en local). Este cubre solo el tab **Resumen** de `CoachSummaryTab.tsx`. Los otros 7 (stats Wyscout, Plantel por posición, Calendario mensual, Entrenamientos, Notas por fase, Pizarra táctica, Armado de plantel futuro) son sub-proyectos separados, con su propio spec/plan cuando se llegue a ellos.
 
 Verificado en vivo contra API-Football (fixture 1498702, Temperley vs Gimnasia y Tiro) antes de diseñar:
-- `/fixtures/lineups?fixture=X` → **sí** trae `coach.name` (confirmado "Nicolas Domingo") y `startXI`/`substitutes` por equipo. `formation` y `grid` vienen `null` para esta liga — no hay forma de dibujar la cancha con posiciones exactas, solo listar jugadores.
+- `/fixtures/lineups?fixture=X` → **sí** trae `coach.name` (confirmado "Nicolas Domingo") y `startXI`/`substitutes` por equipo. `formation`, `grid` y el `pos` de **cada jugador** vienen `null` para esta liga (verificado en los 20 jugadores titulares + 18 suplentes del fixture de prueba, no es solo el arquero) — no hay forma de dibujar la cancha ni de agrupar por posición usando el dato del propio lineup.
 - `/fixtures/events?fixture=X` → sí trae goles/tarjetas/cambios con minuto.
 - `/fixtures/statistics?fixture=X` → vacío (`results: 0`) para Primera Nacional. No hay posesión/tiros/xG por esta vía — coherente con la decisión ya tomada de usar el Excel de Wyscout para esas métricas (sub-proyecto 2, aparte).
 - No existe ninguna fuente de "momentum" (gráfico de dominio del partido minuto a minuto) integrada ni disponible en API-Football. **Queda fuera de este alcance**; si en el futuro se consigue otra fuente se agrega como mejora aparte.
@@ -35,7 +35,7 @@ Nueva ruta `/entrenadores/:coachKey/partido/:fixtureId`, componente `CoachMatchD
 
 Contenido de la página:
 - Header: escudos, marcador, fecha, competencia, venue (mismo patrón visual que la card de "Próximo partido" que ya existe).
-- **Alineaciones**: dos columnas (local/visitante), `startXI` + `substitutes` de `/fixtures/lineups`. Como no hay `grid`/`formation` utilizable, se listan agrupados por posición usando el mismo mapeo de posiciones del club (`ARQ`/`LD`/`CB`/`LI`/`VC`/`VI`/`EXT`/`DEL`) que ya usa `FormationPage.tsx` — heurística simple sobre el campo `pos` de cada jugador de la alineación (G/D/M/F que devuelve API-Football) mapeado a esas 8 categorías, sin pretender precisión de grid.
+- **Alineaciones**: dos columnas (local/visitante), `startXI` + `substitutes` de `/fixtures/lineups`. Como el propio lineup no trae `pos`/`grid` utilizable, la posición se resuelve cruzando el `player.id` de cada jugador de la alineación contra `fetchSquadCached(teamId)` (ya existe, se usa en el tab Plantel — devuelve `{ id, name, position, ... }` desde `/players/squads`, cacheado 7 días). Con eso se agrupan en 4 categorías (Arqueros/Defensores/Mediocampistas/Delanteros, mapeando el `Goalkeeper/Defender/Midfielder/Attacker` de la API) — no las 8 categorías finas del club (`LD`/`CB`/`LI` etc.) porque esa granularidad no está disponible en ninguna fuente para esta liga. Un jugador de la alineación sin match por id en el plantel (pasó algo así en fixtures de prueba con jugadores de inferiores) cae en un grupo "Otros" al final, no se descarta.
 - **Goles y hechos**: timeline de `/fixtures/events` (goles con asistencia, tarjetas, cambios), ordenado por minuto.
 - **Nota del DT**: si existe una fila en `coach_match_notes` para ese `fixture_id` (tabla ya creada en el sub-proyecto anterior), se muestra acá embebida, de solo lectura, con link a "Editar en Notas de partido" que lleva al tab Notas. No se edita desde acá — evita duplicar el formulario de edición en dos lugares antes de que el sub-proyecto 6 (notas por fase) rediseñe esa tab.
 
@@ -62,5 +62,5 @@ Gráfico de momentum, análisis táctico completo del rival, formación con coor
 
 - `matchOutcome()` y el nuevo helper de agrupación de racha: tests unitarios puros (ya hay precedente de tests para `coachCalendar.ts`).
 - `CoachStreakStrip`: test de que ordena ascendente y corta en 10.
-- Mapeo de posición de alineación (API `pos` G/D/M/F → las 8 categorías del club): tests unitarios, casos borde (`pos: null`).
+- Agrupación de alineación por posición vía cruce con el plantel (`Goalkeeper/Defender/Midfielder/Attacker` → 4 grupos en español, más "Otros" para jugadores sin match): tests unitarios, casos borde (jugador sin match en el plantel, `position: null`).
 - `CoachMatchDetailPage`: smoke test de render con fixtures mockeadas (patrón ya usado en los tests existentes de `features/coaches`).
