@@ -980,3 +980,4 @@ Expected: sin errores.
   - Detalle de partido: marcador, alineaciones agrupadas por posición, goles/hechos con minuto, nota del DT si existe.
   - Botón "Ver rival" despliega plantel + racha del rival sin navegar a otra página.
   - Ir a Plantel, entrar a un jugador, volver: sigue en Plantel.
+(post-plan fix) Visual redesign after user feedback (disappointed with match-detail page): commit b2e7f75 — replaced broken emoji icons with SVG chips, redesigned goals/events as two-column home/away timeline, lineups from inline text to per-player rows. Verified in browser via screenshots before/after. 561/561 tests green.
