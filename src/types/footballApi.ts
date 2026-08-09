@@ -104,3 +104,31 @@ export interface AgencyFixture {
   source?: 'api' | 'manual'
 }
 
+export interface ApiFixtureLineupPlayer {
+  player: {
+    id: number
+    name: string
+    number: number | null
+    pos: string | null
+    grid: string | null
+  }
+}
+
+export interface ApiFixtureLineup {
+  team: { id: number; name: string; logo: string }
+  coach: { id: number; name: string; photo: string | null } | null
+  formation: string | null
+  startXI: ApiFixtureLineupPlayer[]
+  substitutes: ApiFixtureLineupPlayer[]
+}
+
+export interface ApiFixtureEvent {
+  time: { elapsed: number; extra: number | null }
+  team: { id: number; name: string; logo: string }
+  player: { id: number | null; name: string | null }
+  assist: { id: number | null; name: string | null }
+  type: string
+  detail: string
+  comments: string | null
+}
+

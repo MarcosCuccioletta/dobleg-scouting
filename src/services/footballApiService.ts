@@ -1,4 +1,4 @@
-import type { ApiResponse, ApiFixture, AgencyFixture } from '@/types/footballApi'
+import type { ApiResponse, ApiFixture, AgencyFixture, ApiFixtureLineup, ApiFixtureEvent } from '@/types/footballApi'
 import { getPlayersByTeamId, getUniqueTeamIds } from '@/constants/agencyPlayers'
 
 // Las llamadas a API-Football pasan por /api/football (proxy server-side:
@@ -517,4 +517,26 @@ export async function fetchLeagueStandings(leagueId: number, season: number, for
   const groups = mapStandingsResponse(raw)
   setCacheGeneric(cacheKey, groups)
   return groups
+}
+
+const FIXTURE_DETAIL_CACHE_TTL = 7 * 24 * 60 * 60 * 1000 // partido ya jugado no cambia: cache largo
+
+export async function fetchFixtureLineups(fixtureId: number): Promise<ApiFixtureLineup[]> {
+  const cacheKey = `dg-fixture-lineups-cache:${fixtureId}`
+  const cached = getCachedGeneric<ApiFixtureLineup[]>(cacheKey, FIXTURE_DETAIL_CACHE_TTL)
+  if (cached) return cached
+  const res = await apiFetch<ApiFixtureLineup[]>('/fixtures/lineups', { fixture: String(fixtureId) }).catch(() => null)
+  const lineups = res?.response ?? []
+  if (lineups.length > 0) setCacheGeneric(cacheKey, lineups)
+  return lineups
+}
+
+export async function fetchFixtureEvents(fixtureId: number): Promise<ApiFixtureEvent[]> {
+  const cacheKey = `dg-fixture-events-cache:${fixtureId}`
+  const cached = getCachedGeneric<ApiFixtureEvent[]>(cacheKey, FIXTURE_DETAIL_CACHE_TTL)
+  if (cached) return cached
+  const res = await apiFetch<ApiFixtureEvent[]>('/fixtures/events', { fixture: String(fixtureId) }).catch(() => null)
+  const events = res?.response ?? []
+  if (events.length > 0) setCacheGeneric(cacheKey, events)
+  return events
 }
