@@ -27,6 +27,7 @@ export default function CoachWyscoutUploadPanel({
   const [parsing, setParsing] = useState(false)
   const [fileName, setFileName] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   const handleFile = async (file: File) => {
     if (!coach.club || !coach.apiTeamId) return
@@ -58,16 +59,23 @@ export default function CoachWyscoutUploadPanel({
   const handleSave = async () => {
     if (!rows) return
     setSaving(true)
+    setSaveError(null)
     try {
       const toSave = rows.filter(r => r.included && r.fixture)
+      let failedCount = 0
       for (const row of toSave) {
-        await upsertCoachMatchTeamStats(coach.key, row.fixture!.fixtureId, {
+        const result = await upsertCoachMatchTeamStats(coach.key, row.fixture!.fixtureId, {
           possessionPct: row.wyscout.possessionPct,
           xgFor: row.wyscout.xgFor,
           xgAgainst: row.wyscout.xgAgainst,
           rawMetrics: row.wyscout.rawMetrics,
           sourceFile: fileName,
         })
+        if (!result.success) failedCount += 1
+      }
+      if (failedCount > 0) {
+        setSaveError(`No se pudieron guardar ${failedCount} ${failedCount === 1 ? 'partido' : 'partidos'}, probá de nuevo`)
+        return
       }
       setRows(null)
       setFileName(null)
@@ -93,6 +101,11 @@ export default function CoachWyscoutUploadPanel({
 
   return (
     <div className="space-y-3">
+      {saveError && (
+        <div className="rounded-apple-lg border border-brand-red/40 bg-brand-red/10 px-3 sm:px-4 py-2.5 text-sm text-brand-red">
+          {saveError}
+        </div>
+      )}
       <div className="space-y-2">
         {rows.map((row, i) => (
           <div
@@ -136,7 +149,8 @@ export default function CoachWyscoutUploadPanel({
         <button
           type="button"
           onClick={() => { setRows(null); setFileName(null) }}
-          className="text-sm text-apple-gray-500 hover:text-apple-gray-700 dark:hover:text-apple-gray-300"
+          disabled={saving}
+          className="text-sm text-apple-gray-500 hover:text-apple-gray-700 dark:hover:text-apple-gray-300 disabled:opacity-50"
         >
           Cancelar
         </button>
