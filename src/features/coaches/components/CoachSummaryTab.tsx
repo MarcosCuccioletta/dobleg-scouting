@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { fetchTeamFixtures } from '@/services/footballApiService'
 import { isMatchFinished } from '@/utils/coachCalendar'
 import { matchOutcome, RESULT_STYLES } from '../matchResult'
+import CoachStreakStrip from './CoachStreakStrip'
 import type { AgencyFixture } from '@/types/footballApi'
 import type { AgencyCoach } from '@/constants/agencyCoaches'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
@@ -37,10 +38,10 @@ export default function CoachSummaryTab({ coach }: { coach: AgencyCoach }) {
 
   const sorted = [...fixtures].sort((a, b) => a.timestamp - b.timestamp)
   const next = sorted.find(f => !isMatchFinished(f.statusShort))
-  const lastFive = [...sorted]
+  const lastTen = [...sorted]
     .filter(f => isMatchFinished(f.statusShort))
     .reverse()
-    .slice(0, 5)
+    .slice(0, 10)
 
   return (
     <div className="space-y-6 sm:space-y-8 animate-fade-in">
@@ -105,21 +106,25 @@ export default function CoachSummaryTab({ coach }: { coach: AgencyCoach }) {
       )}
 
       <div>
+        <div className="mb-3">
+          <CoachStreakStrip fixtures={sorted} />
+        </div>
         <p className="text-xs font-semibold text-apple-gray-400 uppercase tracking-wide mb-3">
-          Últimos 5 resultados
+          Últimos 10 resultados
         </p>
-        {lastFive.length === 0 ? (
+        {lastTen.length === 0 ? (
           <EmptyState message="Todavía no hay resultados recientes." />
         ) : (
           <div className="space-y-2">
-            {lastFive.map(f => {
+            {lastTen.map(f => {
               const opponent = f.isHome ? f.awayTeam : f.homeTeam
               const { result, scoreLabel } = matchOutcome(f)
               const badgeStyle = result ? RESULT_STYLES[result] : RESULT_STYLES.E
               return (
-                <div
+                <Link
                   key={f.fixtureId}
-                  className="flex items-center gap-3 bg-white dark:bg-apple-gray-800/60 rounded-apple-lg border border-apple-gray-200/60 dark:border-apple-gray-700/40 px-3 sm:px-4 py-3"
+                  to={`/entrenadores/${coach.key}/partido/${f.fixtureId}`}
+                  className="flex items-center gap-3 bg-white dark:bg-apple-gray-800/60 rounded-apple-lg border border-apple-gray-200/60 dark:border-apple-gray-700/40 hover:border-brand-green/30 transition-colors px-3 sm:px-4 py-3"
                 >
                   <span
                     className={`w-7 h-7 rounded-full flex items-center justify-center text-2xs font-bold flex-shrink-0 ${badgeStyle}`}
@@ -139,7 +144,7 @@ export default function CoachSummaryTab({ coach }: { coach: AgencyCoach }) {
                       {new Date(f.date).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })}
                     </p>
                   </div>
-                </div>
+                </Link>
               )
             })}
           </div>
