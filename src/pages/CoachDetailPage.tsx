@@ -1,5 +1,4 @@
-import { useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useSearchParams } from 'react-router-dom'
 import { getCoachByKey } from '@/constants/agencyCoaches'
 import CoachSummaryTab from '@/features/coaches/components/CoachSummaryTab'
 import TeamRosterPanel from '@/features/coaches/components/TeamRosterPanel'
@@ -31,7 +30,13 @@ function initialsOf(fullName: string): string {
 export default function CoachDetailPage() {
   const { coachKey } = useParams<{ coachKey: string }>()
   const coach = coachKey ? getCoachByKey(coachKey) : undefined
-  const [activeTab, setActiveTab] = useState<CoachTab>('resumen')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const activeTab = (searchParams.get('tab') as CoachTab) || 'resumen'
+  const setActiveTab = (tab: CoachTab) => setSearchParams(prev => {
+    const next = new URLSearchParams(prev)
+    next.set('tab', tab)
+    return next
+  })
 
   if (!coach) {
     return (
