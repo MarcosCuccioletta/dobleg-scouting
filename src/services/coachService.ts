@@ -30,11 +30,18 @@ export interface CoachTrainingSessionInput {
   focus_tags?: string[]
 }
 
-export interface CoachMatchNote {
+export interface MatchNotePhases {
+  defensiva: string | null
+  ofensiva: string | null
+  transiciones: string | null
+  abp: string | null
+  observaciones: string | null
+}
+
+export interface CoachMatchNote extends MatchNotePhases {
   id: number
   coach_key: string
   fixture_id: number
-  note: string
   author: string | null
   created_at: string
   updated_at: string
@@ -99,10 +106,12 @@ export async function deleteTrainingSession(id: number): Promise<{ success: bool
   return { success: true }
 }
 
-export async function listMatchNotes(coachKey: string): Promise<Record<number, string>> {
+const NOTE_PHASE_COLUMNS = 'defensiva, ofensiva, transiciones, abp, observaciones'
+
+export async function listMatchNotePhases(coachKey: string): Promise<Record<number, MatchNotePhases>> {
   const { data, error } = await supabase
     .from('coach_match_notes')
-    .select('fixture_id, note')
+    .select(`fixture_id, ${NOTE_PHASE_COLUMNS}`)
     .eq('coach_key', coachKey)
 
   if (error || !data) {
@@ -110,32 +119,46 @@ export async function listMatchNotes(coachKey: string): Promise<Record<number, s
     return {}
   }
 
-  const result: Record<number, string> = {}
-  for (const row of data as unknown as Array<{ fixture_id: number; note: string }>) {
-    result[row.fixture_id] = row.note
+  const result: Record<number, MatchNotePhases> = {}
+  for (const row of data as unknown as Array<MatchNotePhases & { fixture_id: number }>) {
+    result[row.fixture_id] = {
+      defensiva: row.defensiva,
+      ofensiva: row.ofensiva,
+      transiciones: row.transiciones,
+      abp: row.abp,
+      observaciones: row.observaciones,
+    }
   }
   return result
 }
 
-export async function getMatchNote(coachKey: string, fixtureId: number): Promise<string | null> {
+export async function getMatchNotePhases(coachKey: string, fixtureId: number): Promise<MatchNotePhases | null> {
   const { data, error } = await supabase
     .from('coach_match_notes')
-    .select('note')
+    .select(NOTE_PHASE_COLUMNS)
     .eq('coach_key', coachKey)
     .eq('fixture_id', fixtureId)
     .maybeSingle()
 
   if (error || !data) return null
-  return data.note
+  return data as unknown as MatchNotePhases
 }
 
-export async function upsertMatchNote(coachKey: string, fixtureId: number, note: string): Promise<{ success: boolean; error?: string }> {
+export async function upsertMatchNotePhases(
+  coachKey: string,
+  fixtureId: number,
+  phases: MatchNotePhases,
+): Promise<{ success: boolean; error?: string }> {
   const { data: { user } } = await supabase.auth.getUser()
 
   const { error } = await supabase.from('coach_match_notes').upsert({
     coach_key: coachKey,
     fixture_id: fixtureId,
-    note,
+    defensiva: phases.defensiva || null,
+    ofensiva: phases.ofensiva || null,
+    transiciones: phases.transiciones || null,
+    abp: phases.abp || null,
+    observaciones: phases.observaciones || null,
     author: user?.user_metadata?.full_name || user?.email || null,
     updated_at: new Date().toISOString(),
   }, {
