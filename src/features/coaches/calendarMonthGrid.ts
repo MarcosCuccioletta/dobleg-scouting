@@ -21,10 +21,10 @@ function mondayIndex(d: Date): number {
 /** Arma las semanas (Lunes a Domingo) que cubren el mes `month` (0-indexado) del año `year`, rellenando con dias del mes anterior/siguiente hasta completar semanas enteras. */
 export function buildMonthGrid(year: number, month: number): MonthGridCell[][] {
   const firstOfMonth = new Date(year, month, 1)
-  const start = new Date(year, month, 1 - mondayIndex(firstOfMonth))
+  const start = new Date(year, month, 1 - mondayIndex(firstOfMonth), 12)
 
   const lastOfMonth = new Date(year, month + 1, 0)
-  const end = new Date(year, month, lastOfMonth.getDate() + (6 - mondayIndex(lastOfMonth)))
+  const end = new Date(year, month, lastOfMonth.getDate() + (6 - mondayIndex(lastOfMonth)), 12)
 
   const cells: MonthGridCell[] = []
   const cursor = new Date(start)

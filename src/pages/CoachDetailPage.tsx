@@ -159,7 +159,7 @@ export default function CoachDetailPage() {
         <TeamRosterPanel teamId={coach.reserveApiTeamId} teamName={coach.club ? `${coach.club} (Reserva)` : 'Reserva'} />
       )}
       {activeTab === 'liga' && coach.leagueApiId && <CoachLeagueTab coach={coach} />}
-      {activeTab === 'calendario' && <CoachCalendarTab coach={coach} />}
+      {activeTab === 'calendario' && <CoachCalendarTab key={coach.key} coach={coach} />}
       {activeTab === 'entrenamientos' && <CoachTrainingTab coach={coach} />}
       {activeTab === 'notas' && <CoachNotesTab coach={coach} />}
     </div>

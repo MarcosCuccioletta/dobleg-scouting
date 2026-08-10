@@ -57,8 +57,8 @@ export default function CoachCalendarTab({ coach }: { coach: AgencyCoach }) {
   const [fixtures, setFixtures] = useState<AgencyFixture[] | null>(null)
   const [sessions, setSessions] = useState<CoachTrainingSession[] | null>(null)
   const [visibleMonth, setVisibleMonth] = useState(() => {
-    const now = new Date()
-    return { year: now.getFullYear(), month: now.getMonth() }
+    const t = parseArDateKey(toArDateKey(new Date()))
+    return { year: t.getFullYear(), month: t.getMonth() }
   })
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
 
@@ -80,6 +80,7 @@ export default function CoachCalendarTab({ coach }: { coach: AgencyCoach }) {
   }, [coach.apiTeamId, coach.leagueSeason, coach.key])
 
   const todayKey = useMemo(() => toArDateKey(new Date()), [])
+  const today = useMemo(() => parseArDateKey(todayKey), [todayKey])
 
   const eventsByDate = useMemo(() => {
     if (!fixtures || !sessions) return null
@@ -119,8 +120,7 @@ export default function CoachCalendarTab({ coach }: { coach: AgencyCoach }) {
   }
 
   const goToday = () => {
-    const now = new Date()
-    goToMonthWithSelection(now.getFullYear(), now.getMonth(), todayKey)
+    goToMonthWithSelection(today.getFullYear(), today.getMonth(), todayKey)
   }
 
   const handleCellClick = (cell: MonthGridCell) => {
@@ -135,10 +135,8 @@ export default function CoachCalendarTab({ coach }: { coach: AgencyCoach }) {
   const monthLabel = capitalize(
     new Date(visibleMonth.year, visibleMonth.month, 1).toLocaleDateString('es-AR', { month: 'long', year: 'numeric' }),
   )
-  const isCurrentMonthVisible = (() => {
-    const now = new Date()
-    return visibleMonth.year === now.getFullYear() && visibleMonth.month === now.getMonth()
-  })()
+  const isCurrentMonthVisible =
+    visibleMonth.year === today.getFullYear() && visibleMonth.month === today.getMonth()
 
   const selectedDay = eventsByDate.get(selectedDate) ?? {
     date: selectedDate,

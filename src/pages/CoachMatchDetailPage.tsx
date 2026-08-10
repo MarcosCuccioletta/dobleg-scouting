@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import { getCoachByKey } from '@/constants/agencyCoaches'
 import {
   fetchTeamFixtures,
+  fetchSeasonFixtures,
   fetchFixtureLineups,
   fetchFixtureEvents,
   fetchSquadCached,
@@ -143,7 +144,10 @@ export default function CoachMatchDetailPage() {
       return
     }
     let active = true
-    fetchTeamFixtures(coach.apiTeamId).then(fixtures => {
+    const loadFixtures = coach.leagueSeason
+      ? fetchSeasonFixtures(coach.apiTeamId, coach.leagueSeason)
+      : fetchTeamFixtures(coach.apiTeamId)
+    loadFixtures.then(fixtures => {
       if (active) setFixture(fixtures.find(f => f.fixtureId === Number(fixtureId)) ?? null)
     })
     fetchFixtureLineups(Number(fixtureId)).then(l => { if (active) setLineups(l) })
