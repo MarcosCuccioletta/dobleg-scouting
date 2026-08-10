@@ -6,8 +6,9 @@ import CoachLeagueTab from '@/features/coaches/components/CoachLeagueTab'
 import CoachCalendarTab from '@/features/coaches/components/CoachCalendarTab'
 import CoachTrainingTab from '@/features/coaches/components/CoachTrainingTab'
 import CoachNotesTab from '@/features/coaches/components/CoachNotesTab'
+import CoachTacticalBoardTab from '@/features/coaches/components/CoachTacticalBoardTab'
 
-type CoachTab = 'resumen' | 'plantel' | 'liga' | 'calendario' | 'entrenamientos' | 'notas' | 'reserva'
+type CoachTab = 'resumen' | 'plantel' | 'liga' | 'calendario' | 'entrenamientos' | 'notas' | 'pizarra' | 'reserva'
 
 const TABS: { id: CoachTab; label: string }[] = [
   { id: 'resumen', label: 'Resumen' },
@@ -16,6 +17,7 @@ const TABS: { id: CoachTab; label: string }[] = [
   { id: 'calendario', label: 'Calendario' },
   { id: 'entrenamientos', label: 'Entrenamientos' },
   { id: 'notas', label: 'Notas de partidos' },
+  { id: 'pizarra', label: 'Pizarra' },
 ]
 
 function initialsOf(fullName: string): string {
@@ -33,7 +35,7 @@ export default function CoachDetailPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const tabParam = searchParams.get('tab')
   const isValidTab = (val: string): val is CoachTab =>
-    ['resumen', 'plantel', 'liga', 'calendario', 'entrenamientos', 'notas', 'reserva'].includes(val)
+    ['resumen', 'plantel', 'liga', 'calendario', 'entrenamientos', 'notas', 'pizarra', 'reserva'].includes(val)
   const activeTab: CoachTab = tabParam && isValidTab(tabParam) ? tabParam : 'resumen'
   const setActiveTab = (tab: CoachTab) => setSearchParams(prev => {
     const next = new URLSearchParams(prev)
@@ -162,6 +164,7 @@ export default function CoachDetailPage() {
       {activeTab === 'calendario' && <CoachCalendarTab key={coach.key} coach={coach} />}
       {activeTab === 'entrenamientos' && <CoachTrainingTab coach={coach} />}
       {activeTab === 'notas' && <CoachNotesTab coach={coach} />}
+      {activeTab === 'pizarra' && <CoachTacticalBoardTab key={coach.key} coach={coach} />}
     </div>
   )
 }
