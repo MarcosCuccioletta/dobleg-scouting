@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
-import { fetchTeamFixtures, toArDateKey } from '@/services/footballApiService'
+import { Link } from 'react-router-dom'
+import { fetchSeasonFixtures, toArDateKey } from '@/services/footballApiService'
 import { listTrainingSessions } from '@/services/coachService'
 import { isMatchFinished, mergeCalendarEvents } from '@/utils/coachCalendar'
+import { buildMonthGrid, pickDefaultSelectedDate, type MonthGridCell } from '@/features/coaches/calendarMonthGrid'
 import type { AgencyFixture } from '@/types/footballApi'
 import type { CoachTrainingSession } from '@/services/coachService'
 import type { AgencyCoach } from '@/constants/agencyCoaches'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 
-const DAYS_AHEAD = 14
+const WEEKDAY_LABELS = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
 
 function EmptyState({ message }: { message: string }) {
   return (
@@ -38,11 +40,10 @@ function PlaneIcon({ className }: { className?: string }) {
   )
 }
 
-/** `day.date` es una ArDateKey "YYYY-MM-DD" (huso de Argentina, ver toArDateKey en
- *  footballApiService). Parsearla directo con `new Date(string)` la interpreta como
- *  medianoche UTC: en un dispositivo con huso negativo (como AR, UTC-3) el posterior
- *  `toLocaleDateString` puede mostrar el día anterior. Se arma la fecha a partir de
- *  sus componentes locales para evitar ese corrimiento. */
+/** `key` es una ArDateKey "YYYY-MM-DD". Parsearla directo con `new Date(string)` la
+ *  interpreta como medianoche UTC: en un dispositivo con huso negativo (como AR,
+ *  UTC-3) el posterior `toLocaleDateString` puede mostrar el día anterior. Se arma
+ *  la fecha a partir de sus componentes locales para evitar ese corrimiento. */
 function parseArDateKey(key: string): Date {
   const [y, m, d] = key.split('-').map(Number)
   return new Date(y, m - 1, d)
@@ -55,11 +56,19 @@ function capitalize(s: string): string {
 export default function CoachCalendarTab({ coach }: { coach: AgencyCoach }) {
   const [fixtures, setFixtures] = useState<AgencyFixture[] | null>(null)
   const [sessions, setSessions] = useState<CoachTrainingSession[] | null>(null)
+  const [visibleMonth, setVisibleMonth] = useState(() => {
+    const now = new Date()
+    return { year: now.getFullYear(), month: now.getMonth() }
+  })
+  const [selectedDate, setSelectedDate] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!coach.apiTeamId) return
+    if (!coach.apiTeamId || !coach.leagueSeason) return
     let active = true
-    Promise.all([fetchTeamFixtures(coach.apiTeamId), listTrainingSessions(coach.key)]).then(([f, s]) => {
+    Promise.all([
+      fetchSeasonFixtures(coach.apiTeamId, coach.leagueSeason),
+      listTrainingSessions(coach.key),
+    ]).then(([f, s]) => {
       if (active) {
         setFixtures(f)
         setSessions(s)
@@ -68,111 +77,214 @@ export default function CoachCalendarTab({ coach }: { coach: AgencyCoach }) {
     return () => {
       active = false
     }
-  }, [coach.apiTeamId, coach.key])
+  }, [coach.apiTeamId, coach.leagueSeason, coach.key])
 
   const todayKey = useMemo(() => toArDateKey(new Date()), [])
 
-  const days = useMemo(() => {
+  const eventsByDate = useMemo(() => {
     if (!fixtures || !sessions) return null
-    const merged = mergeCalendarEvents(fixtures, sessions)
-    const next: string[] = []
-    for (let i = 0; i < DAYS_AHEAD; i++) {
-      const d = new Date()
-      d.setDate(d.getDate() + i)
-      next.push(toArDateKey(d))
-    }
-    return next.map(key => merged.get(key) ?? { date: key, fixtures: [], sessions: [], isAbroad: false })
+    return mergeCalendarEvents(fixtures, sessions)
   }, [fixtures, sessions])
 
-  if (!coach.apiTeamId) {
+  const grid = useMemo(() => buildMonthGrid(visibleMonth.year, visibleMonth.month), [visibleMonth])
+
+  // Selecciona un dia por defecto una sola vez, apenas los datos terminan de cargar.
+  // Despues de eso, la seleccion la maneja siempre una accion explicita del usuario
+  // (flechas de mes, boton Hoy, tocar una celda) - ver goToMonthWithSelection.
+  useEffect(() => {
+    if (!eventsByDate || selectedDate !== null) return
+    setSelectedDate(pickDefaultSelectedDate(grid, todayKey, eventsByDate))
+  }, [eventsByDate, selectedDate, grid, todayKey])
+
+  if (!coach.apiTeamId || !coach.leagueSeason) {
     return <EmptyState message="No hay datos de equipo disponibles para este entrenador todavía." />
   }
 
-  if (days === null) return <LoadingSpinner message="Cargando calendario..." />
+  if (eventsByDate === null || selectedDate === null) return <LoadingSpinner message="Cargando calendario..." />
+
+  const goToMonthWithSelection = (year: number, month: number, dateToSelect?: string) => {
+    const newGrid = buildMonthGrid(year, month)
+    setVisibleMonth({ year, month })
+    setSelectedDate(dateToSelect ?? pickDefaultSelectedDate(newGrid, todayKey, eventsByDate))
+  }
+
+  const goPrevMonth = () => {
+    const d = new Date(visibleMonth.year, visibleMonth.month - 1, 1)
+    goToMonthWithSelection(d.getFullYear(), d.getMonth())
+  }
+
+  const goNextMonth = () => {
+    const d = new Date(visibleMonth.year, visibleMonth.month + 1, 1)
+    goToMonthWithSelection(d.getFullYear(), d.getMonth())
+  }
+
+  const goToday = () => {
+    const now = new Date()
+    goToMonthWithSelection(now.getFullYear(), now.getMonth(), todayKey)
+  }
+
+  const handleCellClick = (cell: MonthGridCell) => {
+    if (cell.isCurrentMonth) {
+      setSelectedDate(cell.date)
+      return
+    }
+    const d = parseArDateKey(cell.date)
+    goToMonthWithSelection(d.getFullYear(), d.getMonth(), cell.date)
+  }
+
+  const monthLabel = capitalize(
+    new Date(visibleMonth.year, visibleMonth.month, 1).toLocaleDateString('es-AR', { month: 'long', year: 'numeric' }),
+  )
+  const isCurrentMonthVisible = (() => {
+    const now = new Date()
+    return visibleMonth.year === now.getFullYear() && visibleMonth.month === now.getMonth()
+  })()
+
+  const selectedDay = eventsByDate.get(selectedDate) ?? {
+    date: selectedDate,
+    fixtures: [] as AgencyFixture[],
+    sessions: [] as CoachTrainingSession[],
+    isAbroad: false,
+  }
+  const selectedParsed = parseArDateKey(selectedDate)
+  const selectedWeekday = capitalize(selectedParsed.toLocaleDateString('es-AR', { weekday: 'long' }))
+  const selectedMonthLabel = capitalize(selectedParsed.toLocaleDateString('es-AR', { month: 'long' }))
 
   return (
-    <div className="space-y-2 animate-fade-in">
-      {days.map(day => {
-        const isToday = day.date === todayKey
-        const parsed = parseArDateKey(day.date)
-        const weekday = capitalize(parsed.toLocaleDateString('es-AR', { weekday: 'short' }).replace('.', ''))
-        const dayNumber = parsed.getDate()
-        const month = capitalize(parsed.toLocaleDateString('es-AR', { month: 'short' }).replace('.', ''))
-        const isEmpty = day.fixtures.length === 0 && day.sessions.length === 0
+    <div className="space-y-4 animate-fade-in">
+      <div className="flex items-center justify-between">
+        <button
+          type="button"
+          onClick={goPrevMonth}
+          aria-label="Mes anterior"
+          className="w-9 h-9 flex items-center justify-center rounded-full text-apple-gray-400 hover:text-apple-gray-700 dark:hover:text-apple-gray-200 hover:bg-apple-gray-100 dark:hover:bg-apple-gray-800 transition-colors"
+        >
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-semibold text-apple-gray-800 dark:text-white">{monthLabel}</span>
+          {!isCurrentMonthVisible && (
+            <button type="button" onClick={goToday} className="text-2xs font-semibold text-brand-green hover:underline">
+              Hoy
+            </button>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={goNextMonth}
+          aria-label="Mes siguiente"
+          className="w-9 h-9 flex items-center justify-center rounded-full text-apple-gray-400 hover:text-apple-gray-700 dark:hover:text-apple-gray-200 hover:bg-apple-gray-100 dark:hover:bg-apple-gray-800 transition-colors"
+        >
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+      </div>
 
-        return (
-          <div
-            key={day.date}
-            className={`flex flex-col sm:flex-row sm:items-center gap-3 rounded-apple-lg border px-4 py-3 transition-colors duration-200 ease-apple ${
-              isToday
-                ? 'bg-brand-green/5 border-brand-green/30'
-                : 'bg-white dark:bg-apple-gray-800/60 border-apple-gray-200/60 dark:border-apple-gray-700/40'
-            }`}
-          >
-            {/* Chip de fecha: en mobile queda como fila corta arriba de las badges (nunca
-                comparte ancho con ellas, así que no las comprime); desde sm+ pasa a columna
-                angosta y fija a la izquierda, separada por un divisor sutil. */}
-            <div className="flex items-center gap-1.5 sm:flex-col sm:items-center sm:justify-center sm:gap-0.5 sm:w-16 flex-shrink-0">
-              <span className="text-2xs font-bold uppercase tracking-wide text-apple-gray-400">{weekday}</span>
-              <span
-                className={`text-base sm:text-lg font-bold tabular-nums ${
-                  isToday ? 'text-brand-green' : 'text-apple-gray-800 dark:text-white'
-                }`}
-              >
-                {dayNumber}
-              </span>
-              <span className="text-2xs text-apple-gray-400">{month}</span>
-              {isToday && (
-                <span className="inline-flex items-center gap-1 text-2xs font-semibold text-brand-green">
-                  <span className="w-1.5 h-1.5 rounded-full bg-brand-green animate-pulse-soft flex-shrink-0" />
-                  Hoy
-                </span>
-              )}
-            </div>
-
-            <div className="hidden sm:block w-px self-stretch bg-apple-gray-200/60 dark:bg-apple-gray-700/40" />
-
-            <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0">
-              {day.fixtures.map(f => {
-                const opponent = f.isHome ? f.awayTeam : f.homeTeam
-                const finished = isMatchFinished(f.statusShort)
-                const scoreLabel =
-                  finished && f.goalsHome !== null && f.goalsAway !== null ? `${f.goalsHome}-${f.goalsAway}` : null
-                return (
-                  <span
-                    key={f.fixtureId}
-                    className="inline-flex items-center gap-1.5 text-xs font-medium bg-brand-green/10 text-brand-green px-2.5 py-1.5 rounded-full max-w-full"
-                  >
-                    <img src={opponent.logo} alt="" className="w-4 h-4 object-contain flex-shrink-0" />
-                    <span className="truncate">
-                      {f.isHome ? 'vs' : '@'} {opponent.name}
-                    </span>
-                    {scoreLabel && <span className="font-bold flex-shrink-0">{scoreLabel}</span>}
-                  </span>
-                )
-              })}
-              {day.sessions.map(s => (
-                <span
-                  key={s.id}
-                  className="inline-flex items-center gap-1.5 text-xs font-medium bg-apple-gray-100 dark:bg-apple-gray-700 text-apple-gray-600 dark:text-apple-gray-300 px-2.5 py-1.5 rounded-full max-w-full"
-                >
-                  <BoltIcon className="w-3.5 h-3.5 flex-shrink-0" />
-                  <span className="truncate">{s.title}</span>
-                </span>
-              ))}
-              {day.isAbroad && (
-                <span
-                  className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-apple-gray-100 dark:bg-apple-gray-700 text-apple-gray-400 flex-shrink-0"
-                  title="Viaje al exterior"
-                >
-                  <PlaneIcon className="w-3.5 h-3.5" />
-                </span>
-              )}
-              {isEmpty && <span className="text-xs text-apple-gray-300 dark:text-apple-gray-600">Sin actividad</span>}
-            </div>
+      <div className="grid grid-cols-7 gap-1">
+        {WEEKDAY_LABELS.map((label, i) => (
+          <div key={i} className="text-center text-2xs font-semibold text-apple-gray-400 uppercase py-1">
+            {label}
           </div>
-        )
-      })}
+        ))}
+        {grid.flat().map(cell => {
+          const isToday = cell.date === todayKey
+          const isSelected = cell.date === selectedDate
+          const day = eventsByDate.get(cell.date)
+          const hasFixture = !!day && day.fixtures.length > 0
+          const hasSession = !!day && day.sessions.length > 0
+          const isAbroad = !!day && day.isAbroad
+
+          return (
+            <button
+              key={cell.date}
+              type="button"
+              onClick={() => handleCellClick(cell)}
+              className={`flex flex-col items-center justify-center gap-0.5 aspect-square rounded-apple-lg text-sm transition-colors duration-150 ease-apple ${
+                !cell.isCurrentMonth
+                  ? 'text-apple-gray-300 dark:text-apple-gray-600'
+                  : isSelected
+                    ? 'bg-brand-green text-apple-gray-900 font-bold'
+                    : isToday
+                      ? 'bg-brand-green/10 text-brand-green font-bold'
+                      : 'text-apple-gray-700 dark:text-apple-gray-300 hover:bg-apple-gray-100 dark:hover:bg-apple-gray-800'
+              }`}
+            >
+              <span>{cell.dayNumber}</span>
+              {cell.isCurrentMonth && (hasFixture || hasSession) && (
+                <span className="flex items-center gap-0.5">
+                  {hasFixture &&
+                    (isAbroad ? (
+                      <PlaneIcon className={`w-2.5 h-2.5 ${isSelected ? 'text-apple-gray-900' : 'text-brand-green'}`} />
+                    ) : (
+                      <span className={`w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-apple-gray-900' : 'bg-brand-green'}`} />
+                    ))}
+                  {hasSession && (
+                    <span className={`w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-apple-gray-900/60' : 'bg-apple-gray-400'}`} />
+                  )}
+                </span>
+              )}
+            </button>
+          )
+        })}
+      </div>
+
+      <div className="rounded-apple-lg border border-apple-gray-200/60 dark:border-apple-gray-700/40 bg-white dark:bg-apple-gray-800/60 px-4 py-3">
+        <p className="text-2xs font-semibold text-apple-gray-400 uppercase tracking-wide mb-2">
+          {selectedWeekday} {selectedParsed.getDate()} de {selectedMonthLabel}
+        </p>
+        {selectedDay.fixtures.length === 0 && selectedDay.sessions.length === 0 ? (
+          <p className="text-sm text-apple-gray-300 dark:text-apple-gray-600">Sin actividad este día</p>
+        ) : (
+          <div className="flex flex-wrap items-center gap-2">
+            {selectedDay.fixtures.map(f => {
+              const opponent = f.isHome ? f.awayTeam : f.homeTeam
+              const finished = isMatchFinished(f.statusShort)
+              const scoreLabel =
+                finished && f.goalsHome !== null && f.goalsAway !== null ? `${f.goalsHome}-${f.goalsAway}` : null
+              const pill = (
+                <span className="inline-flex items-center gap-1.5 text-xs font-medium bg-brand-green/10 text-brand-green px-2.5 py-1.5 rounded-full max-w-full">
+                  <img src={opponent.logo} alt="" className="w-4 h-4 object-contain flex-shrink-0" />
+                  <span className="truncate">
+                    {f.isHome ? 'vs' : '@'} {opponent.name}
+                  </span>
+                  {scoreLabel && <span className="font-bold flex-shrink-0">{scoreLabel}</span>}
+                </span>
+              )
+              return finished ? (
+                <Link
+                  key={f.fixtureId}
+                  to={`/entrenadores/${coach.key}/partido/${f.fixtureId}`}
+                  className="hover:opacity-80 transition-opacity"
+                >
+                  {pill}
+                </Link>
+              ) : (
+                <span key={f.fixtureId}>{pill}</span>
+              )
+            })}
+            {selectedDay.sessions.map(s => (
+              <span
+                key={s.id}
+                className="inline-flex items-center gap-1.5 text-xs font-medium bg-apple-gray-100 dark:bg-apple-gray-700 text-apple-gray-600 dark:text-apple-gray-300 px-2.5 py-1.5 rounded-full max-w-full"
+              >
+                <BoltIcon className="w-3.5 h-3.5 flex-shrink-0" />
+                <span className="truncate">{s.title}</span>
+              </span>
+            ))}
+            {selectedDay.isAbroad && (
+              <span
+                className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-apple-gray-100 dark:bg-apple-gray-700 text-apple-gray-400 flex-shrink-0"
+                title="Viaje al exterior"
+              >
+                <PlaneIcon className="w-3.5 h-3.5" />
+              </span>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
