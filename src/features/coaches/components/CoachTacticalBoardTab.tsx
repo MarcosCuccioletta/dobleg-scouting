@@ -17,6 +17,8 @@ import TacticalBoardToolbar from './TacticalBoardToolbar'
 import type { AgencyCoach } from '@/constants/agencyCoaches'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 
+type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
+
 function uid(): string {
   return crypto.randomUUID()
 }
@@ -80,7 +82,7 @@ export default function CoachTacticalBoardTab({ coach }: { coach: AgencyCoach })
   const [showLoadModal, setShowLoadModal] = useState(false)
   const [showNewInput, setShowNewInput] = useState(false)
   const [newName, setNewName] = useState('')
-  const [saving, setSaving] = useState(false)
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
   const [renaming, setRenaming] = useState(false)
   const [renameValue, setRenameValue] = useState('')
 
@@ -89,13 +91,24 @@ export default function CoachTacticalBoardTab({ coach }: { coach: AgencyCoach })
   }
 
   useEffect(() => {
-    reloadBoards()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    let active = true
+    listTacticalBoards(coach.key).then(b => {
+      if (active) setBoards(b)
+    })
+    return () => {
+      active = false
+    }
   }, [coach.key])
 
   useEffect(() => {
     if (!coach.apiTeamId) return
-    fetchSquadCached(coach.apiTeamId).then(setSquad)
+    let active = true
+    fetchSquadCached(coach.apiTeamId).then(s => {
+      if (active) setSquad(s)
+    })
+    return () => {
+      active = false
+    }
   }, [coach.apiTeamId])
 
   function loadBoard(board: TacticalBoard) {
@@ -118,18 +131,24 @@ export default function CoachTacticalBoardTab({ coach }: { coach: AgencyCoach })
 
   async function handleSave() {
     if (!current) return
-    setSaving(true)
-    try {
-      await updateTacticalBoard(current.id, markers, annotations)
-      await reloadBoards()
-    } finally {
-      setSaving(false)
+    setSaveStatus('saving')
+    const res = await updateTacticalBoard(current.id, markers, annotations)
+    if (!res.success) {
+      setSaveStatus('error')
+      return
     }
+    await reloadBoards()
+    setSaveStatus('saved')
+    setTimeout(() => setSaveStatus('idle'), 1500)
   }
 
   async function handleRename() {
     if (!current || !renameValue.trim()) return
-    await renameTacticalBoard(current.id, renameValue.trim())
+    const res = await renameTacticalBoard(current.id, renameValue.trim())
+    if (!res.success) {
+      window.alert('No se pudo renombrar, intentá de nuevo.')
+      return
+    }
     setCurrent({ ...current, name: renameValue.trim() })
     await reloadBoards()
     setRenaming(false)
@@ -138,7 +157,11 @@ export default function CoachTacticalBoardTab({ coach }: { coach: AgencyCoach })
   async function handleDelete(board: TacticalBoard) {
     const ok = window.confirm(`¿Borrar la pizarra "${board.name}"?`)
     if (!ok) return
-    await deleteTacticalBoard(board.id)
+    const res = await deleteTacticalBoard(board.id)
+    if (!res.success) {
+      window.alert('No se pudo borrar la pizarra, intentá de nuevo.')
+      return
+    }
     if (current?.id === board.id) {
       setCurrent(null)
       setMarkers([])
@@ -239,13 +262,20 @@ export default function CoachTacticalBoardTab({ coach }: { coach: AgencyCoach })
         >
           Cargar
         </button>
+        {saveStatus === 'error' && <span className="text-xs text-red-500">Error al guardar</span>}
         <button
           type="button"
           onClick={() => void handleSave()}
-          disabled={!current || saving}
+          disabled={!current || saveStatus === 'saving'}
           className="min-h-[36px] px-4 rounded-full bg-brand-green text-apple-gray-900 text-xs font-semibold disabled:opacity-50"
         >
-          {saving ? 'Guardando...' : 'Guardar'}
+          {saveStatus === 'saving'
+            ? 'Guardando...'
+            : saveStatus === 'saved'
+              ? 'Guardado ✓'
+              : saveStatus === 'error'
+                ? 'Reintentar'
+                : 'Guardar'}
         </button>
       </div>
 
