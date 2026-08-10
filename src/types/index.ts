@@ -252,6 +252,7 @@ export interface AppData {
   positionAverages: Record<string, number>
   agencyPlayers: import('@/constants/agencyPlayers').AgencyPlayer[]
   refreshAgencyPlayers: () => Promise<void>
+  createManualPlayerAndRefresh: (row: import('@/services/manualExternalPlayersService').ManualExternalPlayerRow) => Promise<EnrichedPlayer>
   playerVideos: import('@/types/videos').PlayerVideo[]
   refreshPlayerVideos: () => Promise<void>
   videoFreshnessByKey: Map<string, import('@/types/videos').VideoFreshness>

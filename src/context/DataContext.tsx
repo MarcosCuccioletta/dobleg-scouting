@@ -7,6 +7,8 @@ import { getAgencyPlayersList, AGENCY_OVERRIDES, type AgencyPlayer } from '@/con
 import { fetchAllPlayerVideos, computePlayerFreshness } from '@/services/playerVideosService'
 import { fetchScoreLookup, type ScoreLookupEntry } from '@/services/playerStatsService'
 import { fetchGpsEntries, fetchGpsCatalog, toLegacyGpsEntry } from '@/services/gpsService'
+import { listManualExternalPlayers, createManualExternalPlayer, type ManualExternalPlayerRow } from '@/services/manualExternalPlayersService'
+import { manualExternalToEnriched } from '@/features/coaches/manualExternalPlayer'
 import type { GpsEntryRow, GpsMetric } from '@/features/gps/types'
 import type { PlayerVideo, VideoFreshness } from '@/types/videos'
 import { nameKey } from '@/utils/nameUtils'
@@ -1129,6 +1131,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     positionAverages: {},
     agencyPlayers: [],
     refreshAgencyPlayers: async () => {},
+    createManualPlayerAndRefresh: async () => { throw new Error('Los datos todavía no cargaron') },
     playerVideos: [],
     refreshPlayerVideos: async () => {},
     videoFreshnessByKey: new Map(),
@@ -1140,6 +1143,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   // Base internal (derivada del CSV) y external, para re-derivar internal al cambiar Doble G
   const baseInternalRef = useRef<EnrichedPlayer[]>([])
   const externalRef = useRef<EnrichedPlayer[]>([])
+  const scoreLookupRef = useRef<Map<string, ScoreLookupEntry>>(new Map())
 
   const refreshAgencyPlayers = useCallback(async () => {
     await loadAgencyPlayers()
@@ -1154,6 +1158,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const refreshPlayerVideos = useCallback(async () => {
     const videos = await fetchAllPlayerVideos()
     setData(prev => ({ ...prev, playerVideos: videos }))
+  }, [])
+
+  const createManualPlayerAndRefresh = useCallback(async (row: ManualExternalPlayerRow): Promise<EnrichedPlayer> => {
+    const saved = await createManualExternalPlayer(row)
+    const score = scoreLookupRef.current.get(normalizeName(saved.full_name))?.score ?? null
+    const enriched = manualExternalToEnriched(saved, score)
+    externalRef.current = [...externalRef.current, enriched]
+    setData(prev => ({
+      ...prev,
+      external: [...prev.external, enriched],
+      internal: mergeAgencyIntoInternal(baseInternalRef.current, externalRef.current, prev.agencyPlayers),
+    }))
+    return enriched
   }, [])
 
   // GPS: vive en Supabase (no en el CSV). Se carga aparte del resto de los datos
@@ -1196,11 +1213,23 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const scoreLookup = await fetchScoreLookup().catch(() => new Map<string, ScoreLookupEntry>())
         if (cancelled) return
 
+        scoreLookupRef.current = scoreLookup
+
         // Score and enrich external players with Transfermarkt data + Más Datos + Estimated values
         const externalScored = applyScoreGG(raw.external, 'externo', scoreLookup)
-        const external = externalScored.map(p =>
+        const externalBase = externalScored.map(p =>
           enrichWithEstimatedValue(enrichWithMasDatos(enrichWithTransfermarkt(p, tmMap), masDatosMap))
         )
+
+        // Fichas creadas al vuelo desde el plantel de un entrenador (overlay en
+        // Supabase, mismo espiritu que agencyPlayers para `internal`). Si el
+        // Sheet legacy ya tiene a ese jugador por nombre, gana el Sheet.
+        const manualRows = await listManualExternalPlayers().catch(() => [])
+        const existingExternalNames = new Set(externalBase.map(p => normalizeName(p.Jugador)))
+        const manualPlayers = manualRows
+          .filter(r => !existingExternalNames.has(normalizeName(r.full_name)))
+          .map(r => manualExternalToEnriched(r, scoreLookup.get(normalizeName(r.full_name))?.score ?? null))
+        const external = [...externalBase, ...manualPlayers]
 
         const internalScored = applyScoreGG(raw.internal, 'interno', scoreLookup)
 
@@ -1269,6 +1298,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           positionAverages,
           agencyPlayers,
           refreshAgencyPlayers,
+          createManualPlayerAndRefresh,
           playerVideos,
           refreshPlayerVideos,
           videoFreshnessByKey: new Map(),
