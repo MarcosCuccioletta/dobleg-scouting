@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { fetchSquadCached, type SquadPlayer } from '@/services/footballApiService'
-import { fetchSquadMinutes } from '@/services/coachService'
-import { useData } from '@/context/DataContext'
+import { fetchSquadMinutes, fetchExistingPlayerIds } from '@/services/coachService'
+import { useData, identityKey } from '@/context/DataContext'
 import { makeAgencyMatcher } from '@/utils/agencyFilter'
 import { normalizeName } from '@/utils/scoring'
 import { groupSquadByPosition, POSITION_LABEL } from '@/features/coaches/squadGrouping'
@@ -28,10 +28,20 @@ function EmptyState({ message }: { message: string }) {
   )
 }
 
-interface PlayerLink {
-  source: 'interno' | 'externo'
-  name: string
-}
+/**
+ * Resultado de resolver a dónde debe llevar el click en una tarjeta del plantel:
+ * - `internal`/`external`: ficha derivada del CSV legacy (source=interno/externo).
+ * - `supabase`: el jugador ya tiene fila real en `players` (Score GG, historial,
+ *   transfers) — se linkea con `apiId` para que la ficha se renderice 100% desde ahí.
+ * - `create`: no hay match en ningún lado, último recurso, crea un stub al vuelo.
+ * - `none`: tarjeta no interactiva (jugador de agencia sin match confiable, o datos
+ *   todavía cargando) — nunca se ofrece crear un stub en estos casos.
+ */
+type PlayerLink =
+  | { kind: 'internal' | 'external'; name: string }
+  | { kind: 'supabase'; name: string; apiId: number }
+  | { kind: 'create' }
+  | { kind: 'none' }
 
 const CARD_CLASSNAME = 'bg-white dark:bg-apple-gray-800/60 rounded-apple-lg border border-apple-gray-200/60 dark:border-apple-gray-700/40 p-3 sm:p-4 flex flex-col items-center text-center transition-transform duration-200 ease-apple hover:-translate-y-0.5 w-full'
 
@@ -44,7 +54,7 @@ function RosterPlayerCard({
 }: {
   player: SquadPlayer
   stats?: { minutes: number; matches: number }
-  link: PlayerLink | null
+  link: PlayerLink
   creating: boolean
   onCreateClick: () => void
 }) {
@@ -87,63 +97,115 @@ function RosterPlayerCard({
     </>
   )
 
-  if (link) {
+  if (link.kind === 'internal' || link.kind === 'external') {
+    const source = link.kind === 'internal' ? 'interno' : 'externo'
     return (
-      <Link to={`/jugador/${encodeURIComponent(link.name)}?source=${link.source}`} className={CARD_CLASSNAME}>
+      <Link to={`/jugador/${encodeURIComponent(link.name)}?source=${source}`} className={CARD_CLASSNAME}>
         {content}
       </Link>
     )
   }
 
-  return (
-    <button
-      type="button"
-      onClick={onCreateClick}
-      disabled={creating}
-      className={`${CARD_CLASSNAME} disabled:cursor-wait`}
-    >
-      {content}
-    </button>
-  )
+  if (link.kind === 'supabase') {
+    return (
+      <Link to={`/jugador/${encodeURIComponent(link.name)}?source=externo&apiId=${link.apiId}`} className={CARD_CLASSNAME}>
+        {content}
+      </Link>
+    )
+  }
+
+  if (link.kind === 'create') {
+    return (
+      <button
+        type="button"
+        onClick={onCreateClick}
+        disabled={creating}
+        className={`${CARD_CLASSNAME} disabled:cursor-wait`}
+      >
+        {content}
+      </button>
+    )
+  }
+
+  // link.kind === 'none': jugador de agencia sin match confiable, o datos todavía
+  // cargando — tarjeta no interactiva, nunca se ofrece crear un stub.
+  return <div className={CARD_CLASSNAME}>{content}</div>
+}
+
+/** Mapas por nombre exacto (normalizeName) y por identityKey, para tolerar formato
+ * corto vs. completo ("A. Steimbach" vs "Alexis Steimbach") al buscar un jugador. */
+function buildNameMaps(players: EnrichedPlayer[]): { byExact: Map<string, EnrichedPlayer>; byIdentity: Map<string, EnrichedPlayer> } {
+  const byExact = new Map<string, EnrichedPlayer>()
+  const byIdentity = new Map<string, EnrichedPlayer>()
+  for (const p of players) {
+    byExact.set(normalizeName(p.Jugador), p)
+    const key = identityKey(p.Jugador)
+    if (!byIdentity.has(key)) byIdentity.set(key, p)
+  }
+  return { byExact, byIdentity }
 }
 
 export default function TeamRosterPanel({ teamId, teamName }: { teamId: number; teamName: string }) {
   const [squad, setSquad] = useState<SquadPlayer[] | null>(null)
   const [minutes, setMinutes] = useState<Record<number, { minutes: number; matches: number }>>({})
+  const [existingPlayerIds, setExistingPlayerIds] = useState<Set<number>>(new Set())
   const [creatingId, setCreatingId] = useState<number | null>(null)
-  const { internal, external, agencyPlayers, createManualPlayerAndRefresh } = useData()
+  const { internal, external, agencyPlayers, createManualPlayerAndRefresh, loading } = useData()
   const navigate = useNavigate()
 
   useEffect(() => {
     let active = true
     setSquad(null)
     setMinutes({})
+    setExistingPlayerIds(new Set())
     fetchSquadCached(teamId).then(async players => {
       if (!active) return
       setSquad(players)
       const ids = players.map(p => p.id)
-      const m = await fetchSquadMinutes(ids)
-      if (active) setMinutes(m)
+      const [m, existing] = await Promise.all([fetchSquadMinutes(ids), fetchExistingPlayerIds(ids)])
+      if (active) {
+        setMinutes(m)
+        setExistingPlayerIds(existing)
+      }
     })
     return () => {
       active = false
     }
   }, [teamId])
 
-  if (squad === null) return <LoadingSpinner message="Cargando plantel..." />
-  if (squad.length === 0) return <EmptyState message="No se pudo cargar el plantel." />
+  const isAgencyPlayer = useMemo(() => makeAgencyMatcher(agencyPlayers), [agencyPlayers])
+  const internalMaps = useMemo(() => buildNameMaps(internal), [internal])
+  const externalMaps = useMemo(() => buildNameMaps(external), [external])
 
-  const isAgencyPlayer = makeAgencyMatcher(agencyPlayers)
+  const resolveLink = useCallback((player: SquadPlayer): PlayerLink => {
+    const exact = normalizeName(player.name)
+    const idKey = identityKey(player.name)
 
-  const resolveLink = (player: SquadPlayer): PlayerLink | null => {
+    // 1. Jugador de Doble G: solo puede ir a Interno. Nunca se crea un stub para
+    // alguien de la agencia, aunque no se encuentre match (regla del proyecto).
     if (isAgencyPlayer(player.name)) {
-      const match = internal.find((p: EnrichedPlayer) => normalizeName(p.Jugador) === normalizeName(player.name))
-      if (match) return { source: 'interno', name: match.Jugador }
+      const match = internalMaps.byExact.get(exact) ?? internalMaps.byIdentity.get(idKey)
+      if (match) return { kind: 'internal', name: match.Jugador }
+      return { kind: 'none' }
     }
-    const extMatch = external.find((p: EnrichedPlayer) => normalizeName(p.Jugador) === normalizeName(player.name))
-    if (extMatch) return { source: 'externo', name: extMatch.Jugador }
-    return null
-  }
+
+    // 2. Ya tiene ficha real en Supabase (misma id que la API del plantel): usar la
+    // ficha rica en vez de buscar en el CSV legacy.
+    if (existingPlayerIds.has(player.id)) {
+      return { kind: 'supabase', name: player.name, apiId: player.id }
+    }
+
+    // 3. CSV legacy de Externo.
+    const extMatch = externalMaps.byExact.get(exact) ?? externalMaps.byIdentity.get(idKey)
+    if (extMatch) return { kind: 'external', name: extMatch.Jugador }
+
+    // 4. Mientras los datos todavía cargan, no ofrecer crear un stub (evita el
+    // placeholder que tira excepción si se clickea en esa ventana).
+    if (loading) return { kind: 'none' }
+
+    // 5. Último recurso: crear ficha mínima al vuelo.
+    return { kind: 'create' }
+  }, [isAgencyPlayer, internalMaps, externalMaps, existingPlayerIds, loading])
 
   const handleCreate = async (player: SquadPlayer) => {
     if (creatingId !== null) return
@@ -158,10 +220,15 @@ export default function TeamRosterPanel({ teamId, teamName }: { teamId: number; 
         photo: player.photo,
       })
       navigate(`/jugador/${encodeURIComponent(created.Jugador)}?source=externo`)
+    } catch (err) {
+      console.error('Error creando ficha manual:', err)
     } finally {
       setCreatingId(null)
     }
   }
+
+  if (squad === null) return <LoadingSpinner message="Cargando plantel..." />
+  if (squad.length === 0) return <EmptyState message="No se pudo cargar el plantel." />
 
   const groups = groupSquadByPosition(squad)
 

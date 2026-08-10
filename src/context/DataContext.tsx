@@ -67,7 +67,7 @@ function agencyToEnriched(a: AgencyPlayer): EnrichedPlayer {
  * Reconcilia "A. Steimbach" (formato corto del sheet) con "Alexis Steimbach"
  * (nombre completo de la lista Doble G) → ambos dan "a:steimbach".
  */
-function identityKey(name: string): string {
+export function identityKey(name: string): string {
   return nameKey(name.normalize('NFD').replace(/[̀-ͯ]/g, ''))
 }
 
@@ -1225,9 +1225,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
         // Supabase, mismo espiritu que agencyPlayers para `internal`). Si el
         // Sheet legacy ya tiene a ese jugador por nombre, gana el Sheet.
         const manualRows = await listManualExternalPlayers().catch(() => [])
-        const existingExternalNames = new Set(externalBase.map(p => normalizeName(p.Jugador)))
+        const existingExternalNames = new Set<string>()
+        for (const p of externalBase) {
+          existingExternalNames.add(normalizeName(p.Jugador))
+          existingExternalNames.add(identityKey(p.Jugador))
+        }
         const manualPlayers = manualRows
-          .filter(r => !existingExternalNames.has(normalizeName(r.full_name)))
+          .filter(r => !existingExternalNames.has(normalizeName(r.full_name)) && !existingExternalNames.has(identityKey(r.full_name)))
           .map(r => manualExternalToEnriched(r, scoreLookup.get(normalizeName(r.full_name))?.score ?? null))
         const external = [...externalBase, ...manualPlayers]
 

@@ -30,7 +30,7 @@ export async function createManualExternalPlayer(row: ManualExternalPlayerRow): 
 
   if (error || !data) {
     console.error('Error creando ficha manual de Externo:', error)
-    return row
+    throw new Error(error?.message ?? 'No se pudo crear la ficha')
   }
   return data
 }
