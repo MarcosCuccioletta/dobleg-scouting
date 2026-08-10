@@ -154,8 +154,10 @@ export default function CoachDetailPage() {
 
       {/* Cada Task 11-16 agrega su bloque acá, condicionado por activeTab === 'resumen' | 'plantel' | 'liga' | 'calendario' | 'entrenamientos' | 'notas' | 'reserva' */}
       {activeTab === 'resumen' && <CoachSummaryTab coach={coach} />}
-      {activeTab === 'plantel' && coach.apiTeamId && <TeamRosterPanel teamId={coach.apiTeamId} />}
-      {activeTab === 'reserva' && coach.reserveApiTeamId && <TeamRosterPanel teamId={coach.reserveApiTeamId} />}
+      {activeTab === 'plantel' && coach.apiTeamId && <TeamRosterPanel teamId={coach.apiTeamId} teamName={coach.club ?? ''} />}
+      {activeTab === 'reserva' && coach.reserveApiTeamId && (
+        <TeamRosterPanel teamId={coach.reserveApiTeamId} teamName={coach.club ? `${coach.club} (Reserva)` : 'Reserva'} />
+      )}
       {activeTab === 'liga' && coach.leagueApiId && <CoachLeagueTab coach={coach} />}
       {activeTab === 'calendario' && <CoachCalendarTab coach={coach} />}
       {activeTab === 'entrenamientos' && <CoachTrainingTab coach={coach} />}

@@ -107,7 +107,12 @@ export default function CoachSummaryTab({ coach }: { coach: AgencyCoach }) {
               </svg>
             </button>
           </div>
-          {showRival && <CoachRivalPanel teamId={next.isHome ? next.awayTeam.id : next.homeTeam.id} />}
+          {showRival && (
+            <CoachRivalPanel
+              teamId={next.isHome ? next.awayTeam.id : next.homeTeam.id}
+              teamName={next.isHome ? next.awayTeam.name : next.homeTeam.name}
+            />
+          )}
         </div>
       ) : (
         <EmptyState message="No hay partidos programados por el momento." />

@@ -4,7 +4,7 @@ import CoachStreakStrip from './CoachStreakStrip'
 import { fetchTeamFixtures } from '@/services/footballApiService'
 import type { AgencyFixture } from '@/types/footballApi'
 
-export default function CoachRivalPanel({ teamId }: { teamId: number }) {
+export default function CoachRivalPanel({ teamId, teamName }: { teamId: number; teamName: string }) {
   const [fixtures, setFixtures] = useState<AgencyFixture[] | null>(null)
 
   useEffect(() => {
@@ -22,7 +22,7 @@ export default function CoachRivalPanel({ teamId }: { teamId: number }) {
       <p className="text-2xs font-semibold text-apple-gray-400 uppercase tracking-wide mb-2">Racha reciente</p>
       {fixtures && <CoachStreakStrip fixtures={fixtures} />}
       <p className="text-2xs font-semibold text-apple-gray-400 uppercase tracking-wide mt-4 mb-2">Plantel</p>
-      <TeamRosterPanel teamId={teamId} />
+      <TeamRosterPanel teamId={teamId} teamName={teamName} />
     </div>
   )
 }
