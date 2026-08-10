@@ -71,7 +71,21 @@ export default function TacticalBoardPitch({
 
   function handleMarkerPointerUp(e: React.PointerEvent<HTMLDivElement>, marker: BoardMarker) {
     if (draggingMarkerId !== marker.id) return
-    e.currentTarget.releasePointerCapture(e.pointerId)
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId)
+    } catch {
+      /* ya liberado */
+    }
+    setDraggingMarkerId(null)
+  }
+
+  function handleMarkerPointerCancel(e: React.PointerEvent<HTMLDivElement>, marker: BoardMarker) {
+    if (draggingMarkerId !== marker.id) return
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId)
+    } catch {
+      /* ya liberado */
+    }
     setDraggingMarkerId(null)
   }
 
@@ -136,6 +150,21 @@ export default function TacticalBoardPitch({
     }
   }
 
+  function handleContainerPointerCancel(e: React.PointerEvent<HTMLDivElement>) {
+    // Un cancel (multi-touch, gesto de "atras" del sistema, pull-to-refresh, etc.) descarta
+    // el gesto en progreso -- no confirma ninguna anotacion ni mueve nada.
+    setFreehandPoints(null)
+    setDragStart(null)
+    setDragCurrent(null)
+    setTextInput(null)
+    setTextValue('')
+    try {
+      containerRef.current?.releasePointerCapture(e.pointerId)
+    } catch {
+      /* ya liberado */
+    }
+  }
+
   function commitText() {
     if (textInput && textValue.trim()) {
       onAnnotationsChange([
@@ -155,6 +184,8 @@ export default function TacticalBoardPitch({
         onPointerDown={handleContainerPointerDown}
         onPointerMove={handleContainerPointerMove}
         onPointerUp={handleContainerPointerUp}
+        onPointerCancel={handleContainerPointerCancel}
+        onLostPointerCapture={handleContainerPointerCancel}
       >
         {/* Lineas de campo -- mismo dibujo que /formacion */}
         <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 130" preserveAspectRatio="none">
@@ -172,8 +203,9 @@ export default function TacticalBoardPitch({
           <path d="M 94 128 Q 98 128 98 124" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="0.3" />
         </svg>
 
-        {/* Anotaciones: lapiz, flechas, zonas, texto */}
-        <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 130" preserveAspectRatio="none">
+        {/* Anotaciones: lapiz, flechas, zonas, texto -- viewBox 0-100 x 0-100 para que coincida
+            con el sistema de coordenadas de pointFromEvent (porcentaje de ancho/alto real) */}
+        <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none">
           {annotations.map(a => {
             if (a.kind === 'freehand') {
               return (
@@ -260,6 +292,8 @@ export default function TacticalBoardPitch({
               onPointerDown={e => handleMarkerPointerDown(e, marker)}
               onPointerMove={e => handleMarkerPointerMove(e, marker)}
               onPointerUp={e => handleMarkerPointerUp(e, marker)}
+              onPointerCancel={e => handleMarkerPointerCancel(e, marker)}
+              onLostPointerCapture={e => handleMarkerPointerCancel(e, marker)}
               className={`absolute -translate-x-1/2 -translate-y-1/2 w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center shadow-lg text-xs font-bold ${bg} ${
                 isSelected ? 'ring-4 ring-brand-green' : ''
               } ${tool === 'mover' ? 'cursor-grab active:cursor-grabbing' : ''}`}
