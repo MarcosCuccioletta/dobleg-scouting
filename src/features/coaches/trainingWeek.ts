@@ -28,3 +28,12 @@ export function getWeekDates(referenceDateKey: string): string[] {
   }
   return dates
 }
+
+/** Desplaza `dateKey` en `weeks` semanas (positivo o negativo) sin pasar nunca
+ *  por el huso horario del dispositivo — toda la aritmética queda en el
+ *  calendario puro (año/mes/día), anclada a mediodia para evitar bordes de DST. */
+export function shiftWeeks(dateKey: string, weeks: number): string {
+  const d = parseArDateKey(dateKey)
+  const shifted = new Date(d.getFullYear(), d.getMonth(), d.getDate() + weeks * 7, 12)
+  return formatDateKey(shifted)
+}

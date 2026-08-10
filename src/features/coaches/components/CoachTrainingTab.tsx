@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { fetchTeamFixtures, toArDateKey } from '@/services/footballApiService'
 import { listTrainingSessions, type CoachTrainingSession } from '@/services/coachService'
-import { getWeekDates } from '@/features/coaches/trainingWeek'
+import { getWeekDates, shiftWeeks } from '@/features/coaches/trainingWeek'
 import { computeTrainingInsights } from '@/features/coaches/trainingInsights'
 import { TYPE_META } from '@/features/coaches/trainingConstants'
 import CoachTrainingInsightsBar from './CoachTrainingInsightsBar'
@@ -88,17 +88,13 @@ export default function CoachTrainingTab({ coach }: { coach: AgencyCoach }) {
   if (sessions === null || fixtures === null) return <LoadingSpinner message="Cargando entrenamientos..." />
 
   const goPrevWeek = () => {
-    const d = parseArDateKey(weekDates[0])
-    d.setDate(d.getDate() - 7)
-    const key = toArDateKey(d)
+    const key = shiftWeeks(weekDates[0], -1)
     setReferenceDate(key)
     setSelectedDate(key)
   }
 
   const goNextWeek = () => {
-    const d = parseArDateKey(weekDates[0])
-    d.setDate(d.getDate() + 7)
-    const key = toArDateKey(d)
+    const key = shiftWeeks(weekDates[0], 1)
     setReferenceDate(key)
     setSelectedDate(key)
   }
@@ -191,7 +187,7 @@ export default function CoachTrainingTab({ coach }: { coach: AgencyCoach }) {
         </div>
       </div>
 
-      <CoachTrainingDayPanel coachKey={coach.key} dateKey={selectedDate} sessions={sessionsByDate.get(selectedDate) ?? []} onChanged={reload} />
+      <CoachTrainingDayPanel key={selectedDate} coachKey={coach.key} dateKey={selectedDate} sessions={sessionsByDate.get(selectedDate) ?? []} onChanged={reload} />
 
       <div className="space-y-2">
         <h2 className="text-sm font-semibold text-apple-gray-800 dark:text-white">Historial</h2>

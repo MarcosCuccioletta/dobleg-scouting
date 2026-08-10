@@ -64,7 +64,7 @@ export async function listTrainingSessions(coachKey: string): Promise<CoachTrain
     console.error('Error listando entrenamientos:', error)
     return []
   }
-  return data || []
+  return (data || []).map(r => ({ ...r, focus_tags: r.focus_tags ?? [] }))
 }
 
 export async function upsertTrainingSession(input: CoachTrainingSessionInput): Promise<{ success: boolean; error?: string }> {

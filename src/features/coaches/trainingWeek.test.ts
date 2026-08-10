@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { getWeekDates } from './trainingWeek'
+import { getWeekDates, shiftWeeks } from './trainingWeek'
 
 describe('getWeekDates', () => {
   it('devuelve 7 fechas consecutivas empezando en lunes para una fecha a mitad de semana', () => {
@@ -30,5 +30,15 @@ describe('getWeekDates', () => {
     const dates = getWeekDates('2025-12-29') // lunes
     expect(dates[0]).toBe('2025-12-29')
     expect(dates[6]).toBe('2026-01-04')
+  })
+})
+
+describe('shiftWeeks', () => {
+  it('retrocede una semana exacta', () => {
+    expect(shiftWeeks('2026-08-10', -1)).toBe('2026-08-03')
+  })
+
+  it('avanza una semana exacta cruzando de mes', () => {
+    expect(shiftWeeks('2026-08-31', 1)).toBe('2026-09-07')
   })
 })
