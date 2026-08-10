@@ -101,6 +101,17 @@ export default function TacticalBoardPitch({
       return
     }
     const p = pointFromEvent(e)
+
+    if (tool === 'texto') {
+      // El modo texto no arrastra nada -- no hace falta (ni conviene) capturar el puntero aca.
+      // Si ya habia un input de texto sin confirmar, lo confirmamos primero para no perder lo
+      // tecleado antes de abrir uno nuevo en la posicion tocada.
+      commitText()
+      setTextInput(p)
+      setTextValue('')
+      return
+    }
+
     containerRef.current!.setPointerCapture(e.pointerId)
 
     if (tool === 'lapiz') {
@@ -108,9 +119,6 @@ export default function TacticalBoardPitch({
     } else if (tool === 'flecha' || tool === 'zona') {
       setDragStart(p)
       setDragCurrent(p)
-    } else if (tool === 'texto') {
-      setTextInput(p)
-      setTextValue('')
     }
   }
 
@@ -129,17 +137,23 @@ export default function TacticalBoardPitch({
       }
       setFreehandPoints(null)
     } else if (tool === 'flecha' && dragStart && dragCurrent) {
-      onAnnotationsChange([
-        ...annotations,
-        { id: uid(), kind: 'arrow', color, x1: dragStart.x, y1: dragStart.y, x2: dragCurrent.x, y2: dragCurrent.y },
-      ])
+      // Guard: un toque suelto sin arrastre real no debe crear una flecha degenerada (largo ~0).
+      if (Math.abs(dragCurrent.x - dragStart.x) > 1 || Math.abs(dragCurrent.y - dragStart.y) > 1) {
+        onAnnotationsChange([
+          ...annotations,
+          { id: uid(), kind: 'arrow', color, x1: dragStart.x, y1: dragStart.y, x2: dragCurrent.x, y2: dragCurrent.y },
+        ])
+      }
       setDragStart(null)
       setDragCurrent(null)
     } else if (tool === 'zona' && dragStart && dragCurrent) {
-      onAnnotationsChange([
-        ...annotations,
-        { id: uid(), kind: 'zone', color, x1: dragStart.x, y1: dragStart.y, x2: dragCurrent.x, y2: dragCurrent.y },
-      ])
+      // Guard: idem flecha, evita zonas de radio ~0 en la pila de Deshacer.
+      if (Math.abs(dragCurrent.x - dragStart.x) > 1 || Math.abs(dragCurrent.y - dragStart.y) > 1) {
+        onAnnotationsChange([
+          ...annotations,
+          { id: uid(), kind: 'zone', color, x1: dragStart.x, y1: dragStart.y, x2: dragCurrent.x, y2: dragCurrent.y },
+        ])
+      }
       setDragStart(null)
       setDragCurrent(null)
     }
@@ -153,11 +167,14 @@ export default function TacticalBoardPitch({
   function handleContainerPointerCancel(e: React.PointerEvent<HTMLDivElement>) {
     // Un cancel (multi-touch, gesto de "atras" del sistema, pull-to-refresh, etc.) descarta
     // el gesto en progreso -- no confirma ninguna anotacion ni mueve nada.
+    // OJO: no tocar textInput/textValue aca. Este handler tambien esta cableado a
+    // onLostPointerCapture, que en Chrome dispara DESPUES de pointerup apenas hubo un minimo
+    // movimiento del puntero entre el down y el up -- practicamente cualquier toque real. El modo
+    // texto ya no captura el puntero (ver handleContainerPointerDown), y su ciclo de vida lo maneja
+    // commitText (via onBlur/Enter del input), no un gesto de puntero.
     setFreehandPoints(null)
     setDragStart(null)
     setDragCurrent(null)
-    setTextInput(null)
-    setTextValue('')
     try {
       containerRef.current?.releasePointerCapture(e.pointerId)
     } catch {

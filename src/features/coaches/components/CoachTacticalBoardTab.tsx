@@ -85,6 +85,11 @@ export default function CoachTacticalBoardTab({ coach }: { coach: AgencyCoach })
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
   const [renaming, setRenaming] = useState(false)
   const [renameValue, setRenameValue] = useState('')
+  const [creating, setCreating] = useState(false)
+  // Snapshot (JSON) de markers/annotations tal como estan guardados en el servidor. Sirve solo
+  // para mostrar el aviso de "cambios sin guardar" -- no persiste entre desmontajes del tab.
+  const [savedSnapshot, setSavedSnapshot] = useState<string | null>(null)
+  const hasUnsavedChanges = current !== null && savedSnapshot !== null && JSON.stringify({ markers, annotations }) !== savedSnapshot
 
   async function reloadBoards() {
     setBoards(await listTacticalBoards(coach.key))
@@ -115,18 +120,25 @@ export default function CoachTacticalBoardTab({ coach }: { coach: AgencyCoach })
     setCurrent(board)
     setMarkers(board.markers)
     setAnnotations(board.annotations)
+    setSavedSnapshot(JSON.stringify({ markers: board.markers, annotations: board.annotations }))
     setShowLoadModal(false)
   }
 
   async function handleCreate() {
-    if (!newName.trim()) return
+    if (!newName.trim() || creating) return
+    setCreating(true)
     const board = await createTacticalBoard(coach.key, newName.trim())
+    setCreating(false)
     if (board) {
       loadBoard(board)
       await reloadBoards()
+      setShowNewInput(false)
+      setNewName('')
+    } else {
+      // Tabla/funcionalidad todavia no disponible en el servidor (ej. migracion sin correr) u otro
+      // error -- avisar en vez de cerrar el modal en silencio, y dejar reintentar sin reescribir el nombre.
+      window.alert('No se pudo crear la pizarra. Puede que la funcionalidad todavía no esté disponible en el servidor — probá de nuevo más tarde.')
     }
-    setShowNewInput(false)
-    setNewName('')
   }
 
   async function handleSave() {
@@ -137,6 +149,7 @@ export default function CoachTacticalBoardTab({ coach }: { coach: AgencyCoach })
       setSaveStatus('error')
       return
     }
+    setSavedSnapshot(JSON.stringify({ markers, annotations }))
     await reloadBoards()
     setSaveStatus('saved')
     setTimeout(() => setSaveStatus('idle'), 1500)
@@ -166,15 +179,18 @@ export default function CoachTacticalBoardTab({ coach }: { coach: AgencyCoach })
       setCurrent(null)
       setMarkers([])
       setAnnotations([])
+      setSavedSnapshot(null)
     }
     await reloadBoards()
   }
 
   function addGenericMarker() {
     const count = markers.filter(m => m.kind === 'generic' && m.team === markerTeam).length
+    // x/y en 0-100 sobre ambos ejes (mismo sistema que las anotaciones en TacticalBoardPitch,
+    // no el viewBox 0-130 de FormationPage): 50/50 es el centro real de esta cancha.
     setMarkers([
       ...markers,
-      { id: uid(), kind: 'generic', team: markerTeam, label: String(count + 1), playerId: null, x: 50, y: 65 },
+      { id: uid(), kind: 'generic', team: markerTeam, label: String(count + 1), playerId: null, x: 50, y: 50 },
     ])
   }
 
@@ -188,7 +204,7 @@ export default function CoachTacticalBoardTab({ coach }: { coach: AgencyCoach })
         label: player.number != null ? String(player.number) : player.name.split(' ').slice(-1)[0],
         playerId: player.id,
         x: 50,
-        y: 65,
+        y: 50,
       },
     ])
     setShowPlayerPicker(false)
@@ -196,7 +212,7 @@ export default function CoachTacticalBoardTab({ coach }: { coach: AgencyCoach })
 
   function addBallMarker() {
     if (markers.some(m => m.kind === 'ball')) return
-    setMarkers([...markers, { id: uid(), kind: 'ball', team: null, label: '', playerId: null, x: 50, y: 65 }])
+    setMarkers([...markers, { id: uid(), kind: 'ball', team: null, label: '', playerId: null, x: 50, y: 50 }])
   }
 
   function handleUndo() {
@@ -263,6 +279,7 @@ export default function CoachTacticalBoardTab({ coach }: { coach: AgencyCoach })
           Cargar
         </button>
         {saveStatus === 'error' && <span className="text-xs text-red-500">Error al guardar</span>}
+        {saveStatus !== 'error' && hasUnsavedChanges && <span className="text-xs text-amber-500">Cambios sin guardar</span>}
         <button
           type="button"
           onClick={() => void handleSave()}
@@ -332,10 +349,10 @@ export default function CoachTacticalBoardTab({ coach }: { coach: AgencyCoach })
               <button
                 type="button"
                 onClick={() => void handleCreate()}
-                disabled={!newName.trim()}
+                disabled={!newName.trim() || creating}
                 className="flex-1 min-h-[40px] rounded-lg bg-brand-green text-apple-gray-900 text-sm font-semibold disabled:opacity-50"
               >
-                Crear
+                {creating ? 'Creando...' : 'Crear'}
               </button>
             </div>
           </div>
