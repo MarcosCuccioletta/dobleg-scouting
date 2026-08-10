@@ -93,12 +93,14 @@ function SessionForm({
   onSubmit,
   onCancel,
   submitting,
+  errorMessage,
 }: {
   draft: DraftSession
   onChange: (draft: DraftSession) => void
   onSubmit: () => void
   onCancel: () => void
   submitting: boolean
+  errorMessage: string | null
 }) {
   const toggleTag = (tag: string) => {
     onChange({
@@ -184,6 +186,8 @@ function SessionForm({
         />
       </div>
 
+      {errorMessage && <p className="text-xs font-medium text-red-500">{errorMessage}</p>}
+
       <div className="flex items-center gap-2 pt-1">
         <button
           type="button"
@@ -216,27 +220,32 @@ export default function CoachTrainingDayPanel({
   const [draft, setDraft] = useState<DraftSession>(emptyDraft())
   const [submitting, setSubmitting] = useState(false)
   const [deletingId, setDeletingId] = useState<number | null>(null)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   const startEdit = (session: CoachTrainingSession) => {
     setDraft(sessionToDraft(session))
     setEditingId(session.id)
+    setErrorMessage(null)
   }
 
   const startNew = () => {
     setDraft(emptyDraft())
     setEditingId('new')
+    setErrorMessage(null)
   }
 
   const cancelEdit = () => {
     setEditingId(null)
     setDraft(emptyDraft())
+    setErrorMessage(null)
   }
 
   const handleSubmit = async () => {
     if (!draft.title.trim() || submitting) return
     setSubmitting(true)
+    setErrorMessage(null)
     try {
-      await upsertTrainingSession({
+      const result = await upsertTrainingSession({
         ...(typeof editingId === 'number' ? { id: editingId } : {}),
         coach_key: coachKey,
         session_date: dateKey,
@@ -248,8 +257,12 @@ export default function CoachTrainingDayPanel({
         intensity: draft.intensity,
         focus_tags: draft.focus_tags,
       })
-      cancelEdit()
-      onChanged()
+      if (result.success) {
+        cancelEdit()
+        onChanged()
+      } else {
+        setErrorMessage(result.error ?? 'No se pudo guardar la sesión. Intentá de nuevo.')
+      }
     } finally {
       setSubmitting(false)
     }
@@ -260,8 +273,12 @@ export default function CoachTrainingDayPanel({
     if (!ok) return
     setDeletingId(session.id)
     try {
-      await deleteTrainingSession(session.id)
-      onChanged()
+      const result = await deleteTrainingSession(session.id)
+      if (result.success) {
+        onChanged()
+      } else {
+        window.alert(result.error ?? 'No se pudo borrar la sesión. Intentá de nuevo.')
+      }
     } finally {
       setDeletingId(null)
     }
@@ -273,7 +290,15 @@ export default function CoachTrainingDayPanel({
         const meta = TYPE_META[session.type]
         if (editingId === session.id) {
           return (
-            <SessionForm key={session.id} draft={draft} onChange={setDraft} onSubmit={() => void handleSubmit()} onCancel={cancelEdit} submitting={submitting} />
+            <SessionForm
+              key={session.id}
+              draft={draft}
+              onChange={setDraft}
+              onSubmit={() => void handleSubmit()}
+              onCancel={cancelEdit}
+              submitting={submitting}
+              errorMessage={errorMessage}
+            />
           )
         }
         return (
@@ -325,7 +350,14 @@ export default function CoachTrainingDayPanel({
       })}
 
       {editingId === 'new' ? (
-        <SessionForm draft={draft} onChange={setDraft} onSubmit={() => void handleSubmit()} onCancel={cancelEdit} submitting={submitting} />
+        <SessionForm
+          draft={draft}
+          onChange={setDraft}
+          onSubmit={() => void handleSubmit()}
+          onCancel={cancelEdit}
+          submitting={submitting}
+          errorMessage={errorMessage}
+        />
       ) : (
         <button
           type="button"
