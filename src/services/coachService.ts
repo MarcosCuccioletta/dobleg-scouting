@@ -10,6 +10,9 @@ export interface CoachTrainingSession {
   type: TrainingSessionType
   title: string
   notes: string | null
+  duration_minutes: number | null
+  intensity: number | null
+  focus_tags: string[]
   created_at: string
   updated_at: string
 }
@@ -22,6 +25,9 @@ export interface CoachTrainingSessionInput {
   type: TrainingSessionType
   title: string
   notes?: string | null
+  duration_minutes?: number | null
+  intensity?: number | null
+  focus_tags?: string[]
 }
 
 export interface CoachMatchNote {
@@ -70,6 +76,9 @@ export async function upsertTrainingSession(input: CoachTrainingSessionInput): P
     type: input.type,
     title: input.title,
     notes: input.notes ?? null,
+    duration_minutes: input.duration_minutes ?? null,
+    intensity: input.intensity ?? null,
+    focus_tags: input.focus_tags ?? [],
     updated_at: new Date().toISOString(),
   })
 

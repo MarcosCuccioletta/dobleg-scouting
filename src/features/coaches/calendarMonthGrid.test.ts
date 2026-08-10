@@ -62,7 +62,8 @@ describe('buildMonthGrid', () => {
 function mkSession(over: Partial<CoachCalendarDay['sessions'][number]> = {}): CoachCalendarDay['sessions'][number] {
   return {
     id: 1, coach_key: 'domingo', session_date: '2024-04-10', session_time: null,
-    type: 'tactico', title: 'Táctico', notes: null, created_at: '', updated_at: '',
+    type: 'tactico', title: 'Táctico', notes: null, duration_minutes: null, intensity: null, focus_tags: [],
+    created_at: '', updated_at: '',
     ...over,
   }
 }

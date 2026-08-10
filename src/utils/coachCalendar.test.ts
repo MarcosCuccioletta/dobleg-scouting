@@ -16,7 +16,7 @@ function mkFixture(over: Partial<AgencyFixture> = {}): AgencyFixture {
 function mkSession(over: Partial<CoachTrainingSession> = {}): CoachTrainingSession {
   return {
     id: 1, coach_key: 'domingo', session_date: '2026-08-14', session_time: '10:00',
-    type: 'tactico', title: 'Táctico pre-rival', notes: null,
+    type: 'tactico', title: 'Táctico pre-rival', notes: null, duration_minutes: null, intensity: null, focus_tags: [],
     created_at: '', updated_at: '', ...over,
   }
 }
