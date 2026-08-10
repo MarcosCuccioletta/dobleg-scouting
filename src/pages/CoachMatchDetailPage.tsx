@@ -9,7 +9,8 @@ import {
   fetchSquadCached,
   type SquadPlayer,
 } from '@/services/footballApiService'
-import { getMatchNote } from '@/services/coachService'
+import { getMatchNotePhases, type MatchNotePhases } from '@/services/coachService'
+import { PHASE_META } from '@/features/coaches/matchNotesConstants'
 import { groupLineupByPosition, LINEUP_GROUP_ORDER } from '@/features/coaches/lineupGrouping'
 import type { AgencyFixture, ApiFixtureLineup, ApiFixtureEvent } from '@/types/footballApi'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
@@ -135,7 +136,7 @@ export default function CoachMatchDetailPage() {
   const [lineups, setLineups] = useState<ApiFixtureLineup[] | null>(null)
   const [events, setEvents] = useState<ApiFixtureEvent[] | null>(null)
   const [squads, setSquads] = useState<Record<number, SquadPlayer[]>>({})
-  const [note, setNote] = useState<string | null>(null)
+  const [notePhases, setNotePhases] = useState<MatchNotePhases | null>(null)
 
   useEffect(() => {
     if (!fixtureId) return
@@ -152,7 +153,7 @@ export default function CoachMatchDetailPage() {
     })
     fetchFixtureLineups(Number(fixtureId)).then(l => { if (active) setLineups(l) })
     fetchFixtureEvents(Number(fixtureId)).then(e => { if (active) setEvents(e) })
-    getMatchNote(coach.key, Number(fixtureId)).then(n => { if (active) setNote(n) })
+    getMatchNotePhases(coach.key, Number(fixtureId)).then(p => { if (active) setNotePhases(p) })
     return () => { active = false }
   }, [coach, fixtureId])
 
@@ -211,10 +212,10 @@ export default function CoachMatchDetailPage() {
         {fixture.venue && <p className="text-2xs text-apple-gray-400 text-center mt-3">{fixture.venue}</p>}
       </div>
 
-      {note && (
+      {notePhases && PHASE_META.some(p => (notePhases[p.key] ?? '').trim()) && (
         <div className="bg-white dark:bg-apple-gray-800/60 rounded-apple-lg border border-apple-gray-200/60 dark:border-apple-gray-700/40 p-5 mb-6">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-xs font-semibold text-apple-gray-400 uppercase tracking-wide">Nota del DT</p>
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs font-semibold text-apple-gray-400 uppercase tracking-wide">Notas del DT</p>
             <Link
               to={`/entrenadores/${coach.key}?tab=notas`}
               className="text-2xs font-semibold text-brand-green hover:underline"
@@ -222,7 +223,14 @@ export default function CoachMatchDetailPage() {
               Editar en Notas de partidos
             </Link>
           </div>
-          <p className="text-sm text-apple-gray-700 dark:text-apple-gray-300 whitespace-pre-wrap">{note}</p>
+          <div className="space-y-3">
+            {PHASE_META.filter(p => (notePhases[p.key] ?? '').trim()).map(p => (
+              <div key={p.key}>
+                <p className="text-2xs font-semibold uppercase tracking-wide text-apple-gray-400 mb-1">{p.label}</p>
+                <p className="text-sm text-apple-gray-700 dark:text-apple-gray-300 whitespace-pre-wrap">{notePhases[p.key]}</p>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
