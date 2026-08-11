@@ -7,8 +7,9 @@ import CoachCalendarTab from '@/features/coaches/components/CoachCalendarTab'
 import CoachTrainingTab from '@/features/coaches/components/CoachTrainingTab'
 import CoachNotesTab from '@/features/coaches/components/CoachNotesTab'
 import CoachTacticalBoardTab from '@/features/coaches/components/CoachTacticalBoardTab'
+import CoachFutureSquadTab from '@/features/coaches/components/CoachFutureSquadTab'
 
-type CoachTab = 'resumen' | 'plantel' | 'liga' | 'calendario' | 'entrenamientos' | 'notas' | 'pizarra' | 'reserva'
+type CoachTab = 'resumen' | 'plantel' | 'liga' | 'calendario' | 'entrenamientos' | 'notas' | 'pizarra' | 'plantel_futuro' | 'reserva'
 
 const TABS: { id: CoachTab; label: string }[] = [
   { id: 'resumen', label: 'Resumen' },
@@ -18,6 +19,7 @@ const TABS: { id: CoachTab; label: string }[] = [
   { id: 'entrenamientos', label: 'Entrenamientos' },
   { id: 'notas', label: 'Notas de partidos' },
   { id: 'pizarra', label: 'Pizarra' },
+  { id: 'plantel_futuro', label: 'Plantel futuro' },
 ]
 
 function initialsOf(fullName: string): string {
@@ -35,7 +37,7 @@ export default function CoachDetailPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const tabParam = searchParams.get('tab')
   const isValidTab = (val: string): val is CoachTab =>
-    ['resumen', 'plantel', 'liga', 'calendario', 'entrenamientos', 'notas', 'pizarra', 'reserva'].includes(val)
+    ['resumen', 'plantel', 'liga', 'calendario', 'entrenamientos', 'notas', 'pizarra', 'plantel_futuro', 'reserva'].includes(val)
   const activeTab: CoachTab = tabParam && isValidTab(tabParam) ? tabParam : 'resumen'
   const setActiveTab = (tab: CoachTab) => setSearchParams(prev => {
     const next = new URLSearchParams(prev)
@@ -165,6 +167,7 @@ export default function CoachDetailPage() {
       {activeTab === 'entrenamientos' && <CoachTrainingTab coach={coach} />}
       {activeTab === 'notas' && <CoachNotesTab coach={coach} />}
       {activeTab === 'pizarra' && <CoachTacticalBoardTab key={coach.key} coach={coach} />}
+      {activeTab === 'plantel_futuro' && <CoachFutureSquadTab key={coach.key} coach={coach} />}
     </div>
   )
 }
