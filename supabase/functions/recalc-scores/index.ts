@@ -3,6 +3,7 @@ import { getSupabaseAdmin } from '../_shared/supabase-client.ts';
 import { calculateSeasonScores } from '../_shared/scoring.ts';
 import { fetchAllRows } from '../_shared/fetchAll.ts';
 import type { Position } from '../_shared/types.ts';
+import { mergeSeasonScoreFragments } from '../_shared/mergeSeasonFragments.ts';
 
 // Pool mínimo de jugadores de una posición (en la liga) para que el ranking sea
 // confiable. Solo entran al pool los que tienen suficientes partidos.
@@ -29,6 +30,12 @@ serve(async (req) => {
   })();
 
   try {
+    // Corrige posiciones adivinadas a ciegas en partidos sin dato de grilla
+    // (tipico de entradas de banco) ANTES de calcular distribucion y scores de
+    // esta misma corrida, para que ya salgan bien en esta pasada.
+    const { error: backfillError } = await supabase.rpc('backfill_ungridded_positions');
+    if (backfillError) throw new Error(`backfill_ungridded_positions: ${backfillError.message}`);
+
     const { data: domesticLeagues } = await supabase
       .from('leagues')
       .select('id, season')
@@ -240,10 +247,15 @@ serve(async (req) => {
       }
       const primaryRows = allSeasonRows.filter((r: any) => bestPos.get(r.player_id)?.position === r.position);
 
+      // Fusionar fragmentos: un jugador puede tener mas de una fila de la misma
+      // posicion-primaria si jugo esa posicion en mas de una liga/competencia
+      // esta temporada (liga domestica + copa, por ejemplo).
+      const mergedPrimaryRows = mergeSeasonScoreFragments(primaryRows);
+
       // ── Ranking GLOBAL por posición: cada jugador contra TODOS los de su puesto
       // en la plataforma (todas las ligas), SIN ajuste por nivel de liga. ──
       const byPos = new Map<string, any[]>();
-      for (const r of primaryRows) {
+      for (const r of mergedPrimaryRows) {
         if (!byPos.has(r.position)) byPos.set(r.position, []);
         byPos.get(r.position)!.push(r);
       }
@@ -263,16 +275,16 @@ serve(async (req) => {
       // El borrado va DENTRO del if: si el cálculo no produjo filas (una consulta que
       // falló, la API caída), borrar igual dejaría la temporada sin scores y la app
       // en blanco. Mejor conservar los datos viejos que quedarse sin ninguno.
-      if (primaryRows.length > 0) {
+      if (mergedPrimaryRows.length > 0) {
         await supabase.from('player_season_scores').delete().eq('season', season);
         const CHUNK = 500;
-        for (let i = 0; i < primaryRows.length; i += CHUNK) {
+        for (let i = 0; i < mergedPrimaryRows.length; i += CHUNK) {
           await supabase.from('player_season_scores').upsert(
-            primaryRows.slice(i, i + CHUNK),
-            { onConflict: 'player_id,season,position,league_id' }
+            mergedPrimaryRows.slice(i, i + CHUNK),
+            { onConflict: 'player_id,season,position' }
           );
         }
-        totalUpserted += primaryRows.length;
+        totalUpserted += mergedPrimaryRows.length;
       }
 
       // Fix current_team_id: set to team from most recent fixture. La fecha viene
