@@ -13,6 +13,7 @@ import { fetchSquadCached, fetchSeasonFixtures, fetchFixtureLineups, type SquadP
 import type { PlayerWithScore } from '@/types/scoring'
 import type { AgencyCoach } from '@/constants/agencyCoaches'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
+import { isMatchFinished } from '@/utils/coachCalendar'
 
 function uid(): string {
   return crypto.randomUUID()
@@ -34,7 +35,7 @@ async function buildPrefill(coach: AgencyCoach): Promise<{ formationType: string
 
   const fixtures = await fetchSeasonFixtures(coach.apiTeamId, coach.leagueSeason)
   const lastPlayed = fixtures
-    .filter(f => f.statusShort === 'FT')
+    .filter(f => isMatchFinished(f.statusShort))
     .sort((a, b) => b.timestamp - a.timestamp)[0]
   if (!lastPlayed) return { formationType: '4-3-3', slots: emptySlots('4-3-3') }
 
@@ -108,11 +109,17 @@ export default function CoachFutureSquadTab({ coach }: { coach: AgencyCoach }) {
 
   function handleSelectSquad(player: SquadPlayer) {
     if (!pickerSlotKey) return
-    setSlots(prev => prev.map(s => (
-      s.slotKey === pickerSlotKey
-        ? { slotKey: s.slotKey, source: 'squad', playerId: player.id, playerName: player.name, playerNumber: player.number, ggScore: null }
-        : s
-    )))
+    setSlots(prev => prev.map(s => {
+      if (s.slotKey === pickerSlotKey) {
+        return { slotKey: s.slotKey, source: 'squad', playerId: player.id, playerName: player.name, playerNumber: player.number, ggScore: null }
+      }
+      // Repositioning: if this player already occupies another slot, vacate it instead of
+      // leaving a stale duplicate placement (no baja is created — this is a move, not a release).
+      if (s.source === 'squad' && s.playerId === player.id) {
+        return { slotKey: s.slotKey, source: null, playerId: null, playerName: null, playerNumber: null, ggScore: null }
+      }
+      return s
+    }))
     setPickerSlotKey(null)
   }
 
@@ -131,7 +138,13 @@ export default function CoachFutureSquadTab({ coach }: { coach: AgencyCoach }) {
     if (!slot || slot.source === null) return
 
     if (slot.source === 'squad') {
-      setBajas(prev => [...prev, { id: uid(), playerId: slot.playerId as number, playerName: slot.playerName as string, reason: '' }])
+      const playerId = slot.playerId as number
+      const playerName = slot.playerName as string
+      // Defensive dedup: don't push a second baja row for a player who already has one
+      // (e.g. removed once, re-added, then removed again).
+      setBajas(prev => (
+        prev.some(b => b.playerId === playerId) ? prev : [...prev, { id: uid(), playerId, playerName, reason: '' }]
+      ))
     }
     setSlots(prev => prev.map(s => (
       s.slotKey === slotKey ? { slotKey: s.slotKey, source: null, playerId: null, playerName: null, playerNumber: null, ggScore: null } : s
@@ -160,6 +173,7 @@ export default function CoachFutureSquadTab({ coach }: { coach: AgencyCoach }) {
 
   const usedSquadIds = new Set(slots.filter(s => s.source === 'squad').map(s => s.playerId as number))
   const usedCandidateIds = new Set(slots.filter(s => s.source === 'candidate').map(s => s.playerId as string))
+  const bajaPlayerIds = new Set(bajas.map(b => b.playerId))
   const pickerSlot = pickerSlotKey ? slots.find(s => s.slotKey === pickerSlotKey) : null
 
   if (loading) return <LoadingSpinner message="Cargando plantel a futuro..." />
@@ -180,7 +194,7 @@ export default function CoachFutureSquadTab({ coach }: { coach: AgencyCoach }) {
       <div className="flex flex-wrap items-center gap-3">
         <div>
           <label className="block text-xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider mb-1">
-            Formacion
+            Formación
           </label>
           <select
             value={formationType}
@@ -215,7 +229,7 @@ export default function CoachFutureSquadTab({ coach }: { coach: AgencyCoach }) {
       <div className="bg-white dark:bg-apple-gray-800/60 rounded-apple-lg border border-apple-gray-200/60 dark:border-apple-gray-700/40 p-4">
         <h3 className="text-sm font-semibold text-apple-gray-800 dark:text-white mb-3">Bajas planificadas</h3>
         {bajas.length === 0 ? (
-          <p className="text-sm text-apple-gray-400">Sin bajas planificadas todavia.</p>
+          <p className="text-sm text-apple-gray-400">Sin bajas planificadas todavía.</p>
         ) : (
           <div className="space-y-2">
             {bajas.map(b => (
@@ -248,6 +262,7 @@ export default function CoachFutureSquadTab({ coach }: { coach: AgencyCoach }) {
           formationType={formationType}
           squad={squad}
           usedSquadIds={pickerSlot?.source === 'squad' ? new Set([...usedSquadIds].filter(id => id !== pickerSlot.playerId)) : usedSquadIds}
+          bajaPlayerIds={bajaPlayerIds}
           usedCandidateIds={pickerSlot?.source === 'candidate' ? new Set([...usedCandidateIds].filter(id => id !== pickerSlot.playerId)) : usedCandidateIds}
           onSelectSquad={handleSelectSquad}
           onSelectCandidate={handleSelectCandidate}

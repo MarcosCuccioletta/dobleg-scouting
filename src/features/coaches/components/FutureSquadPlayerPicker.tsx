@@ -19,6 +19,7 @@ export default function FutureSquadPlayerPicker({
   formationType,
   squad,
   usedSquadIds,
+  bajaPlayerIds,
   usedCandidateIds,
   onSelectSquad,
   onSelectCandidate,
@@ -28,6 +29,7 @@ export default function FutureSquadPlayerPicker({
   formationType: string
   squad: SquadPlayer[]
   usedSquadIds: Set<number>
+  bajaPlayerIds: Set<number>
   usedCandidateIds: Set<string>
   onSelectSquad: (player: SquadPlayer) => void
   onSelectCandidate: (player: PlayerWithScore) => void
@@ -43,10 +45,15 @@ export default function FutureSquadPlayerPicker({
   const allowedPositions: Position[] =
     FORMATION_POSITION_API_OVERRIDES[formationType]?.[slotKey] ?? POSITION_KEY_API_MAP[slotKey] ?? []
 
-  const availableSquad = useMemo(
-    () => squad.filter(p => !usedSquadIds.has(p.id)),
-    [squad, usedSquadIds],
-  )
+  // Players already on a baja can't be placed until removed from that list. Players already
+  // occupying another slot ARE shown (so picking one moves them here instead of hiding them),
+  // but sorted after the still-unplaced ones and flagged via usedSquadIds for the "ya en la
+  // cancha" badge below.
+  const availableSquad = useMemo(() => {
+    const unplaced = squad.filter(p => !bajaPlayerIds.has(p.id) && !usedSquadIds.has(p.id))
+    const placed = squad.filter(p => !bajaPlayerIds.has(p.id) && usedSquadIds.has(p.id))
+    return [...unplaced, ...placed]
+  }, [squad, usedSquadIds, bajaPlayerIds])
 
   const { players: suggestionPool, loading: suggestionsLoading } = usePlayersList(
     activeTab === 'sugeridos' && allowedPositions.length > 0
@@ -137,32 +144,46 @@ export default function FutureSquadPlayerPicker({
         <div className="p-4 max-h-[60vh] overflow-y-auto flex-1">
           {activeTab === 'plantel' ? (
             availableSquad.length === 0 ? (
-              <p className="text-center text-apple-gray-500 py-8 text-sm">No quedan jugadores del plantel sin ubicar.</p>
+              <p className="text-center text-apple-gray-500 py-8 text-sm">No hay jugadores del plantel disponibles.</p>
             ) : (
               <div className="space-y-2">
-                {availableSquad.map(p => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => onSelectSquad(p)}
-                    className="w-full flex items-center gap-3 p-3 rounded-xl transition-all text-left hover:bg-apple-gray-100 dark:hover:bg-apple-gray-700 border border-apple-gray-100 dark:border-apple-gray-700 hover:border-brand-green/50"
-                  >
-                    {p.photo ? (
-                      <img src={p.photo} alt="" className="w-10 h-10 rounded-lg object-cover bg-apple-gray-200" />
-                    ) : (
-                      <div className="w-10 h-10 rounded-lg bg-apple-gray-200 dark:bg-apple-gray-600 flex items-center justify-center text-sm font-bold text-apple-gray-500">
-                        {p.name.split(' ').map(w => w[0]).slice(0, 2).join('')}
+                {availableSquad.map(p => {
+                  const isPlacedElsewhere = usedSquadIds.has(p.id)
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => onSelectSquad(p)}
+                      className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all text-left border hover:border-brand-green/50 ${
+                        isPlacedElsewhere
+                          ? 'border-amber-200 dark:border-amber-800/40 bg-amber-50/50 dark:bg-amber-900/10 hover:bg-amber-50 dark:hover:bg-amber-900/20'
+                          : 'border-apple-gray-100 dark:border-apple-gray-700 hover:bg-apple-gray-100 dark:hover:bg-apple-gray-700'
+                      }`}
+                    >
+                      {p.photo ? (
+                        <img src={p.photo} alt="" className="w-10 h-10 rounded-lg object-cover bg-apple-gray-200" />
+                      ) : (
+                        <div className="w-10 h-10 rounded-lg bg-apple-gray-200 dark:bg-apple-gray-600 flex items-center justify-center text-sm font-bold text-apple-gray-500">
+                          {p.name.split(' ').map(w => w[0]).slice(0, 2).join('')}
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium text-apple-gray-800 dark:text-white text-sm truncate">{p.name}</p>
+                          {isPlacedElsewhere && (
+                            <span className="flex-shrink-0 px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-[10px] font-semibold text-amber-600 dark:text-amber-400">
+                              Ya en la cancha
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-apple-gray-500 truncate">
+                          {p.position ? POSITION_LABEL[p.position] ?? p.position : '—'}
+                          {p.number != null ? ` · #${p.number}` : ''}
+                        </p>
                       </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-apple-gray-800 dark:text-white text-sm truncate">{p.name}</p>
-                      <p className="text-xs text-apple-gray-500 truncate">
-                        {p.position ? POSITION_LABEL[p.position] ?? p.position : '—'}
-                        {p.number != null ? ` · #${p.number}` : ''}
-                      </p>
-                    </div>
-                  </button>
-                ))}
+                    </button>
+                  )
+                })}
               </div>
             )
           ) : activeTab === 'sugeridos' ? (
@@ -171,7 +192,7 @@ export default function FutureSquadPlayerPicker({
                 <div className="w-6 h-6 border-2 border-brand-green border-t-transparent rounded-full animate-spin" />
               </div>
             ) : suggestions.length === 0 ? (
-              <p className="text-center text-apple-gray-500 py-8 text-sm">No hay jugadores sugeridos para esta posicion.</p>
+              <p className="text-center text-apple-gray-500 py-8 text-sm">No hay jugadores sugeridos para esta posición.</p>
             ) : (
               <div className="space-y-2">{suggestions.map(renderCandidateCard)}</div>
             )
@@ -195,7 +216,7 @@ export default function FutureSquadPlayerPicker({
                   <div className="w-6 h-6 border-2 border-brand-green border-t-transparent rounded-full animate-spin" />
                 </div>
               ) : debouncedSearch.length < 2 ? (
-                <p className="text-center text-apple-gray-500 py-8 text-sm">Escribi al menos 2 letras para buscar.</p>
+                <p className="text-center text-apple-gray-500 py-8 text-sm">Escribí al menos 2 letras para buscar.</p>
               ) : searchResults.length === 0 ? (
                 <p className="text-center text-apple-gray-500 py-8 text-sm">No se encontraron jugadores.</p>
               ) : (
