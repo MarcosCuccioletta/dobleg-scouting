@@ -43,6 +43,11 @@ const WEIGHTED_AVG_FIELDS: (keyof SeasonScoreRow)[] = [
 // la misma posicion en dos competencias la misma temporada queda con dos filas
 // "iguales" en player_season_scores, con distinto matches_played/avg_score --
 // el bug real detras de ver "EXT 6 PJ 6.1" y "EXT 7 PJ 5.4" en la ficha.
+//
+// PRECONDICIÓN: Asume que todas las filas de `rows` pertenecen a la misma
+// temporada (`season`). No se incluye `season` en la clave de agrupamiento porque
+// el único caller (recalc-scores/index.ts) siempre invoca esta función con las
+// filas de una sola temporada a la vez, dentro de un bucle `for (const season of...)`.
 export function mergeSeasonScoreFragments(rows: SeasonScoreRow[]): SeasonScoreRow[] {
   const byKey = new Map<string, SeasonScoreRow[]>();
   for (const r of rows) {
