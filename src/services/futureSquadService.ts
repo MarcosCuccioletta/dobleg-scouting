@@ -36,7 +36,7 @@ export async function getFutureSquad(coachKey: string): Promise<FutureSquadPlan 
 
   if (error) {
     console.error('Error cargando plantel a futuro:', error)
-    return null
+    throw new Error(`Error cargando plantel a futuro: ${error.message}`)
   }
   return (data as unknown as FutureSquadPlan) ?? null
 }

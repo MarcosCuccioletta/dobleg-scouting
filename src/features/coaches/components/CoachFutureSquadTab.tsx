@@ -53,6 +53,7 @@ async function buildPrefill(coach: AgencyCoach): Promise<{ formationType: string
 export default function CoachFutureSquadTab({ coach }: { coach: AgencyCoach }) {
   const [squad, setSquad] = useState<SquadPlayer[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [formationType, setFormationType] = useState('4-3-3')
   const [slots, setSlots] = useState<FutureSquadSlot[]>(emptySlots('4-3-3'))
   const [bajas, setBajas] = useState<FutureSquadBaja[]>([])
@@ -64,27 +65,35 @@ export default function CoachFutureSquadTab({ coach }: { coach: AgencyCoach }) {
     let active = true
     async function load() {
       setLoading(true)
-      const [squadData, plan] = await Promise.all([
-        coach.apiTeamId ? fetchSquadCached(coach.apiTeamId) : Promise.resolve([]),
-        getFutureSquad(coach.key),
-      ])
-      if (!active) return
-      setSquad(squadData)
-
-      if (plan) {
-        setFormationType(plan.formation_type)
-        setSlots(plan.slots)
-        setBajas(plan.bajas)
-        setSavedSnapshot(JSON.stringify({ formationType: plan.formation_type, slots: plan.slots, bajas: plan.bajas }))
-      } else {
-        const prefill = await buildPrefill(coach)
+      setLoadError(null)
+      try {
+        const [squadData, plan] = await Promise.all([
+          coach.apiTeamId ? fetchSquadCached(coach.apiTeamId) : Promise.resolve([]),
+          getFutureSquad(coach.key),
+        ])
         if (!active) return
-        setFormationType(prefill.formationType)
-        setSlots(prefill.slots)
-        setBajas([])
-        setSavedSnapshot('')
+        setSquad(squadData)
+
+        if (plan) {
+          setFormationType(plan.formation_type)
+          setSlots(plan.slots)
+          setBajas(plan.bajas)
+          setSavedSnapshot(JSON.stringify({ formationType: plan.formation_type, slots: plan.slots, bajas: plan.bajas }))
+        } else {
+          const prefill = await buildPrefill(coach)
+          if (!active) return
+          setFormationType(prefill.formationType)
+          setSlots(prefill.slots)
+          setBajas([])
+          setSavedSnapshot('')
+        }
+      } catch (err) {
+        if (!active) return
+        const msg = err instanceof Error ? err.message : 'Error desconocido'
+        setLoadError(msg)
+      } finally {
+        if (active) setLoading(false)
       }
-      setLoading(false)
     }
     load()
     return () => { active = false }
@@ -155,6 +164,17 @@ export default function CoachFutureSquadTab({ coach }: { coach: AgencyCoach }) {
 
   if (loading) return <LoadingSpinner message="Cargando plantel a futuro..." />
 
+  if (loadError) {
+    return (
+      <div className="space-y-4 animate-fade-in">
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/40 rounded-apple-lg p-4">
+          <p className="text-sm font-semibold text-brand-red mb-1">Error cargando plantel a futuro</p>
+          <p className="text-xs text-apple-gray-600 dark:text-apple-gray-400">{loadError}</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-4 animate-fade-in">
       <div className="flex flex-wrap items-center gap-3">
@@ -178,7 +198,7 @@ export default function CoachFutureSquadTab({ coach }: { coach: AgencyCoach }) {
         <button
           type="button"
           onClick={() => void handleSave()}
-          disabled={saveStatus === 'saving'}
+          disabled={saveStatus === 'saving' || loadError !== null}
           className="min-h-[40px] px-4 rounded-full bg-brand-green text-apple-gray-900 text-sm font-semibold disabled:opacity-50"
         >
           {saveStatus === 'saving' ? 'Guardando...' : saveStatus === 'saved' ? 'Guardado ✓' : 'Guardar'}
