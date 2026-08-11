@@ -22,9 +22,11 @@ Este arreglo toca **solo** el pipeline de scoring basado en API-Football/Supabas
 
 ## 1. Fusionar fragmentos de score por competencia
 
-**Dónde:** `supabase/functions/recalc-scores/index.ts`, inmediatamente después de calcular `primaryRows` (línea ~241 actual).
+**Dónde (ACTUALIZADO durante la implementación, ver nota abajo):** `supabase/functions/recalc-scores/index.ts`, sobre `allSeasonRows` **antes** de calcular `bestPos`/`primaryRows` — no después, como decía la primera versión de esta spec.
 
-Hoy `primaryRows` puede contener más de una fila por `player_id + position` (una por cada `league_id` en la que jugó esa posición esa temporada). Se agrega un paso de fusión que las colapsa en una sola fila **antes** de rankear (`calculateSeasonScores`) y de guardar, promediando cada métrica numérica ponderada por `matches_played` (no solo `avg_score`: también los p90/pct que ya vienen calculados por fila, para que el resto de la ficha — radar, etc. — quede consistente):
+> **Nota post-implementación (Tarea 4, revisión de rama):** la primera versión de este documento fusionaba fragmentos recién en `primaryRows`, DESPUÉS de que `bestPos` ya hubiera elegido la posición primaria de cada jugador comparando fragmentos individuales sin sumar. Un jugador con 6+7 partidos de EXT repartidos en dos ligas (13 en total) podía perder su posición primaria real frente a una posición distinta con un solo fragmento más grande (ej. 8 partidos de DEL en una tercera competencia) — el mismo bug de fragmentación, pero afectando qué posición se elige, no solo qué fila se muestra. Se corrigió fusionando `allSeasonRows` completo ANTES de `bestPos`, así la comparación de posiciones ya ve el total real por posición. El código de fusión en sí (más abajo) no cambió, solo el momento en que se llama.
+
+Hoy `allSeasonRows` puede contener más de una fila por `player_id + position` (una por cada `league_id` en la que jugó esa posición esa temporada). Se agrega un paso de fusión que las colapsa en una sola fila **antes** de elegir la posición primaria y de rankear (`calculateSeasonScores`), promediando cada métrica numérica ponderada por `matches_played` (no solo `avg_score`: también los p90/pct que ya vienen calculados por fila, para que el resto de la ficha — radar, etc. — quede consistente):
 
 ```ts
 // Fusionar fragmentos: un jugador puede tener más de una fila de la misma
@@ -142,7 +144,12 @@ Si se confirma que la tabla de últimos partidos se presenta de forma ambigua (p
 
 ## Rollout
 
-1. Migraciones (`backfill_ungridded_positions`, cambio de PK de `player_season_scores`) — el usuario las corre a mano en Supabase, como siempre.
-2. Deploy de `recalc-scores` y (sin cambios funcionales, pero por completitud del deploy) `sync-player-stats`.
+1. Migraciones, **en este orden** (correrlas fuera de orden respecto al deploy del punto 2 puede vaciar `player_season_scores` sin repoblar — ver nota de riesgo abajo):
+   1. `20260811_merge_season_score_fragments.sql`
+   2. `20260811_backfill_ungridded_positions.sql`
+2. Deploy de `recalc-scores` (sin cambios funcionales en `sync-player-stats`, pero por completitud del deploy también se puede redeployar).
 3. Disparar una corrida manual de `recalc-scores` para los dos años vigentes (ya cubre ambos por defecto, sin `body.season`) en vez de esperar el cron.
-4. Verificar visualmente en el navegador: Montiel (posición/historial), un caso multi-liga real (score por posición), y Julián Palacios en Informes (punto 3).
+4. Confirmar en `sync_log` que esa corrida quedó `status: 'success'` **y** que `player_season_scores` tiene filas (`count(*) > 0`) para la temporada actual — no alcanza con mirar `sync_log`, ver nota de riesgo.
+5. Verificar visualmente en el navegador: Montiel (posición/historial), un caso multi-liga real (score por posición), y Julián Palacios en Informes (punto 3).
+
+**Nota de riesgo (post-implementación, revisión de Tarea 4):** `recalc-scores` ahora corta la corrida y reporta `status: 'error'` en `sync_log` si el `delete`/`upsert` de `player_season_scores` falla (por ejemplo, si por error se hiciera el deploy de la función antes de correr la migración 1) — antes de este fix el error quedaba silencioso y `sync_log` decía `success` con la tabla vacía. Aun así, seguir el orden de arriba y no confiar solo en `sync_log`, sino confirmar que la tabla realmente tiene filas después de la primera corrida. Separado: `backfill_ungridded_positions()` corre como primer paso de cada corrida y lanza error si falla (mismo criterio que el resto de la función) — en la primera corrida tiene que corregir potencialmente muchas filas históricas de una sola vez, así que si el rol de base de datos tiene un `statement_timeout` bajo, esa primera corrida podría fallar por tiempo. Si `sync_log` muestra error en `backfill_ungridded_positions` en la primera corrida, no es necesariamente un bug del código — puede ser el timeout; correrla de nuevo (es idempotente, corrige solo lo que falte) suele resolverlo.
