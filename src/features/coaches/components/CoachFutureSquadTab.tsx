@@ -107,8 +107,23 @@ export default function CoachFutureSquadTab({ coach }: { coach: AgencyCoach }) {
     setSlots(emptySlots(next))
   }
 
+  // Defensive dedup: don't push a second baja row for a player who already has one
+  // (e.g. removed/displaced once, re-added, then removed/displaced again).
+  function pushBaja(playerId: number, playerName: string) {
+    setBajas(prev => (
+      prev.some(b => b.playerId === playerId) ? prev : [...prev, { id: uid(), playerId, playerName, reason: '' }]
+    ))
+  }
+
   function handleSelectSquad(player: SquadPlayer) {
     if (!pickerSlotKey) return
+    // If the target slot is currently held by a different squad player, that incumbent is being
+    // bumped out of the plan entirely (not just relocated) — he needs a baja so he doesn't
+    // silently vanish from both the pitch and the bajas list.
+    const targetSlot = slots.find(s => s.slotKey === pickerSlotKey)
+    if (targetSlot?.source === 'squad' && targetSlot.playerId !== player.id) {
+      pushBaja(targetSlot.playerId as number, targetSlot.playerName as string)
+    }
     setSlots(prev => prev.map(s => {
       if (s.slotKey === pickerSlotKey) {
         return { slotKey: s.slotKey, source: 'squad', playerId: player.id, playerName: player.name, playerNumber: player.number, ggScore: null }
@@ -125,6 +140,13 @@ export default function CoachFutureSquadTab({ coach }: { coach: AgencyCoach }) {
 
   function handleSelectCandidate(player: PlayerWithScore) {
     if (!pickerSlotKey) return
+    // Same displacement rule as handleSelectSquad: a squad player sitting in the target slot
+    // must get a baja before being overwritten by a scouting candidate. A candidate incumbent
+    // has no baja concept, so replacing one silently is fine.
+    const targetSlot = slots.find(s => s.slotKey === pickerSlotKey)
+    if (targetSlot?.source === 'squad') {
+      pushBaja(targetSlot.playerId as number, targetSlot.playerName as string)
+    }
     setSlots(prev => prev.map(s => (
       s.slotKey === pickerSlotKey
         ? { slotKey: s.slotKey, source: 'candidate', playerId: String(player.id), playerName: player.name, playerNumber: null, ggScore: player.primary_score }
@@ -138,13 +160,7 @@ export default function CoachFutureSquadTab({ coach }: { coach: AgencyCoach }) {
     if (!slot || slot.source === null) return
 
     if (slot.source === 'squad') {
-      const playerId = slot.playerId as number
-      const playerName = slot.playerName as string
-      // Defensive dedup: don't push a second baja row for a player who already has one
-      // (e.g. removed once, re-added, then removed again).
-      setBajas(prev => (
-        prev.some(b => b.playerId === playerId) ? prev : [...prev, { id: uid(), playerId, playerName, reason: '' }]
-      ))
+      pushBaja(slot.playerId as number, slot.playerName as string)
     }
     setSlots(prev => prev.map(s => (
       s.slotKey === slotKey ? { slotKey: s.slotKey, source: null, playerId: null, playerName: null, playerNumber: null, ggScore: null } : s
