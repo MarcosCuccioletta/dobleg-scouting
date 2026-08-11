@@ -235,27 +235,29 @@ serve(async (req) => {
         }
       }
 
+      // Fusionar fragmentos ANTES de elegir la posicion primaria: si no se hace aca,
+      // un jugador con partidos repartidos en mas de una liga para la MISMA posicion
+      // puede perder su posicion primaria real frente a una posicion distinta con un
+      // solo fragmento mas grande (bestPos comparaba fragmentos individuales, no el
+      // total sumado por posicion).
+      const mergedSeasonRows = mergeSeasonScoreFragments(allSeasonRows);
+
       // ── Consolidar a cada jugador en su posición PRIMARIA (la de más partidos) ──
       // Evita fragmentarlo entre puestos por detección ruidosa. Los overrides ya
       // vienen consolidados desde el agrupamiento (todos sus partidos en un puesto).
       const bestPos = new Map<number, { position: string; mp: number }>();
-      for (const r of allSeasonRows) {
+      for (const r of mergedSeasonRows) {
         const cur = bestPos.get(r.player_id);
         if (!cur || (r.matches_played ?? 0) > cur.mp) {
           bestPos.set(r.player_id, { position: r.position, mp: r.matches_played ?? 0 });
         }
       }
-      const primaryRows = allSeasonRows.filter((r: any) => bestPos.get(r.player_id)?.position === r.position);
-
-      // Fusionar fragmentos: un jugador puede tener mas de una fila de la misma
-      // posicion-primaria si jugo esa posicion en mas de una liga/competencia
-      // esta temporada (liga domestica + copa, por ejemplo).
-      const mergedPrimaryRows = mergeSeasonScoreFragments(primaryRows);
+      const primaryRows = mergedSeasonRows.filter((r: any) => bestPos.get(r.player_id)?.position === r.position);
 
       // ── Ranking GLOBAL por posición: cada jugador contra TODOS los de su puesto
       // en la plataforma (todas las ligas), SIN ajuste por nivel de liga. ──
       const byPos = new Map<string, any[]>();
-      for (const r of mergedPrimaryRows) {
+      for (const r of primaryRows) {
         if (!byPos.has(r.position)) byPos.set(r.position, []);
         byPos.get(r.position)!.push(r);
       }
@@ -275,16 +277,18 @@ serve(async (req) => {
       // El borrado va DENTRO del if: si el cálculo no produjo filas (una consulta que
       // falló, la API caída), borrar igual dejaría la temporada sin scores y la app
       // en blanco. Mejor conservar los datos viejos que quedarse sin ninguno.
-      if (mergedPrimaryRows.length > 0) {
-        await supabase.from('player_season_scores').delete().eq('season', season);
+      if (primaryRows.length > 0) {
+        const { error: deleteError } = await supabase.from('player_season_scores').delete().eq('season', season);
+        if (deleteError) throw new Error(`player_season_scores delete: ${deleteError.message}`);
         const CHUNK = 500;
-        for (let i = 0; i < mergedPrimaryRows.length; i += CHUNK) {
-          await supabase.from('player_season_scores').upsert(
-            mergedPrimaryRows.slice(i, i + CHUNK),
+        for (let i = 0; i < primaryRows.length; i += CHUNK) {
+          const { error: upsertError } = await supabase.from('player_season_scores').upsert(
+            primaryRows.slice(i, i + CHUNK),
             { onConflict: 'player_id,season,position' }
           );
+          if (upsertError) throw new Error(`player_season_scores upsert: ${upsertError.message}`);
         }
-        totalUpserted += mergedPrimaryRows.length;
+        totalUpserted += primaryRows.length;
       }
 
       // Fix current_team_id: set to team from most recent fixture. La fecha viene
