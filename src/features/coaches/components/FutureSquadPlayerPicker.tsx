@@ -1,0 +1,210 @@
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { usePlayersList } from '@/hooks/usePlayerStats'
+import type { PlayerWithScore, Position } from '@/types/scoring'
+import { getScoreColorClass } from '@/components/ui/ScoreBar'
+import { useDebouncedValue } from '@/hooks/useDebouncedValue'
+import type { SquadPlayer } from '@/services/footballApiService'
+import { POSITION_LABEL } from '@/features/coaches/squadGrouping'
+import {
+  POSITION_KEY_API_MAP,
+  FORMATION_POSITION_API_OVERRIDES,
+  POSITION_DISPLAY_NAME,
+  FORMATION_DISPLAY_OVERRIDES,
+} from '@/constants/formations'
+
+type PickerTab = 'plantel' | 'sugeridos' | 'buscar'
+
+export default function FutureSquadPlayerPicker({
+  slotKey,
+  formationType,
+  squad,
+  usedSquadIds,
+  usedCandidateIds,
+  onSelectSquad,
+  onSelectCandidate,
+  onClose,
+}: {
+  slotKey: string
+  formationType: string
+  squad: SquadPlayer[]
+  usedSquadIds: Set<number>
+  usedCandidateIds: Set<string>
+  onSelectSquad: (player: SquadPlayer) => void
+  onSelectCandidate: (player: PlayerWithScore) => void
+  onClose: () => void
+}) {
+  const [activeTab, setActiveTab] = useState<PickerTab>('plantel')
+  const [searchQuery, setSearchQuery] = useState('')
+  const searchInputRef = useRef<HTMLInputElement>(null)
+
+  const displayName =
+    FORMATION_DISPLAY_OVERRIDES[formationType]?.[slotKey] ?? POSITION_DISPLAY_NAME[slotKey] ?? slotKey
+
+  const allowedPositions: Position[] =
+    FORMATION_POSITION_API_OVERRIDES[formationType]?.[slotKey] ?? POSITION_KEY_API_MAP[slotKey] ?? []
+
+  const availableSquad = useMemo(
+    () => squad.filter(p => !usedSquadIds.has(p.id)),
+    [squad, usedSquadIds],
+  )
+
+  const { players: suggestionPool, loading: suggestionsLoading } = usePlayersList(
+    activeTab === 'sugeridos' && allowedPositions.length > 0
+      ? { positions: allowedPositions, pageSize: 200 }
+      : { pageSize: 0 },
+  )
+  const suggestions = useMemo(
+    () => suggestionPool.filter(p => !usedCandidateIds.has(String(p.id)) && p.primary_score !== null).slice(0, 15),
+    [suggestionPool, usedCandidateIds],
+  )
+
+  const debouncedSearch = useDebouncedValue(searchQuery.trim(), 250)
+  const { players: searchPool, loading: searchLoading } = usePlayersList(
+    activeTab === 'buscar' && debouncedSearch.length >= 2 ? { search: debouncedSearch, pageSize: 15 } : { pageSize: 0 },
+  )
+  const searchResults = useMemo(
+    () => searchPool.filter(p => !usedCandidateIds.has(String(p.id))),
+    [searchPool, usedCandidateIds],
+  )
+
+  useEffect(() => {
+    if (activeTab === 'buscar' && searchInputRef.current) searchInputRef.current.focus()
+  }, [activeTab])
+
+  function renderCandidateCard(p: PlayerWithScore) {
+    const score = p.primary_score
+    return (
+      <button
+        key={p.id}
+        type="button"
+        onClick={() => onSelectCandidate(p)}
+        className="w-full flex items-center gap-3 p-3 rounded-xl transition-all text-left hover:bg-apple-gray-100 dark:hover:bg-apple-gray-700 border border-apple-gray-100 dark:border-apple-gray-700 hover:border-brand-green/50"
+      >
+        {p.photo ? (
+          <img src={p.photo} alt="" className="w-10 h-10 rounded-lg object-cover bg-apple-gray-200" />
+        ) : (
+          <div className="w-10 h-10 rounded-lg bg-apple-gray-200 dark:bg-apple-gray-600 flex items-center justify-center text-sm font-bold text-apple-gray-500">
+            {p.name.split(' ').map(w => w[0]).slice(0, 2).join('')}
+          </div>
+        )}
+        <div className="flex-1 min-w-0">
+          <p className="font-medium text-apple-gray-800 dark:text-white text-sm truncate">{p.name}</p>
+          <p className="text-xs text-apple-gray-500 truncate">{p.team?.name ?? '—'}</p>
+        </div>
+        <div className="text-right flex-shrink-0">
+          {score !== null ? (
+            <p className={`text-sm font-bold ${getScoreColorClass(score, '10')}`}>{score.toFixed(1)}</p>
+          ) : (
+            <p className="text-sm font-bold text-apple-gray-400">—</p>
+          )}
+        </div>
+      </button>
+    )
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in" onClick={onClose}>
+      <div
+        className="bg-white dark:bg-apple-gray-800 rounded-2xl shadow-2xl max-w-lg w-full max-h-[85vh] overflow-hidden animate-scale-in flex flex-col"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="p-5 border-b border-apple-gray-200 dark:border-apple-gray-700">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-bold text-apple-gray-800 dark:text-white">{displayName}</h3>
+            <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg text-apple-gray-400 hover:text-apple-gray-600 dark:hover:text-apple-gray-200 hover:bg-apple-gray-100 dark:hover:bg-apple-gray-700 transition-colors">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <div className="flex gap-1 bg-apple-gray-100 dark:bg-apple-gray-700 rounded-xl p-1">
+            {(['plantel', 'sugeridos', 'buscar'] as PickerTab[]).map(tab => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+                  activeTab === tab
+                    ? 'bg-white dark:bg-apple-gray-600 text-apple-gray-800 dark:text-white shadow-sm'
+                    : 'text-apple-gray-500 hover:text-apple-gray-700 dark:hover:text-apple-gray-300'
+                }`}
+              >
+                {tab === 'plantel' ? 'Plantel' : tab === 'sugeridos' ? 'Sugeridos' : 'Buscar'}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="p-4 max-h-[60vh] overflow-y-auto flex-1">
+          {activeTab === 'plantel' ? (
+            availableSquad.length === 0 ? (
+              <p className="text-center text-apple-gray-500 py-8 text-sm">No quedan jugadores del plantel sin ubicar.</p>
+            ) : (
+              <div className="space-y-2">
+                {availableSquad.map(p => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => onSelectSquad(p)}
+                    className="w-full flex items-center gap-3 p-3 rounded-xl transition-all text-left hover:bg-apple-gray-100 dark:hover:bg-apple-gray-700 border border-apple-gray-100 dark:border-apple-gray-700 hover:border-brand-green/50"
+                  >
+                    {p.photo ? (
+                      <img src={p.photo} alt="" className="w-10 h-10 rounded-lg object-cover bg-apple-gray-200" />
+                    ) : (
+                      <div className="w-10 h-10 rounded-lg bg-apple-gray-200 dark:bg-apple-gray-600 flex items-center justify-center text-sm font-bold text-apple-gray-500">
+                        {p.name.split(' ').map(w => w[0]).slice(0, 2).join('')}
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-apple-gray-800 dark:text-white text-sm truncate">{p.name}</p>
+                      <p className="text-xs text-apple-gray-500 truncate">
+                        {p.position ? POSITION_LABEL[p.position] ?? p.position : '—'}
+                        {p.number != null ? ` · #${p.number}` : ''}
+                      </p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )
+          ) : activeTab === 'sugeridos' ? (
+            suggestionsLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="w-6 h-6 border-2 border-brand-green border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : suggestions.length === 0 ? (
+              <p className="text-center text-apple-gray-500 py-8 text-sm">No hay jugadores sugeridos para esta posicion.</p>
+            ) : (
+              <div className="space-y-2">{suggestions.map(renderCandidateCard)}</div>
+            )
+          ) : (
+            <div className="space-y-3">
+              <div className="relative">
+                <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-apple-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  placeholder="Buscar por nombre o equipo..."
+                  className="w-full pl-10 pr-4 py-3 rounded-xl bg-apple-gray-100 dark:bg-apple-gray-700 border border-apple-gray-200 dark:border-apple-gray-600 text-apple-gray-800 dark:text-white placeholder-apple-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-green/50 text-sm"
+                />
+              </div>
+              {searchLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="w-6 h-6 border-2 border-brand-green border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : debouncedSearch.length < 2 ? (
+                <p className="text-center text-apple-gray-500 py-8 text-sm">Escribi al menos 2 letras para buscar.</p>
+              ) : searchResults.length === 0 ? (
+                <p className="text-center text-apple-gray-500 py-8 text-sm">No se encontraron jugadores.</p>
+              ) : (
+                <div className="space-y-2">{searchResults.map(renderCandidateCard)}</div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
