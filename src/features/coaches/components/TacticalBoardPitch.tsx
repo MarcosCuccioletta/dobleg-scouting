@@ -203,6 +203,16 @@ export default function TacticalBoardPitch({
         onPointerUp={handleContainerPointerUp}
         onPointerCancel={handleContainerPointerCancel}
         onLostPointerCapture={handleContainerPointerCancel}
+        onMouseDown={e => {
+          // En modo texto, pointerdown monta el <input autoFocus> de forma sincronica (React 18
+          // flushea eventos discretos). El navegador dispara mousedown DESPUES de pointerdown, y
+          // la accion por defecto de mousedown sobre un div no-focuseable saca el foco de
+          // cualquier elemento recien enfocado -- en este caso, del input recien montado. Eso
+          // dispara su onBlur -> commitText() con textValue todavia vacio -> el input desaparece
+          // antes de que el usuario pueda escribir. preventDefault en pointerdown NO evita esto en
+          // Chrome; tiene que ser especificamente sobre mousedown.
+          if (tool === 'texto') e.preventDefault()
+        }}
       >
         {/* Lineas de campo -- mismo dibujo que /formacion */}
         <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 130" preserveAspectRatio="none">
