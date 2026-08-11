@@ -272,7 +272,7 @@ export function buildInformeHtml(opts: {
   const last5Html = last5Rows.length
     ? `<h3 class="dg-panel-title${(levelEvoBlock || continuityHtml || injuriesHtml) ? ' dg-mt' : ''}">${escapeHtml(t(lang, 't_last5'))}</h3>
        <div class="dg-table-wrap"><table class="dg-table">
-         <thead><tr><th>${escapeHtml(t(lang, 'h_opponent'))}</th><th>${escapeHtml(t(lang, 'h_result'))}</th><th>${escapeHtml(t(lang, 's_rating'))}</th><th>${escapeHtml(t(lang, 's_minutes'))}</th></tr></thead>
+         <thead><tr><th>${escapeHtml(t(lang, 'h_opponent'))}</th><th>${escapeHtml(t(lang, 'h_result'))}</th><th>${escapeHtml(t(lang, 's_matchRating'))}</th><th>${escapeHtml(t(lang, 's_minutes'))}</th></tr></thead>
          <tbody>
            ${last5Rows
              .map(r => {

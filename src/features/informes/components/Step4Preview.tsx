@@ -555,7 +555,7 @@ export default function Step4Preview({ informe, stats, matrix, defs, onBack, onS
                   <tr className="text-left text-xs uppercase tracking-wide border-b" style={{ color: DG.muted, borderColor: DG.border }}>
                     <th className="py-2 font-medium">{t(lang, 'h_opponent')}</th>
                     <th className="py-2 font-medium">{t(lang, 'h_result')}</th>
-                    <th className="py-2 font-medium">{t(lang, 's_rating')}</th>
+                    <th className="py-2 font-medium">{t(lang, 's_matchRating')}</th>
                     <th className="py-2 font-medium">{t(lang, 's_minutes')}</th>
                   </tr>
                 </thead>
