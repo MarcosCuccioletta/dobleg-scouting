@@ -43,9 +43,9 @@ type PlayerLink =
   | { kind: 'create' }
   | { kind: 'none' }
 
-const CARD_CLASSNAME = 'bg-white dark:bg-apple-gray-800/60 rounded-apple-lg border border-apple-gray-200/60 dark:border-apple-gray-700/40 p-3 sm:p-4 flex flex-col items-center text-center transition-transform duration-200 ease-apple hover:-translate-y-0.5 w-full'
+const ROW_CLASSNAME = 'w-full flex items-center gap-3 px-3 py-2.5 hover:bg-apple-gray-50 dark:hover:bg-apple-gray-800/60 transition-colors border-b border-apple-gray-100 dark:border-apple-gray-700/40 last:border-b-0'
 
-function RosterPlayerCard({
+function RosterPlayerRow({
   player,
   stats,
   link,
@@ -60,39 +60,40 @@ function RosterPlayerCard({
 }) {
   const content = (
     <>
-      <div className="relative w-16 h-16 sm:w-20 sm:h-20 mb-2 flex-shrink-0">
+      <div className="relative w-10 h-10 flex-shrink-0">
         {player.photo ? (
           <img
             src={player.photo}
             alt=""
-            className="w-full h-full rounded-full object-cover ring-2 ring-apple-gray-200/60 dark:ring-apple-gray-700/40"
+            className="w-full h-full rounded-full object-cover ring-1 ring-apple-gray-200/60 dark:ring-apple-gray-700/40"
           />
         ) : (
-          <div className="w-full h-full rounded-full flex items-center justify-center font-bold text-sm bg-apple-gray-100 dark:bg-apple-gray-700 text-apple-gray-500 dark:text-apple-gray-400 ring-2 ring-apple-gray-200/60 dark:ring-apple-gray-700/40">
+          <div className="w-full h-full rounded-full flex items-center justify-center font-bold text-2xs bg-apple-gray-100 dark:bg-apple-gray-700 text-apple-gray-500 dark:text-apple-gray-400 ring-1 ring-apple-gray-200/60 dark:ring-apple-gray-700/40">
             {initialsOf(player.name)}
           </div>
         )}
-        {player.number != null && (
-          <span className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-brand-green text-apple-gray-900 text-2xs font-bold flex items-center justify-center ring-2 ring-white dark:ring-apple-gray-800">
-            {player.number}
-          </span>
-        )}
         {creating && (
           <div className="absolute inset-0 rounded-full bg-white/70 dark:bg-apple-gray-900/70 flex items-center justify-center">
-            <span className="w-4 h-4 border-2 border-brand-green border-t-transparent rounded-full animate-spin" />
+            <span className="w-3.5 h-3.5 border-2 border-brand-green border-t-transparent rounded-full animate-spin" />
           </div>
         )}
       </div>
-      <p className="text-sm font-semibold text-apple-gray-800 dark:text-white leading-tight truncate w-full">
-        {player.name}
-      </p>
-      <p className="text-2xs font-medium uppercase tracking-wide text-apple-gray-400 mt-0.5">
-        {player.position ? POSITION_LABEL[player.position] ?? player.position : '—'}
-      </p>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold text-apple-gray-800 dark:text-white truncate">{player.name}</p>
+        <p className="text-2xs text-apple-gray-400">
+          {player.position ? POSITION_LABEL[player.position] ?? player.position : '—'}
+          {player.number != null && ` · #${player.number}`}
+        </p>
+      </div>
       {stats && (
-        <span className="mt-1.5 text-2xs font-medium px-1.5 py-0.5 rounded-full bg-brand-green/10 text-brand-green">
-          {stats.minutes}' · {stats.matches} PJ (30d)
+        <span className="flex-shrink-0 text-2xs font-medium px-2 py-1 rounded-full bg-brand-green/10 text-brand-green">
+          {stats.minutes}' · {stats.matches} PJ
         </span>
+      )}
+      {(link.kind === 'internal' || link.kind === 'external' || link.kind === 'supabase' || link.kind === 'create') && (
+        <svg className="w-4 h-4 flex-shrink-0 text-apple-gray-300 dark:text-apple-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
       )}
     </>
   )
@@ -100,7 +101,7 @@ function RosterPlayerCard({
   if (link.kind === 'internal' || link.kind === 'external') {
     const source = link.kind === 'internal' ? 'interno' : 'externo'
     return (
-      <Link to={`/jugador/${encodeURIComponent(link.name)}?source=${source}`} className={CARD_CLASSNAME}>
+      <Link to={`/jugador/${encodeURIComponent(link.name)}?source=${source}`} className={ROW_CLASSNAME}>
         {content}
       </Link>
     )
@@ -108,7 +109,7 @@ function RosterPlayerCard({
 
   if (link.kind === 'supabase') {
     return (
-      <Link to={`/jugador/${encodeURIComponent(link.name)}?source=externo&apiId=${link.apiId}`} className={CARD_CLASSNAME}>
+      <Link to={`/jugador/${encodeURIComponent(link.name)}?source=externo&apiId=${link.apiId}`} className={ROW_CLASSNAME}>
         {content}
       </Link>
     )
@@ -116,20 +117,15 @@ function RosterPlayerCard({
 
   if (link.kind === 'create') {
     return (
-      <button
-        type="button"
-        onClick={onCreateClick}
-        disabled={creating}
-        className={`${CARD_CLASSNAME} disabled:cursor-wait`}
-      >
+      <button type="button" onClick={onCreateClick} disabled={creating} className={`${ROW_CLASSNAME} disabled:cursor-wait text-left`}>
         {content}
       </button>
     )
   }
 
   // link.kind === 'none': jugador de agencia sin match confiable, o datos todavía
-  // cargando — tarjeta no interactiva, nunca se ofrece crear un stub.
-  return <div className={CARD_CLASSNAME}>{content}</div>
+  // cargando — fila no interactiva, nunca se ofrece crear un stub.
+  return <div className={ROW_CLASSNAME}>{content}</div>
 }
 
 /** Mapas por nombre exacto (normalizeName) y por identityKey, para tolerar formato
@@ -233,15 +229,15 @@ export default function TeamRosterPanel({ teamId, teamName }: { teamId: number; 
   const groups = groupSquadByPosition(squad)
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-5 animate-fade-in">
       {groups.map(group => (
         <div key={group.positionKey}>
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-apple-gray-400 mb-3">
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-apple-gray-400 mb-2 px-1">
             {group.label}
           </h3>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
+          <div className="bg-white dark:bg-apple-gray-800/60 rounded-apple-lg border border-apple-gray-200/60 dark:border-apple-gray-700/40 overflow-hidden">
             {group.players.map(player => (
-              <RosterPlayerCard
+              <RosterPlayerRow
                 key={player.id}
                 player={player}
                 stats={minutes[player.id]}
