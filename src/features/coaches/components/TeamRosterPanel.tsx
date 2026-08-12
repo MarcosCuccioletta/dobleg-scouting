@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { fetchSquadCached, type SquadPlayer } from '@/services/footballApiService'
-import { fetchSquadMinutes, fetchExistingPlayerIds } from '@/services/coachService'
+import { fetchSquadMinutes, fetchExistingPlayerIds, fetchSquadProfiles, type SquadPlayerProfile } from '@/services/coachService'
 import { useData, identityKey } from '@/context/DataContext'
 import { makeAgencyMatcher } from '@/utils/agencyFilter'
 import { normalizeName } from '@/utils/scoring'
@@ -9,6 +9,30 @@ import { groupSquadByPosition, POSITION_LABEL } from '@/features/coaches/squadGr
 import { mapSquadPositionToSpanish } from '@/features/coaches/manualExternalPlayer'
 import type { EnrichedPlayer } from '@/types'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
+
+// Nombres completos en español para la posición específica de Supabase (players.primary_position),
+// mucho más precisa que el grupo genérico que trae el plantel crudo de la API (Defender/Midfielder/etc.).
+const FULL_POSITION_LABEL: Record<string, string> = {
+  ARQ: 'Arquero',
+  LD: 'Lateral derecho',
+  CB: 'Defensor central',
+  LI: 'Lateral izquierdo',
+  VC: 'Volante central',
+  VI: 'Volante interno',
+  EXT: 'Extremo',
+  DEL: 'Delantero',
+}
+
+function formatContractBadge(contractEndDate: string): { label: string; colorClass: string } {
+  const months = Math.round((new Date(contractEndDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24 * 30.44))
+  const colorClass = months > 18
+    ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10'
+    : months > 6
+      ? 'text-amber-600 dark:text-amber-400 bg-amber-500/10'
+      : 'text-red-500 bg-red-500/10'
+  const label = months <= 0 ? 'Contrato vencido' : `Contrato ${months} mes${months !== 1 ? 'es' : ''}`
+  return { label, colorClass }
+}
 
 function initialsOf(name: string): string {
   return name
@@ -48,16 +72,25 @@ const ROW_CLASSNAME = 'w-full flex items-center gap-3 px-3 py-2.5 hover:bg-apple
 function RosterPlayerRow({
   player,
   stats,
+  profile,
   link,
   creating,
   onCreateClick,
 }: {
   player: SquadPlayer
   stats?: { minutes: number; matches: number }
+  profile?: SquadPlayerProfile
   link: PlayerLink
   creating: boolean
   onCreateClick: () => void
 }) {
+  const positionLabel = profile?.primary_position
+    ? FULL_POSITION_LABEL[profile.primary_position] ?? profile.primary_position
+    : player.position
+      ? POSITION_LABEL[player.position] ?? player.position
+      : null
+  const contractBadge = profile?.contract_end_date ? formatContractBadge(profile.contract_end_date) : null
+
   const content = (
     <>
       <div className="relative w-10 h-10 flex-shrink-0">
@@ -80,13 +113,24 @@ function RosterPlayerRow({
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-semibold text-apple-gray-800 dark:text-white truncate">{player.name}</p>
-        <p className="text-2xs text-apple-gray-400">
-          {player.position ? POSITION_LABEL[player.position] ?? player.position : '—'}
+        <p className="text-2xs text-apple-gray-400 truncate">
+          {positionLabel ?? '—'}
           {player.number != null && ` · #${player.number}`}
+          {player.age != null && ` · ${player.age} años`}
         </p>
+        {profile?.agent && (
+          <p className="text-2xs text-apple-gray-400 truncate hidden sm:block">
+            Agente: {profile.agent}
+          </p>
+        )}
       </div>
+      {contractBadge && (
+        <span className={`hidden md:inline-flex flex-shrink-0 text-2xs font-medium px-2 py-1 rounded-full whitespace-nowrap ${contractBadge.colorClass}`}>
+          {contractBadge.label}
+        </span>
+      )}
       {stats && (
-        <span className="flex-shrink-0 text-2xs font-medium px-2 py-1 rounded-full bg-brand-green/10 text-brand-green">
+        <span className="flex-shrink-0 text-2xs font-medium px-2 py-1 rounded-full bg-brand-green/10 text-brand-green whitespace-nowrap">
           {stats.minutes}' · {stats.matches} PJ
         </span>
       )}
@@ -144,6 +188,7 @@ function buildNameMaps(players: EnrichedPlayer[]): { byExact: Map<string, Enrich
 export default function TeamRosterPanel({ teamId, teamName }: { teamId: number; teamName: string }) {
   const [squad, setSquad] = useState<SquadPlayer[] | null>(null)
   const [minutes, setMinutes] = useState<Record<number, { minutes: number; matches: number }>>({})
+  const [profiles, setProfiles] = useState<Record<number, SquadPlayerProfile>>({})
   const [existingPlayerIds, setExistingPlayerIds] = useState<Set<number>>(new Set())
   const [creatingId, setCreatingId] = useState<number | null>(null)
   const { internal, external, agencyPlayers, createManualPlayerAndRefresh, loading } = useData()
@@ -153,15 +198,17 @@ export default function TeamRosterPanel({ teamId, teamName }: { teamId: number; 
     let active = true
     setSquad(null)
     setMinutes({})
+    setProfiles({})
     setExistingPlayerIds(new Set())
     fetchSquadCached(teamId).then(async players => {
       if (!active) return
       setSquad(players)
       const ids = players.map(p => p.id)
-      const [m, existing] = await Promise.all([fetchSquadMinutes(ids), fetchExistingPlayerIds(ids)])
+      const [m, existing, prof] = await Promise.all([fetchSquadMinutes(ids), fetchExistingPlayerIds(ids), fetchSquadProfiles(ids)])
       if (active) {
         setMinutes(m)
         setExistingPlayerIds(existing)
+        setProfiles(prof)
       }
     })
     return () => {
@@ -241,6 +288,7 @@ export default function TeamRosterPanel({ teamId, teamName }: { teamId: number; 
                 key={player.id}
                 player={player}
                 stats={minutes[player.id]}
+                profile={profiles[player.id]}
                 link={resolveLink(player)}
                 creating={creatingId === player.id}
                 onCreateClick={() => void handleCreate(player)}

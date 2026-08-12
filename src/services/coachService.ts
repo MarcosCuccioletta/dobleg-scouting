@@ -264,3 +264,41 @@ export async function fetchExistingPlayerIds(playerIds: number[]): Promise<Set<n
   }
   return new Set(data.map(row => row.id))
 }
+
+export interface SquadPlayerProfile {
+  primary_position: string | null
+  contract_end_date: string | null
+  agent: string | null
+  market_value_eur: number | null
+}
+
+/**
+ * Datos de perfil (posición específica, contrato, agente, valor de mercado) para
+ * jugadores del plantel de un entrenador que ya tienen ficha real en Supabase (misma
+ * id de API-Football). El plantel del entrenador viene de la API cruda, que sólo trae
+ * la posición genérica (Defender/Midfielder/etc.) -- esto complementa con el resto.
+ */
+export async function fetchSquadProfiles(playerIds: number[]): Promise<Record<number, SquadPlayerProfile>> {
+  if (playerIds.length === 0) return {}
+
+  const { data, error } = await supabase
+    .from('players')
+    .select('id, primary_position, contract_end_date, agent, market_value_eur')
+    .in('id', playerIds)
+
+  if (error || !data) {
+    console.error('Error buscando perfiles de plantel:', error)
+    return {}
+  }
+
+  const result: Record<number, SquadPlayerProfile> = {}
+  for (const row of data) {
+    result[row.id] = {
+      primary_position: row.primary_position,
+      contract_end_date: row.contract_end_date,
+      agent: row.agent,
+      market_value_eur: row.market_value_eur,
+    }
+  }
+  return result
+}
