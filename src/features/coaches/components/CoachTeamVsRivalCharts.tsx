@@ -32,6 +32,15 @@ const COMPARISONS: Comparison[] = [
     },
     digits: 0,
   },
+  {
+    title: 'Duelos aéreos ganados (%)',
+    ownKey: 'duelos_aereos_/_ganados_3',
+    rivalKey: row => {
+      const own = metricValue(row, 'duelos_aereos_/_ganados_3')
+      return own === null ? null : 100 - own
+    },
+    digits: 0,
+  },
 ]
 
 function rivalValue(row: EnrichedMatchRow, rivalKey: Comparison['rivalKey']): number | null {
@@ -89,7 +98,10 @@ export default function CoachTeamVsRivalCharts({ rows }: { rows: EnrichedMatchRo
   if (rows.length === 0) return null
   return (
     <div className="space-y-3">
-      <h3 className="text-sm font-semibold text-apple-gray-800 dark:text-white">Nosotros vs. rival</h3>
+      <div>
+        <h3 className="text-sm font-semibold text-apple-gray-800 dark:text-white">Nosotros vs. rival</h3>
+        <p className="text-2xs text-apple-gray-400 mt-0.5">Posesión y duelos ganados del rival son el complemento (100 − propio); Wyscout no exporta esos valores directamente para el rival.</p>
+      </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         {COMPARISONS.map(c => (
           <ComparisonChart key={c.title} {...c} rows={rows} />
