@@ -1,9 +1,9 @@
 import { useRef, useState } from 'react'
-import { clampPercent, pointsToPathD, arrowHeadPoints } from '@/features/coaches/boardGeometry'
+import { clampPercent, pointsToPathD, arrowHeadPoints, toScreenPoint, fromScreenPoint, type PitchOrientation } from '@/features/coaches/boardGeometry'
 import { COLOR_META } from '@/features/coaches/tacticalBoardConstants'
-import type { BoardMarker, BoardAnnotation, AnnotationColor } from '@/services/tacticalBoardService'
+import type { BoardMarker, BoardAnnotation, AnnotationColor, ZoneShape } from '@/services/tacticalBoardService'
 
-export type BoardTool = 'mover' | 'lapiz' | 'flecha' | 'zona' | 'texto'
+export type BoardTool = 'mover' | 'lapiz' | 'flecha' | 'zona'
 
 interface Point {
   x: number
@@ -16,9 +16,10 @@ function uid(): string {
 
 function BallIcon({ className }: { className?: string }) {
   return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="#111827" strokeWidth={2}>
-      <circle cx="12" cy="12" r="8.5" />
-      <path d="M12 8.2l2.7 2-1 3.1H10.3l-1-3.1L12 8.2zM12 8.2V5.3M9.5 9.7L7 8M14.5 9.7L17 8M10.4 12.8l-2 2.7M13.6 12.8l2 2.7M11 15.3l-.6 3M13 15.3l.6 3" />
+    <svg className={className} viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="9" fill="white" stroke="#111827" strokeWidth="1.5" />
+      <polygon points="12,7 15.5,9.5 14.2,13.5 9.8,13.5 8.5,9.5" fill="#111827" />
+      <path d="M12 7V4.5M8.5 9.5 5.7 7.5M15.5 9.5l2.8-2M9.8 13.5l-1.6 3.8M14.2 13.5l1.6 3.8" stroke="#111827" strokeWidth="1.3" strokeLinecap="round" />
     </svg>
   )
 }
@@ -28,15 +29,19 @@ export default function TacticalBoardPitch({
   annotations,
   tool,
   color,
+  zoneShape,
   onMarkersChange,
   onAnnotationsChange,
+  orientation = 'vertical',
 }: {
   markers: BoardMarker[]
   annotations: BoardAnnotation[]
   tool: BoardTool
   color: AnnotationColor
+  zoneShape: ZoneShape
   onMarkersChange: (markers: BoardMarker[]) => void
   onAnnotationsChange: (annotations: BoardAnnotation[]) => void
+  orientation?: PitchOrientation
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [draggingMarkerId, setDraggingMarkerId] = useState<string | null>(null)
@@ -44,15 +49,17 @@ export default function TacticalBoardPitch({
   const [freehandPoints, setFreehandPoints] = useState<Point[] | null>(null)
   const [dragStart, setDragStart] = useState<Point | null>(null)
   const [dragCurrent, setDragCurrent] = useState<Point | null>(null)
-  const [textInput, setTextInput] = useState<Point | null>(null)
-  const [textValue, setTextValue] = useState('')
 
+  // Devuelve coordenadas en espacio de DATOS (el mismo sistema que markers/annotations,
+  // invariante a la orientacion) -- convierte la posicion tocada en pantalla con
+  // fromScreenPoint antes de devolverla.
   function pointFromEvent(e: React.PointerEvent): Point {
     const rect = containerRef.current!.getBoundingClientRect()
-    return {
+    const screen = {
       x: clampPercent(((e.clientX - rect.left) / rect.width) * 100),
       y: clampPercent(((e.clientY - rect.top) / rect.height) * 100),
     }
+    return fromScreenPoint(screen, orientation)
   }
 
   function handleMarkerPointerDown(e: React.PointerEvent<HTMLDivElement>, marker: BoardMarker) {
@@ -102,16 +109,6 @@ export default function TacticalBoardPitch({
     }
     const p = pointFromEvent(e)
 
-    if (tool === 'texto') {
-      // El modo texto no arrastra nada -- no hace falta (ni conviene) capturar el puntero aca.
-      // Si ya habia un input de texto sin confirmar, lo confirmamos primero para no perder lo
-      // tecleado antes de abrir uno nuevo en la posicion tocada.
-      commitText()
-      setTextInput(p)
-      setTextValue('')
-      return
-    }
-
     containerRef.current!.setPointerCapture(e.pointerId)
 
     if (tool === 'lapiz') {
@@ -151,7 +148,7 @@ export default function TacticalBoardPitch({
       if (Math.abs(dragCurrent.x - dragStart.x) > 1 || Math.abs(dragCurrent.y - dragStart.y) > 1) {
         onAnnotationsChange([
           ...annotations,
-          { id: uid(), kind: 'zone', color, x1: dragStart.x, y1: dragStart.y, x2: dragCurrent.x, y2: dragCurrent.y },
+          { id: uid(), kind: 'zone', color, x1: dragStart.x, y1: dragStart.y, x2: dragCurrent.x, y2: dragCurrent.y, shape: zoneShape },
         ])
       }
       setDragStart(null)
@@ -182,19 +179,12 @@ export default function TacticalBoardPitch({
     }
   }
 
-  function commitText() {
-    if (textInput && textValue.trim()) {
-      onAnnotationsChange([
-        ...annotations,
-        { id: uid(), kind: 'text', color, x: textInput.x, y: textInput.y, text: textValue.trim() },
-      ])
-    }
-    setTextInput(null)
-    setTextValue('')
-  }
-
   return (
-    <div className="bg-gradient-to-b from-emerald-600 to-emerald-700 rounded-2xl p-4 sm:p-6 relative aspect-[3/4] w-full max-w-xl mx-auto shadow-2xl overflow-hidden select-none touch-none">
+    <div
+      className={`bg-gradient-to-b from-emerald-600 to-emerald-700 rounded-2xl p-4 sm:p-6 relative w-full shadow-2xl overflow-hidden select-none touch-none ${
+        orientation === 'horizontal' ? 'aspect-[3/2]' : 'aspect-[3/4] max-w-xl mx-auto'
+      }`}
+    >
       <div
         ref={containerRef}
         className="absolute inset-0"
@@ -203,32 +193,41 @@ export default function TacticalBoardPitch({
         onPointerUp={handleContainerPointerUp}
         onPointerCancel={handleContainerPointerCancel}
         onLostPointerCapture={handleContainerPointerCancel}
-        onMouseDown={e => {
-          // En modo texto, pointerdown monta el <input autoFocus> de forma sincronica (React 18
-          // flushea eventos discretos). El navegador dispara mousedown DESPUES de pointerdown, y
-          // la accion por defecto de mousedown sobre un div no-focuseable saca el foco de
-          // cualquier elemento recien enfocado -- en este caso, del input recien montado. Eso
-          // dispara su onBlur -> commitText() con textValue todavia vacio -> el input desaparece
-          // antes de que el usuario pueda escribir. preventDefault en pointerdown NO evita esto en
-          // Chrome; tiene que ser especificamente sobre mousedown.
-          if (tool === 'texto') e.preventDefault()
-        }}
       >
-        {/* Lineas de campo -- mismo dibujo que /formacion */}
-        <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 130" preserveAspectRatio="none">
-          <rect x="2" y="2" width="96" height="126" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="0.5" />
-          <circle cx="50" cy="65" r="12" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="0.4" />
-          <circle cx="50" cy="65" r="1" fill="rgba(255,255,255,0.5)" />
-          <line x1="2" y1="65" x2="98" y2="65" stroke="rgba(255,255,255,0.4)" strokeWidth="0.4" />
-          <rect x="20" y="2" width="60" height="20" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="0.4" />
-          <rect x="30" y="2" width="40" height="8" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="0.4" />
-          <rect x="20" y="108" width="60" height="20" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="0.4" />
-          <rect x="30" y="120" width="40" height="8" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="0.4" />
-          <path d="M 2 6 Q 2 2 6 2" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="0.3" />
-          <path d="M 94 2 Q 98 2 98 6" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="0.3" />
-          <path d="M 2 124 Q 2 128 6 128" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="0.3" />
-          <path d="M 94 128 Q 98 128 98 124" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="0.3" />
-        </svg>
+        {/* Lineas de campo. Vertical: mismo dibujo que /formacion (arco propio abajo, viewBox
+            100x130). Horizontal: la misma cancha rotada 90° (arco propio a la derecha, viewBox
+            150x100 -- 3:2 igual que el aspect-ratio del contenedor, para que no se deforme). */}
+        {orientation === 'vertical' ? (
+          <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 130" preserveAspectRatio="none">
+            <rect x="2" y="2" width="96" height="126" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="0.5" />
+            <circle cx="50" cy="65" r="12" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="0.4" />
+            <circle cx="50" cy="65" r="1" fill="rgba(255,255,255,0.5)" />
+            <line x1="2" y1="65" x2="98" y2="65" stroke="rgba(255,255,255,0.4)" strokeWidth="0.4" />
+            <rect x="20" y="2" width="60" height="20" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="0.4" />
+            <rect x="30" y="2" width="40" height="8" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="0.4" />
+            <rect x="20" y="108" width="60" height="20" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="0.4" />
+            <rect x="30" y="120" width="40" height="8" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="0.4" />
+            <path d="M 2 6 Q 2 2 6 2" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="0.3" />
+            <path d="M 94 2 Q 98 2 98 6" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="0.3" />
+            <path d="M 2 124 Q 2 128 6 128" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="0.3" />
+            <path d="M 94 128 Q 98 128 98 124" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="0.3" />
+          </svg>
+        ) : (
+          <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 150 100" preserveAspectRatio="none">
+            <rect x="2" y="2" width="146" height="96" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="0.5" />
+            <circle cx="75" cy="50" r="12" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="0.4" />
+            <circle cx="75" cy="50" r="1" fill="rgba(255,255,255,0.5)" />
+            <line x1="75" y1="2" x2="75" y2="98" stroke="rgba(255,255,255,0.4)" strokeWidth="0.4" />
+            <rect x="2" y="20" width="20" height="60" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="0.4" />
+            <rect x="2" y="30" width="8" height="40" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="0.4" />
+            <rect x="128" y="20" width="20" height="60" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="0.4" />
+            <rect x="140" y="30" width="8" height="40" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="0.4" />
+            <path d="M 2 6 Q 2 2 6 2" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="0.3" />
+            <path d="M 144 2 Q 148 2 148 6" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="0.3" />
+            <path d="M 2 94 Q 2 98 6 98" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="0.3" />
+            <path d="M 144 98 Q 148 98 148 94" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="0.3" />
+          </svg>
+        )}
 
         {/* Anotaciones: lapiz, flechas, zonas, texto -- viewBox 0-100 x 0-100 para que coincida
             con el sistema de coordenadas de pointFromEvent (porcentaje de ancho/alto real) */}
@@ -238,7 +237,7 @@ export default function TacticalBoardPitch({
               return (
                 <path
                   key={a.id}
-                  d={pointsToPathD(a.points)}
+                  d={pointsToPathD(a.points.map(pt => toScreenPoint(pt, orientation)))}
                   fill="none"
                   stroke={COLOR_META[a.color].hex}
                   strokeWidth="1"
@@ -248,26 +247,38 @@ export default function TacticalBoardPitch({
               )
             }
             if (a.kind === 'arrow') {
-              const head = arrowHeadPoints(a.x1, a.y1, a.x2, a.y2, 3)
+              const p1 = toScreenPoint({ x: a.x1, y: a.y1 }, orientation)
+              const p2 = toScreenPoint({ x: a.x2, y: a.y2 }, orientation)
+              const head = arrowHeadPoints(p1.x, p1.y, p2.x, p2.y, 3)
               return (
                 <g key={a.id}>
-                  <line x1={a.x1} y1={a.y1} x2={a.x2} y2={a.y2} stroke={COLOR_META[a.color].hex} strokeWidth="0.8" />
+                  <line x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} stroke={COLOR_META[a.color].hex} strokeWidth="0.8" />
                   <polygon points={head.map(p => `${p.x},${p.y}`).join(' ')} fill={COLOR_META[a.color].hex} />
                 </g>
               )
             }
             if (a.kind === 'zone') {
-              const cx = (a.x1 + a.x2) / 2
-              const cy = (a.y1 + a.y2) / 2
-              const rx = Math.abs(a.x2 - a.x1) / 2
-              const ry = Math.abs(a.y2 - a.y1) / 2
-              return (
+              const p1 = toScreenPoint({ x: a.x1, y: a.y1 }, orientation)
+              const p2 = toScreenPoint({ x: a.x2, y: a.y2 }, orientation)
+              return a.shape === 'cuadrado' ? (
+                <rect
+                  key={a.id}
+                  x={Math.min(p1.x, p2.x)}
+                  y={Math.min(p1.y, p2.y)}
+                  width={Math.abs(p2.x - p1.x)}
+                  height={Math.abs(p2.y - p1.y)}
+                  fill={COLOR_META[a.color].hex}
+                  fillOpacity="0.25"
+                  stroke={COLOR_META[a.color].hex}
+                  strokeWidth="0.5"
+                />
+              ) : (
                 <ellipse
                   key={a.id}
-                  cx={cx}
-                  cy={cy}
-                  rx={rx}
-                  ry={ry}
+                  cx={(p1.x + p2.x) / 2}
+                  cy={(p1.y + p2.y) / 2}
+                  rx={Math.abs(p2.x - p1.x) / 2}
+                  ry={Math.abs(p2.y - p1.y) / 2}
                   fill={COLOR_META[a.color].hex}
                   fillOpacity="0.25"
                   stroke={COLOR_META[a.color].hex}
@@ -275,8 +286,9 @@ export default function TacticalBoardPitch({
                 />
               )
             }
+            const p = toScreenPoint({ x: a.x, y: a.y }, orientation)
             return (
-              <text key={a.id} x={a.x} y={a.y} fill={COLOR_META[a.color].hex} fontSize="4" fontWeight="700" dominantBaseline="middle">
+              <text key={a.id} x={p.x} y={p.y} fill={COLOR_META[a.color].hex} fontSize="4" fontWeight="700" dominantBaseline="middle">
                 {a.text}
               </text>
             )
@@ -284,24 +296,49 @@ export default function TacticalBoardPitch({
 
           {/* Trazo/figura en progreso (mientras se arrastra) */}
           {freehandPoints && (
-            <path d={pointsToPathD(freehandPoints)} fill="none" stroke={COLOR_META[color].hex} strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" />
-          )}
-          {dragStart && dragCurrent && tool === 'flecha' && (
-            <line x1={dragStart.x} y1={dragStart.y} x2={dragCurrent.x} y2={dragCurrent.y} stroke={COLOR_META[color].hex} strokeWidth="0.8" strokeDasharray="1.5" />
-          )}
-          {dragStart && dragCurrent && tool === 'zona' && (
-            <ellipse
-              cx={(dragStart.x + dragCurrent.x) / 2}
-              cy={(dragStart.y + dragCurrent.y) / 2}
-              rx={Math.abs(dragCurrent.x - dragStart.x) / 2}
-              ry={Math.abs(dragCurrent.y - dragStart.y) / 2}
-              fill={COLOR_META[color].hex}
-              fillOpacity="0.25"
+            <path
+              d={pointsToPathD(freehandPoints.map(pt => toScreenPoint(pt, orientation)))}
+              fill="none"
               stroke={COLOR_META[color].hex}
-              strokeWidth="0.5"
-              strokeDasharray="1.5"
+              strokeWidth="1"
+              strokeLinecap="round"
+              strokeLinejoin="round"
             />
           )}
+          {dragStart && dragCurrent && tool === 'flecha' && (() => {
+            const p1 = toScreenPoint(dragStart, orientation)
+            const p2 = toScreenPoint(dragCurrent, orientation)
+            return <line x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} stroke={COLOR_META[color].hex} strokeWidth="0.8" strokeDasharray="1.5" />
+          })()}
+          {dragStart && dragCurrent && tool === 'zona' && (() => {
+            const p1 = toScreenPoint(dragStart, orientation)
+            const p2 = toScreenPoint(dragCurrent, orientation)
+            return zoneShape === 'cuadrado' ? (
+              <rect
+                x={Math.min(p1.x, p2.x)}
+                y={Math.min(p1.y, p2.y)}
+                width={Math.abs(p2.x - p1.x)}
+                height={Math.abs(p2.y - p1.y)}
+                fill={COLOR_META[color].hex}
+                fillOpacity="0.25"
+                stroke={COLOR_META[color].hex}
+                strokeWidth="0.5"
+                strokeDasharray="1.5"
+              />
+            ) : (
+              <ellipse
+                cx={(p1.x + p2.x) / 2}
+                cy={(p1.y + p2.y) / 2}
+                rx={Math.abs(p2.x - p1.x) / 2}
+                ry={Math.abs(p2.y - p1.y) / 2}
+                fill={COLOR_META[color].hex}
+                fillOpacity="0.25"
+                stroke={COLOR_META[color].hex}
+                strokeWidth="0.5"
+                strokeDasharray="1.5"
+              />
+            )
+          })()}
         </svg>
 
         {/* Fichas */}
@@ -313,6 +350,7 @@ export default function TacticalBoardPitch({
               : marker.team === 'rival'
                 ? 'bg-red-500 text-white'
                 : 'bg-white text-apple-gray-900'
+          const screen = toScreenPoint(marker, orientation)
           return (
             <div
               key={marker.id}
@@ -324,26 +362,12 @@ export default function TacticalBoardPitch({
               className={`absolute -translate-x-1/2 -translate-y-1/2 w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center shadow-lg text-xs font-bold ${bg} ${
                 isSelected ? 'ring-4 ring-brand-green' : ''
               } ${tool === 'mover' ? 'cursor-grab active:cursor-grabbing' : ''}`}
-              style={{ left: `${marker.x}%`, top: `${marker.y}%` }}
+              style={{ left: `${screen.x}%`, top: `${screen.y}%` }}
             >
               {marker.kind === 'ball' ? <BallIcon className="w-5 h-5 sm:w-6 sm:h-6" /> : marker.label}
             </div>
           )
         })}
-
-        {/* Input de texto en progreso */}
-        {textInput && (
-          <input
-            autoFocus
-            value={textValue}
-            onChange={e => setTextValue(e.target.value)}
-            onBlur={commitText}
-            onKeyDown={e => e.key === 'Enter' && commitText()}
-            className="absolute -translate-x-1/2 -translate-y-1/2 text-xs font-bold bg-white/90 rounded px-1.5 py-0.5 outline-none"
-            style={{ left: `${textInput.x}%`, top: `${textInput.y}%`, width: '80px' }}
-            placeholder="Texto..."
-          />
-        )}
       </div>
 
       {selectedMarkerId && tool === 'mover' && (

@@ -10,6 +10,7 @@ import {
   type BoardAnnotation,
   type MarkerTeam,
   type AnnotationColor,
+  type ZoneShape,
 } from '@/services/tacticalBoardService'
 import { fetchSquadCached, fetchSeasonFixtures, fetchFixtureLineups, type SquadPlayer } from '@/services/footballApiService'
 import TacticalBoardPitch, { type BoardTool } from './TacticalBoardPitch'
@@ -20,6 +21,7 @@ import { mirrorFormationForRival, nextMarkerPosition } from '@/features/coaches/
 import { mapLineupToSlots, type LineupPlayerForPrefill } from '@/features/coaches/futureSquadPrefill'
 import { isMatchFinished } from '@/utils/coachCalendar'
 import { FORMATIONS } from '@/constants/formations'
+import { useMediaQuery } from '@/hooks/useMediaQuery'
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
@@ -127,12 +129,16 @@ function PlayerPickerModal({
 }
 
 export default function CoachTacticalBoardTab({ coach }: { coach: AgencyCoach }) {
+  // Desktop (lg+, 1024px): la cancha se ve horizontal y mas grande, con la barra de
+  // herramientas al costado en vez de arriba, para aprovechar el ancho disponible.
+  const isDesktop = useMediaQuery('(min-width: 1024px)')
   const [boards, setBoards] = useState<TacticalBoard[] | null>(null)
   const [current, setCurrent] = useState<TacticalBoard | null>(null)
   const [markers, setMarkers] = useState<BoardMarker[]>([])
   const [annotations, setAnnotations] = useState<BoardAnnotation[]>([])
   const [tool, setTool] = useState<BoardTool>('mover')
   const [color, setColor] = useState<AnnotationColor>('white')
+  const [zoneShape, setZoneShape] = useState<ZoneShape>('circulo')
   const [markerTeam, setMarkerTeam] = useState<MarkerTeam>('propio')
   const [squad, setSquad] = useState<SquadPlayer[]>([])
   const [showPlayerPicker, setShowPlayerPicker] = useState(false)
@@ -379,31 +385,39 @@ export default function CoachTacticalBoardTab({ coach }: { coach: AgencyCoach })
       </div>
 
       {current ? (
-        <>
-          <TacticalBoardToolbar
-            tool={tool}
-            onToolChange={setTool}
-            color={color}
-            onColorChange={setColor}
-            markerTeam={markerTeam}
-            onMarkerTeamChange={setMarkerTeam}
-            onAddGeneric={addGenericMarker}
-            onAddPlayer={() => setShowPlayerPicker(true)}
-            onAddBall={addBallMarker}
-            onUndo={handleUndo}
-            onClearAll={handleClearAll}
-            canUndo={annotations.length > 0}
-            ballAlreadyPlaced={markers.some(m => m.kind === 'ball')}
-          />
-          <TacticalBoardPitch
-            markers={markers}
-            annotations={annotations}
-            tool={tool}
-            color={color}
-            onMarkersChange={setMarkers}
-            onAnnotationsChange={setAnnotations}
-          />
-        </>
+        <div className="flex flex-col lg:flex-row gap-4 lg:items-start">
+          <div className="lg:w-72 flex-shrink-0">
+            <TacticalBoardToolbar
+              tool={tool}
+              onToolChange={setTool}
+              color={color}
+              onColorChange={setColor}
+              zoneShape={zoneShape}
+              onZoneShapeChange={setZoneShape}
+              markerTeam={markerTeam}
+              onMarkerTeamChange={setMarkerTeam}
+              onAddGeneric={addGenericMarker}
+              onAddPlayer={() => setShowPlayerPicker(true)}
+              onAddBall={addBallMarker}
+              onUndo={handleUndo}
+              onClearAll={handleClearAll}
+              canUndo={annotations.length > 0}
+              ballAlreadyPlaced={markers.some(m => m.kind === 'ball')}
+            />
+          </div>
+          <div className="flex-1 min-w-0">
+            <TacticalBoardPitch
+              markers={markers}
+              annotations={annotations}
+              tool={tool}
+              color={color}
+              zoneShape={zoneShape}
+              onMarkersChange={setMarkers}
+              onAnnotationsChange={setAnnotations}
+              orientation={isDesktop ? 'horizontal' : 'vertical'}
+            />
+          </div>
+        </div>
       ) : (
         <div className="flex items-center justify-center py-16 px-4 text-center">
           <p className="text-sm text-apple-gray-400 max-w-xs">Creá una pizarra nueva o cargá una guardada para empezar.</p>

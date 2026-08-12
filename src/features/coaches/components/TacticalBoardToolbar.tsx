@@ -1,5 +1,5 @@
 import { COLOR_META, COLOR_ORDER } from '@/features/coaches/tacticalBoardConstants'
-import type { AnnotationColor, MarkerTeam } from '@/services/tacticalBoardService'
+import type { AnnotationColor, MarkerTeam, ZoneShape } from '@/services/tacticalBoardService'
 import type { BoardTool } from './TacticalBoardPitch'
 
 const TOOL_META: { id: BoardTool; label: string }[] = [
@@ -7,7 +7,6 @@ const TOOL_META: { id: BoardTool; label: string }[] = [
   { id: 'lapiz', label: 'Lápiz' },
   { id: 'flecha', label: 'Flecha' },
   { id: 'zona', label: 'Zona' },
-  { id: 'texto', label: 'Texto' },
 ]
 
 export default function TacticalBoardToolbar({
@@ -15,6 +14,8 @@ export default function TacticalBoardToolbar({
   onToolChange,
   color,
   onColorChange,
+  zoneShape,
+  onZoneShapeChange,
   markerTeam,
   onMarkerTeamChange,
   onAddGeneric,
@@ -29,6 +30,8 @@ export default function TacticalBoardToolbar({
   onToolChange: (tool: BoardTool) => void
   color: AnnotationColor
   onColorChange: (color: AnnotationColor) => void
+  zoneShape: ZoneShape
+  onZoneShapeChange: (shape: ZoneShape) => void
   markerTeam: MarkerTeam
   onMarkerTeamChange: (team: MarkerTeam) => void
   onAddGeneric: () => void
@@ -59,19 +62,42 @@ export default function TacticalBoardToolbar({
       </div>
 
       {tool !== 'mover' && (
-        <div className="flex items-center gap-1.5">
-          {COLOR_ORDER.map(c => (
-            <button
-              key={c}
-              type="button"
-              onClick={() => onColorChange(c)}
-              title={COLOR_META[c].label}
-              className={`w-6 h-6 rounded-full border-2 transition-transform ${
-                color === c ? 'border-brand-green scale-110' : 'border-apple-gray-200 dark:border-apple-gray-600'
-              }`}
-              style={{ backgroundColor: COLOR_META[c].hex }}
-            />
-          ))}
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-1.5">
+            {COLOR_ORDER.map(c => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => onColorChange(c)}
+                title={COLOR_META[c].label}
+                className={`w-6 h-6 rounded-full border-2 transition-transform ${
+                  color === c ? 'border-brand-green scale-110' : 'border-apple-gray-200 dark:border-apple-gray-600'
+                }`}
+                style={{ backgroundColor: COLOR_META[c].hex }}
+              />
+            ))}
+          </div>
+
+          {tool === 'zona' && (
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => onZoneShapeChange('circulo')}
+                aria-label="Zona circular"
+                className={`w-7 h-7 rounded-full border-2 flex items-center justify-center ${zoneShape === 'circulo' ? 'border-brand-green' : 'border-apple-gray-200 dark:border-apple-gray-600'}`}
+              >
+                <span className="w-3.5 h-3.5 rounded-full border-2 border-current text-apple-gray-500 dark:text-apple-gray-400" />
+              </button>
+              <button
+                type="button"
+                onClick={() => onZoneShapeChange('cuadrado')}
+                aria-label="Zona rectangular"
+                className={`w-7 h-7 rounded-full border-2 flex items-center justify-center ${zoneShape === 'cuadrado' ? 'border-brand-green' : 'border-apple-gray-200 dark:border-apple-gray-600'}`}
+              >
+                <span className="w-3.5 h-3.5 border-2 border-current text-apple-gray-500 dark:text-apple-gray-400" />
+              </button>
+            </div>
+          )}
         </div>
       )}
 

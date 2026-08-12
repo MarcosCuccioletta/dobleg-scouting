@@ -17,7 +17,8 @@ export type AnnotationColor = 'white' | 'yellow' | 'red' | 'skyblue' | 'black'
 
 export interface FreehandAnnotation { id: string; kind: 'freehand'; color: AnnotationColor; points: { x: number; y: number }[] }
 export interface ArrowAnnotation    { id: string; kind: 'arrow';    color: AnnotationColor; x1: number; y1: number; x2: number; y2: number }
-export interface ZoneAnnotation     { id: string; kind: 'zone';     color: AnnotationColor; x1: number; y1: number; x2: number; y2: number }
+export type ZoneShape = 'circulo' | 'cuadrado'
+export interface ZoneAnnotation     { id: string; kind: 'zone';     color: AnnotationColor; x1: number; y1: number; x2: number; y2: number; shape: ZoneShape }
 export interface TextAnnotation     { id: string; kind: 'text';     color: AnnotationColor; x: number; y: number; text: string }
 
 export type BoardAnnotation = FreehandAnnotation | ArrowAnnotation | ZoneAnnotation | TextAnnotation

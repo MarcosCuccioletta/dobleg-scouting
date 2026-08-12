@@ -3,6 +3,24 @@ export function clampPercent(value: number): number {
   return Math.max(0, Math.min(100, value))
 }
 
+export type PitchOrientation = 'vertical' | 'horizontal'
+
+/**
+ * Convierte un punto en coordenadas de datos (x: eje de ancho de formacion, y: eje de
+ * ataque -- 100 pegado al arco propio, 0 pegado al arco rival, ver FORMATIONS) a
+ * coordenadas de pantalla. En vertical no cambia nada. En horizontal rota 90° sin
+ * espejar: el eje de ataque pasa a ser el horizontal de la pantalla (propio a la
+ * derecha, rival a la izquierda), y el eje de ancho de formacion pasa al vertical.
+ */
+export function toScreenPoint(p: { x: number; y: number }, orientation: PitchOrientation): { x: number; y: number } {
+  return orientation === 'vertical' ? p : { x: p.y, y: 100 - p.x }
+}
+
+/** Inversa exacta de toScreenPoint -- convierte una posicion tocada en pantalla a coordenadas de datos. */
+export function fromScreenPoint(p: { x: number; y: number }, orientation: PitchOrientation): { x: number; y: number } {
+  return orientation === 'vertical' ? p : { x: 100 - p.y, y: p.x }
+}
+
 /** Convierte una lista de puntos del lapiz a un `d` de SVG <path>. */
 export function pointsToPathD(points: { x: number; y: number }[]): string {
   if (points.length === 0) return ''

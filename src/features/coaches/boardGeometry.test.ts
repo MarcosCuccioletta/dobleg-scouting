@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { clampPercent, pointsToPathD, arrowHeadPoints } from './boardGeometry'
+import { clampPercent, pointsToPathD, arrowHeadPoints, toScreenPoint, fromScreenPoint } from './boardGeometry'
 
 describe('clampPercent', () => {
   it('deja pasar valores dentro de 0-100', () => {
@@ -47,5 +47,40 @@ describe('arrowHeadPoints', () => {
     expect(left.x).toBeCloseTo(-right.x, 5)
     expect(left.y).toBeCloseTo(right.y, 5)
     expect(left.y).toBeLessThan(10)
+  })
+})
+
+describe('toScreenPoint', () => {
+  it('en vertical no transforma nada', () => {
+    expect(toScreenPoint({ x: 15, y: 72 }, 'vertical')).toEqual({ x: 15, y: 72 })
+  })
+
+  it('en horizontal, el arco propio (y alto) queda del lado derecho de la pantalla', () => {
+    // GK propio: x:50, y:92 (pegado al arco propio) -> pantalla x:92 (cerca del borde derecho)
+    expect(toScreenPoint({ x: 50, y: 92 }, 'horizontal')).toEqual({ x: 92, y: 50 })
+  })
+
+  it('en horizontal, el arco rival (y bajo) queda del lado izquierdo de la pantalla', () => {
+    // ST propio: x:50, y:20 (cerca del arco rival) -> pantalla x:20 (cerca del borde izquierdo)
+    expect(toScreenPoint({ x: 50, y: 20 }, 'horizontal')).toEqual({ x: 20, y: 50 })
+  })
+
+  it('en horizontal, LB (x chico) y RB (x grande) no se mezclan entre si', () => {
+    const lb = toScreenPoint({ x: 15, y: 72 }, 'horizontal')
+    const rb = toScreenPoint({ x: 85, y: 72 }, 'horizontal')
+    expect(lb).toEqual({ x: 72, y: 85 })
+    expect(rb).toEqual({ x: 72, y: 15 })
+  })
+})
+
+describe('fromScreenPoint', () => {
+  it('es la inversa exacta de toScreenPoint en horizontal', () => {
+    const original = { x: 32, y: 78 }
+    const screen = toScreenPoint(original, 'horizontal')
+    expect(fromScreenPoint(screen, 'horizontal')).toEqual(original)
+  })
+
+  it('en vertical no transforma nada', () => {
+    expect(fromScreenPoint({ x: 15, y: 72 }, 'vertical')).toEqual({ x: 15, y: 72 })
   })
 })
