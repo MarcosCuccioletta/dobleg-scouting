@@ -4,36 +4,46 @@ import {
 } from 'recharts'
 import type { CoachMatchTeamStats } from '@/services/coachService'
 import type { AgencyFixture } from '@/types/footballApi'
+import { matchOutcome, RESULT_STYLES, type MatchResult } from '@/features/coaches/matchResult'
 import { formatWyscoutMetricLabel, groupWyscoutMetricKeys } from '@/features/coaches/wyscoutTeamStats/metricLabels'
 
 export interface EnrichedMatchRow {
   fixtureId: number
   date: string
   opponent: string
+  opponentLogo: string
   isHome: boolean
   scoreLabel: string | null
+  result: MatchResult | null
   stats: CoachMatchTeamStats
 }
 
+const RESULT_DOT_COLOR: Record<MatchResult, string> = {
+  G: '#22C55E',
+  E: '#86868B',
+  P: '#DC2626',
+}
+
 /** Cruza los partidos con datos de Wyscout cargados contra el fixture real (fecha,
- *  rival, resultado), ordenados cronologicamente. Se reusa tanto para el grafico
- *  de evolucion como para la tabla de historial. */
+ *  rival, resultado -- en perspectiva del equipo propio, no home/away), ordenados
+ *  cronologicamente. Se reusa tanto para el grafico de evolucion como para la
+ *  tabla de historial. */
 export function buildEnrichedMatchRows(fixtures: AgencyFixture[], statsRows: CoachMatchTeamStats[]): EnrichedMatchRow[] {
   const fixtureById = new Map(fixtures.map(f => [f.fixtureId, f]))
   const rows: EnrichedMatchRow[] = []
   for (const stats of statsRows) {
     const fixture = fixtureById.get(stats.fixture_id)
     if (!fixture) continue
-    const opponent = fixture.isHome ? fixture.awayTeam.name : fixture.homeTeam.name
-    const scoreLabel = fixture.goalsHome !== null && fixture.goalsAway !== null
-      ? `${fixture.goalsHome}-${fixture.goalsAway}`
-      : null
+    const opponent = fixture.isHome ? fixture.awayTeam : fixture.homeTeam
+    const { result, scoreLabel } = matchOutcome(fixture)
     rows.push({
       fixtureId: fixture.fixtureId,
       date: fixture.date,
-      opponent,
+      opponent: opponent.name,
+      opponentLogo: opponent.logo,
       isHome: fixture.isHome,
-      scoreLabel,
+      scoreLabel: result === null ? null : scoreLabel,
+      result,
       stats,
     })
   }
@@ -42,12 +52,22 @@ export function buildEnrichedMatchRows(fixtures: AgencyFixture[], statsRows: Coa
 
 /** Valor numerico de una metrica para un partido: nivel superior (posesion/xG) o
  *  dentro de raw_metrics. */
-function metricValue(row: EnrichedMatchRow, key: string): number | null {
+export function metricValue(row: EnrichedMatchRow, key: string): number | null {
   if (key === 'possession_pct') return row.stats.possession_pct
   if (key === 'xg_for') return row.stats.xg_for
   if (key === 'xg_against') return row.stats.xg_against
   const raw = row.stats.raw_metrics[key]
   return typeof raw === 'number' ? raw : null
+}
+
+/** Punto coloreado segun el resultado del partido (verde/gris/rojo) en vez de un
+ *  punto uniforme -- deja ver de un vistazo si la metrica anda mejor cuando el
+ *  equipo gana. */
+function ResultDot(props: any) {
+  const { cx, cy, payload } = props
+  if (cx == null || cy == null || payload.value === null) return null
+  const color = payload.result ? RESULT_DOT_COLOR[payload.result as MatchResult] : '#9CA3AF'
+  return <circle cx={cx} cy={cy} r={3} fill={color} stroke="none" />
 }
 
 const DEFAULT_METRICS = ['possession_pct', 'xg_for', 'xg_against', 'tiros_/_a_la_porteria_2']
@@ -69,6 +89,7 @@ function SingleMetricChart({
     const data = rows.map(r => ({
       date: r.date,
       opponent: r.opponent,
+      result: r.result,
       value: metricValue(r, metricKey),
     }))
     const values = data.map(d => d.value).filter((v): v is number => v !== null)
@@ -134,12 +155,17 @@ function SingleMetricChart({
               dataKey="value"
               stroke="#22C55E"
               strokeWidth={2}
-              dot={{ fill: '#22C55E', r: 2.5, strokeWidth: 0 }}
-              activeDot={{ r: 4, fill: '#22C55E' }}
+              dot={<ResultDot />}
+              activeDot={{ r: 5, fill: '#22C55E' }}
               connectNulls
             />
           </LineChart>
         </ResponsiveContainer>
+      </div>
+      <div className="flex items-center gap-3 mt-1 text-2xs text-apple-gray-400">
+        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-brand-green" /> Victoria</span>
+        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-apple-gray-400" /> Empate</span>
+        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-brand-red" /> Derrota</span>
       </div>
     </div>
   )

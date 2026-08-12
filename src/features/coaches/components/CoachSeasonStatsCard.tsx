@@ -5,6 +5,7 @@ import { isMatchFinished } from '@/utils/coachCalendar'
 import { fetchSeasonFixtures } from '@/services/footballApiService'
 import CoachWyscoutUploadPanel from './CoachWyscoutUploadPanel'
 import CoachMatchMetricsEvolution, { buildEnrichedMatchRows } from './CoachMatchMetricsEvolution'
+import CoachTeamVsRivalCharts from './CoachTeamVsRivalCharts'
 import CoachMatchHistoryTable from './CoachMatchHistoryTable'
 import type { AgencyCoach } from '@/constants/agencyCoaches'
 import type { AgencyFixture } from '@/types/footballApi'
@@ -104,6 +105,7 @@ export default function CoachSeasonStatsCard({ coach }: { coach: AgencyCoach }) 
             <StatTile label="xG en contra" value={fmtDecimal(stats.avgXgAgainst)} />
           </div>
 
+          <CoachTeamVsRivalCharts rows={enrichedRows} />
           <CoachMatchMetricsEvolution rows={enrichedRows} />
           <CoachMatchHistoryTable rows={enrichedRows} />
         </div>
