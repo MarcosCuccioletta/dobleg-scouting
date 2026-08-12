@@ -31,3 +31,31 @@ export function nextMarkerPosition(
   const n = sameTeam.length - FORMATIONS[resolved].positions.length
   return { x: 50 + (n % 5) * 6, y: 50 + Math.floor(n / 5) * 6 }
 }
+
+/** Posiciones de los 11 slots de una formacion para el equipo dado (propio: tal cual
+ * FORMATIONS; rival: espejadas). Se usa tanto para reacomodar fichas existentes cuando
+ * se cambia de formacion como para el prellenado inicial. */
+export function formationSlotPositions(team: MarkerTeam, formationType: string): { x: number; y: number }[] {
+  const resolved = FORMATIONS[formationType] ? formationType : '4-3-3'
+  return team === 'propio'
+    ? FORMATIONS[resolved].positions.map(p => ({ x: p.x, y: p.y }))
+    : mirrorFormationForRival(resolved)
+}
+
+/** Slot de formacion mas cercano a un punto de la cancha (propio) -- se usa para
+ * inferir "que puesto esta jugando" una ficha ya arrastrada, y sugerir jugadores del
+ * plantel para esa posicion al tocarla. */
+export function nearestFormationSlotKey(point: { x: number; y: number }, formationType: string): string {
+  const resolved = FORMATIONS[formationType] ? formationType : '4-3-3'
+  const positions = FORMATIONS[resolved].positions
+  let best = positions[0]
+  let bestDist = Infinity
+  for (const p of positions) {
+    const dist = (p.x - point.x) ** 2 + (p.y - point.y) ** 2
+    if (dist < bestDist) {
+      bestDist = dist
+      best = p
+    }
+  }
+  return best.key
+}

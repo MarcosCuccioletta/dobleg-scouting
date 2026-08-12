@@ -33,6 +33,7 @@ export default function TacticalBoardPitch({
   onMarkersChange,
   onAnnotationsChange,
   orientation = 'vertical',
+  onChangePlayerClick,
 }: {
   markers: BoardMarker[]
   annotations: BoardAnnotation[]
@@ -42,6 +43,7 @@ export default function TacticalBoardPitch({
   onMarkersChange: (markers: BoardMarker[]) => void
   onAnnotationsChange: (annotations: BoardAnnotation[]) => void
   orientation?: PitchOrientation
+  onChangePlayerClick?: (markerId: string) => void
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [draggingMarkerId, setDraggingMarkerId] = useState<string | null>(null)
@@ -371,13 +373,24 @@ export default function TacticalBoardPitch({
       </div>
 
       {selectedMarkerId && tool === 'mover' && (
-        <button
-          type="button"
-          onClick={handleDeleteSelected}
-          className="absolute top-2 right-2 min-h-[36px] px-3 rounded-full bg-red-500 text-white text-xs font-semibold shadow-lg"
-        >
-          Eliminar ficha
-        </button>
+        <div className="absolute top-2 right-2 flex items-center gap-2">
+          {onChangePlayerClick && markers.find(m => m.id === selectedMarkerId)?.team === 'propio' && markers.find(m => m.id === selectedMarkerId)?.kind !== 'ball' && (
+            <button
+              type="button"
+              onClick={() => onChangePlayerClick(selectedMarkerId)}
+              className="min-h-[36px] px-3 rounded-full bg-white text-apple-gray-900 text-xs font-semibold shadow-lg"
+            >
+              Cambiar jugador
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={handleDeleteSelected}
+            className="min-h-[36px] px-3 rounded-full bg-red-500 text-white text-xs font-semibold shadow-lg"
+          >
+            Eliminar ficha
+          </button>
+        </div>
       )}
     </div>
   )

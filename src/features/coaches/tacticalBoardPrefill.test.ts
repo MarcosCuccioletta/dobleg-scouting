@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { mirrorFormationForRival, nextMarkerPosition } from './tacticalBoardPrefill'
+import { mirrorFormationForRival, nextMarkerPosition, formationSlotPositions, nearestFormationSlotKey } from './tacticalBoardPrefill'
 
 describe('mirrorFormationForRival', () => {
   it('refleja el eje Y de cada posicion de la formacion, mismo orden', () => {
@@ -47,3 +47,28 @@ const FORMATIONS_4_3_3_POSITIONS = [
   { x: 50, y: 92 }, { x: 15, y: 72 }, { x: 35, y: 75 }, { x: 65, y: 75 }, { x: 85, y: 72 },
   { x: 30, y: 50 }, { x: 50, y: 55 }, { x: 70, y: 50 }, { x: 18, y: 25 }, { x: 50, y: 20 }, { x: 82, y: 25 },
 ]
+
+describe('formationSlotPositions', () => {
+  it('propio devuelve las posiciones de FORMATIONS tal cual', () => {
+    expect(formationSlotPositions('propio', '4-3-3')).toEqual(FORMATIONS_4_3_3_POSITIONS)
+  })
+
+  it('rival devuelve las posiciones espejadas', () => {
+    expect(formationSlotPositions('rival', '4-3-3')).toEqual(mirrorFormationForRival('4-3-3'))
+  })
+})
+
+describe('nearestFormationSlotKey', () => {
+  it('un punto exactamente sobre un slot devuelve ese slot', () => {
+    expect(nearestFormationSlotKey({ x: 50, y: 92 }, '4-3-3')).toBe('GK')
+    expect(nearestFormationSlotKey({ x: 50, y: 20 }, '4-3-3')).toBe('ST')
+  })
+
+  it('un punto cercano a un slot (arrastrado un poco) devuelve el mas cercano', () => {
+    expect(nearestFormationSlotKey({ x: 17, y: 70 }, '4-3-3')).toBe('LB')
+  })
+
+  it('formacion desconocida cae a 4-3-3', () => {
+    expect(nearestFormationSlotKey({ x: 50, y: 92 }, '4-1-4-1')).toBe('GK')
+  })
+})

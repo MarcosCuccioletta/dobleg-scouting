@@ -13,15 +13,31 @@ import {
   type ZoneShape,
 } from '@/services/tacticalBoardService'
 import { fetchSquadCached, fetchSeasonFixtures, fetchFixtureLineups, type SquadPlayer } from '@/services/footballApiService'
+import { fetchSquadProfiles, type SquadPlayerProfile } from '@/services/coachService'
 import TacticalBoardPitch, { type BoardTool } from './TacticalBoardPitch'
 import TacticalBoardToolbar from './TacticalBoardToolbar'
 import type { AgencyCoach } from '@/constants/agencyCoaches'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
-import { mirrorFormationForRival, nextMarkerPosition } from '@/features/coaches/tacticalBoardPrefill'
+import { mirrorFormationForRival, nextMarkerPosition, nearestFormationSlotKey, formationSlotPositions } from '@/features/coaches/tacticalBoardPrefill'
 import { mapLineupToSlots, type LineupPlayerForPrefill } from '@/features/coaches/futureSquadPrefill'
 import { isMatchFinished } from '@/utils/coachCalendar'
-import { FORMATIONS } from '@/constants/formations'
+import { FORMATIONS, POSITION_KEY_API_MAP, FORMATION_POSITION_API_OVERRIDES } from '@/constants/formations'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
+import type { Position } from '@/types/scoring'
+
+// Grupo generico (API-Football) de cada posicion fina -- fallback para sugerir
+// jugadores del plantel cuando todavia no tienen fila en Supabase con `primary_position`
+// (frecuente en ligas con poca cobertura, como la de Temperley).
+const COARSE_GROUP_BY_POSITION: Record<Position, string> = {
+  ARQ: 'Goalkeeper',
+  LD: 'Defender',
+  CB: 'Defender',
+  LI: 'Defender',
+  VC: 'Midfielder',
+  VI: 'Midfielder',
+  EXT: 'Attacker',
+  DEL: 'Attacker',
+}
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
@@ -33,7 +49,7 @@ function uid(): string {
 // rivales genericos del lado espejado) para que la primera vez que un entrenador entra
 // a la pestana ya vea la cancha poblada, sin tener que crear ni nombrar una pizarra antes.
 // Mismo patron de datos que buildPrefill en CoachFutureSquadTab.tsx.
-async function buildDefaultBoardMarkers(coach: AgencyCoach): Promise<BoardMarker[]> {
+async function buildDefaultBoardMarkers(coach: AgencyCoach): Promise<{ markers: BoardMarker[]; formationType: string }> {
   const markers: BoardMarker[] = []
   let formationType = '4-3-3'
   let ownStartXI: LineupPlayerForPrefill[] = []
@@ -79,20 +95,30 @@ async function buildDefaultBoardMarkers(coach: AgencyCoach): Promise<BoardMarker
     })
   })
 
-  return markers
+  return { markers, formationType: resolvedFormation }
 }
 
 function PlayerPickerModal({
   players,
+  suggestedIds,
+  title,
   onSelect,
   onClose,
 }: {
   players: SquadPlayer[]
+  suggestedIds?: Set<number>
+  title?: string
   onSelect: (player: SquadPlayer) => void
   onClose: () => void
 }) {
   const [search, setSearch] = useState('')
-  const filtered = players.filter(p => p.name.toLowerCase().includes(search.toLowerCase()))
+  const filtered = players
+    .filter(p => p.name.toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => {
+      const aSuggested = suggestedIds?.has(a.id) ? 0 : 1
+      const bSuggested = suggestedIds?.has(b.id) ? 0 : 1
+      return aSuggested - bSuggested
+    })
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in" onClick={onClose}>
@@ -101,6 +127,7 @@ function PlayerPickerModal({
         onClick={e => e.stopPropagation()}
       >
         <div className="p-4 border-b border-apple-gray-200 dark:border-apple-gray-700">
+          {title && <p className="text-sm font-semibold text-apple-gray-800 dark:text-white mb-2">{title}</p>}
           <input
             autoFocus
             value={search}
@@ -119,6 +146,9 @@ function PlayerPickerModal({
             >
               <span className="text-sm font-semibold text-apple-gray-800 dark:text-white">{p.name}</span>
               {p.number != null && <span className="text-xs text-apple-gray-400">#{p.number}</span>}
+              {suggestedIds?.has(p.id) && (
+                <span className="text-2xs font-semibold text-brand-green ml-auto">Sugerido</span>
+              )}
             </button>
           ))}
           {filtered.length === 0 && <p className="text-sm text-apple-gray-400 text-center py-8">Sin resultados.</p>}
@@ -140,8 +170,12 @@ export default function CoachTacticalBoardTab({ coach }: { coach: AgencyCoach })
   const [color, setColor] = useState<AnnotationColor>('white')
   const [zoneShape, setZoneShape] = useState<ZoneShape>('circulo')
   const [markerTeam, setMarkerTeam] = useState<MarkerTeam>('propio')
+  const [ownFormation, setOwnFormation] = useState('4-3-3')
+  const [rivalFormation, setRivalFormation] = useState('4-3-3')
   const [squad, setSquad] = useState<SquadPlayer[]>([])
+  const [squadProfiles, setSquadProfiles] = useState<Record<number, SquadPlayerProfile>>({})
   const [showPlayerPicker, setShowPlayerPicker] = useState(false)
+  const [changingMarkerId, setChangingMarkerId] = useState<string | null>(null)
   const [showLoadModal, setShowLoadModal] = useState(false)
   const [showNewInput, setShowNewInput] = useState(false)
   const [newName, setNewName] = useState('')
@@ -177,8 +211,9 @@ export default function CoachTacticalBoardTab({ coach }: { coach: AgencyCoach })
       // Primera vez sin ninguna pizarra guardada: se arma y se muestra una por
       // defecto con los 11 propios reales + 11 rivales genericos, sin que el
       // usuario tenga que crear ni nombrar nada primero.
-      const markers = await buildDefaultBoardMarkers(coach)
+      const { markers, formationType } = await buildDefaultBoardMarkers(coach)
       if (!active) return
+      setOwnFormation(formationType)
       const board = await createTacticalBoard(coach.key, 'Titular', markers)
       if (!active) return
       if (board) {
@@ -208,8 +243,11 @@ export default function CoachTacticalBoardTab({ coach }: { coach: AgencyCoach })
   useEffect(() => {
     if (!coach.apiTeamId) return
     let active = true
-    fetchSquadCached(coach.apiTeamId).then(s => {
-      if (active) setSquad(s)
+    fetchSquadCached(coach.apiTeamId).then(async s => {
+      if (!active) return
+      setSquad(s)
+      const profiles = await fetchSquadProfiles(s.map(p => p.id))
+      if (active) setSquadProfiles(profiles)
     })
     return () => {
       active = false
@@ -286,7 +324,7 @@ export default function CoachTacticalBoardTab({ coach }: { coach: AgencyCoach })
 
   function addGenericMarker() {
     const count = markers.filter(m => m.kind === 'generic' && m.team === markerTeam).length
-    const pos = nextMarkerPosition(markers, markerTeam, '4-3-3')
+    const pos = nextMarkerPosition(markers, markerTeam, markerTeam === 'propio' ? ownFormation : rivalFormation)
     setMarkers([
       ...markers,
       { id: uid(), kind: 'generic', team: markerTeam, label: String(count + 1), playerId: null, x: pos.x, y: pos.y },
@@ -294,7 +332,7 @@ export default function CoachTacticalBoardTab({ coach }: { coach: AgencyCoach })
   }
 
   function addPlayerMarker(player: SquadPlayer) {
-    const pos = nextMarkerPosition(markers, 'propio', '4-3-3')
+    const pos = nextMarkerPosition(markers, 'propio', ownFormation)
     setMarkers([
       ...markers,
       {
@@ -308,6 +346,47 @@ export default function CoachTacticalBoardTab({ coach }: { coach: AgencyCoach })
       },
     ])
     setShowPlayerPicker(false)
+  }
+
+  function replaceMarkerPlayer(player: SquadPlayer) {
+    if (!changingMarkerId) return
+    setMarkers(markers.map(m => (
+      m.id === changingMarkerId
+        ? { ...m, kind: 'player', playerId: player.id, label: player.number != null ? String(player.number) : player.name.split(' ').slice(-1)[0] }
+        : m
+    )))
+    setChangingMarkerId(null)
+  }
+
+  // Reacomoda las fichas de un equipo a los 11 slots de la formacion elegida (en el
+  // orden en que ya estaban, preservando cual ficha es cual jugador) -- si hay mas de
+  // 11 fichas de ese equipo (fichas genericas de mas), las que sobran caen en cascada.
+  // El updater de setMarkers tiene que ser puro (React 18 StrictMode lo invoca 2 veces
+  // en desarrollo) -- el indice de cada ficha dentro del equipo se calcula con
+  // .filter().indexOf() en vez de mutar una variable externa en cada llamada.
+  function repositionTeamMarkers(team: MarkerTeam, formationType: string) {
+    const slots = formationSlotPositions(team, formationType)
+    setMarkers(prev => {
+      const teamMarkerIds = prev.filter(m => m.team === team).map(m => m.id)
+      return prev.map(m => {
+        if (m.team !== team) return m
+        const teamIndex = teamMarkerIds.indexOf(m.id)
+        const slot = slots[teamIndex]
+        if (slot) return { ...m, x: slot.x, y: slot.y }
+        const n = teamIndex - slots.length
+        return { ...m, x: 50 + (n % 5) * 6, y: 50 + Math.floor(n / 5) * 6 }
+      })
+    })
+  }
+
+  function handleOwnFormationChange(next: string) {
+    setOwnFormation(next)
+    repositionTeamMarkers('propio', next)
+  }
+
+  function handleRivalFormationChange(next: string) {
+    setRivalFormation(next)
+    repositionTeamMarkers('rival', next)
   }
 
   function addBallMarker() {
@@ -330,6 +409,22 @@ export default function CoachTacticalBoardTab({ coach }: { coach: AgencyCoach })
   }
 
   if (boards === null) return <LoadingSpinner message="Cargando pizarras..." />
+
+  const changingMarker = changingMarkerId ? markers.find(m => m.id === changingMarkerId) ?? null : null
+  let changingSlotLabel: string | null = null
+  const suggestedIds = new Set<number>()
+  if (changingMarker) {
+    const slotKey = nearestFormationSlotKey(changingMarker, ownFormation)
+    changingSlotLabel = FORMATIONS[ownFormation]?.positions.find(p => p.key === slotKey)?.key ?? slotKey
+    const allowed = FORMATION_POSITION_API_OVERRIDES[ownFormation]?.[slotKey] ?? POSITION_KEY_API_MAP[slotKey] ?? []
+    for (const p of squad) {
+      const profile = squadProfiles[p.id]
+      const matches = profile?.primary_position
+        ? allowed.includes(profile.primary_position as Position)
+        : allowed.some(pos => COARSE_GROUP_BY_POSITION[pos] === p.position)
+      if (matches) suggestedIds.add(p.id)
+    }
+  }
 
   return (
     <div className="space-y-4 animate-fade-in">
@@ -411,6 +506,10 @@ export default function CoachTacticalBoardTab({ coach }: { coach: AgencyCoach })
               onZoneShapeChange={setZoneShape}
               markerTeam={markerTeam}
               onMarkerTeamChange={setMarkerTeam}
+              ownFormation={ownFormation}
+              onOwnFormationChange={handleOwnFormationChange}
+              rivalFormation={rivalFormation}
+              onRivalFormationChange={handleRivalFormationChange}
               onAddGeneric={addGenericMarker}
               onAddPlayer={() => setShowPlayerPicker(true)}
               onAddBall={addBallMarker}
@@ -430,6 +529,7 @@ export default function CoachTacticalBoardTab({ coach }: { coach: AgencyCoach })
               onMarkersChange={setMarkers}
               onAnnotationsChange={setAnnotations}
               orientation={isDesktop ? 'horizontal' : 'vertical'}
+              onChangePlayerClick={setChangingMarkerId}
             />
           </div>
         </div>
@@ -440,6 +540,16 @@ export default function CoachTacticalBoardTab({ coach }: { coach: AgencyCoach })
       )}
 
       {showPlayerPicker && <PlayerPickerModal players={squad} onSelect={addPlayerMarker} onClose={() => setShowPlayerPicker(false)} />}
+
+      {changingMarker && (
+        <PlayerPickerModal
+          players={squad}
+          suggestedIds={suggestedIds}
+          title={`Jugador sugerido para ${changingSlotLabel}`}
+          onSelect={replaceMarkerPlayer}
+          onClose={() => setChangingMarkerId(null)}
+        />
+      )}
 
       {showNewInput && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in" onClick={() => setShowNewInput(false)}>
