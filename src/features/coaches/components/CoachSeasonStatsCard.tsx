@@ -4,6 +4,8 @@ import { computeSeasonStats } from '@/features/coaches/seasonStats'
 import { isMatchFinished } from '@/utils/coachCalendar'
 import { fetchSeasonFixtures } from '@/services/footballApiService'
 import CoachWyscoutUploadPanel from './CoachWyscoutUploadPanel'
+import CoachMatchMetricsEvolution, { buildEnrichedMatchRows } from './CoachMatchMetricsEvolution'
+import CoachMatchHistoryTable from './CoachMatchHistoryTable'
 import type { AgencyCoach } from '@/constants/agencyCoaches'
 import type { AgencyFixture } from '@/types/footballApi'
 
@@ -56,6 +58,7 @@ export default function CoachSeasonStatsCard({ coach }: { coach: AgencyCoach }) 
   const finishedFixtureIds = new Set(fixtures.filter(f => isMatchFinished(f.statusShort)).map(f => f.fixtureId))
   const loadedFixtureIds = new Set(statsRows.map(s => s.fixture_id))
   const missingCount = [...finishedFixtureIds].filter(id => !loadedFixtureIds.has(id)).length
+  const enrichedRows = buildEnrichedMatchRows(fixtures, statsRows)
 
   return (
     <div className="bg-white dark:bg-apple-gray-800/60 rounded-apple-lg border border-apple-gray-200/60 dark:border-apple-gray-700/40 shadow-apple dark:shadow-apple-dark p-5 sm:p-6 mb-6">
@@ -90,14 +93,19 @@ export default function CoachSeasonStatsCard({ coach }: { coach: AgencyCoach }) 
           Todavía no cargaste ningún partido. Subí el primer Excel de Wyscout para ver las estadísticas acá.
         </p>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
-          <StatTile label="PJ" value={String(stats.played)} />
-          <StatTile label="PG - PE - PP" value={`${stats.won}-${stats.drawn}-${stats.lost}`} />
-          <StatTile label="Puntos" value={`${stats.points}/${stats.possiblePoints}`} />
-          <StatTile label="GF - GC" value={`${stats.goalsFor}-${stats.goalsAgainst}`} />
-          <StatTile label="Posesión prom." value={fmtPct(stats.avgPossession)} />
-          <StatTile label="xG a favor" value={fmtDecimal(stats.avgXgFor)} />
-          <StatTile label="xG en contra" value={fmtDecimal(stats.avgXgAgainst)} />
+        <div className="space-y-6">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+            <StatTile label="PJ" value={String(stats.played)} />
+            <StatTile label="PG - PE - PP" value={`${stats.won}-${stats.drawn}-${stats.lost}`} />
+            <StatTile label="Puntos" value={`${stats.points}/${stats.possiblePoints}`} />
+            <StatTile label="GF - GC" value={`${stats.goalsFor}-${stats.goalsAgainst}`} />
+            <StatTile label="Posesión prom." value={fmtPct(stats.avgPossession)} />
+            <StatTile label="xG a favor" value={fmtDecimal(stats.avgXgFor)} />
+            <StatTile label="xG en contra" value={fmtDecimal(stats.avgXgAgainst)} />
+          </div>
+
+          <CoachMatchMetricsEvolution rows={enrichedRows} />
+          <CoachMatchHistoryTable rows={enrichedRows} />
         </div>
       )}
     </div>
