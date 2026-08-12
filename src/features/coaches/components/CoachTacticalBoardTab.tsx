@@ -163,7 +163,15 @@ export default function CoachTacticalBoardTab({ coach }: { coach: AgencyCoach })
     listTacticalBoards(coach.key).then(async b => {
       if (!active) return
       if (b.length > 0) {
+        // Siempre entrar viendo una cancha: se auto-abre la mas reciente (listTacticalBoards
+        // ya ordena por updated_at desc) en vez de dejar "Sin pizarra abierta" y forzar a
+        // pasar por "Cargar" cada vez que se entra a la pestana.
         setBoards(b)
+        const mostRecent = b[0]
+        setCurrent(mostRecent)
+        setMarkers(mostRecent.markers)
+        setAnnotations(mostRecent.annotations)
+        setSavedSnapshot(JSON.stringify({ markers: mostRecent.markers, annotations: mostRecent.annotations }))
         return
       }
       // Primera vez sin ninguna pizarra guardada: se arma y se muestra una por
@@ -184,6 +192,13 @@ export default function CoachTacticalBoardTab({ coach }: { coach: AgencyCoach })
         // de siempre, con los botones Nueva/Cargar disponibles.
         setBoards([])
       }
+    }).catch(err => {
+      // Cualquier falla no prevista en el prellenado (API caida, formacion desconocida,
+      // etc.) no puede dejar `boards` en null para siempre -- eso deja la pestana trabada
+      // en el spinner de carga indefinidamente, sin cancha ni forma de recuperarse salvo
+      // recargar la pagina.
+      console.error('Error cargando/prellenando pizarras tacticas:', err)
+      if (active) setBoards([])
     })
     return () => {
       active = false
