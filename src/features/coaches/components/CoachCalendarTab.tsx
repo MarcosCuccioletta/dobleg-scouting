@@ -213,12 +213,20 @@ export default function CoachCalendarTab({ coach }: { coach: AgencyCoach }) {
               <span>{cell.dayNumber}</span>
               {cell.isCurrentMonth && (hasFixture || hasSession) && (
                 <span className="flex items-center gap-0.5">
-                  {hasFixture &&
-                    (isAbroad ? (
-                      <PlaneIcon className={`w-2.5 h-2.5 ${isSelected ? 'text-apple-gray-900' : 'text-brand-green'}`} />
+                  {hasFixture && day!.fixtures.length === 1 && (
+                    isAbroad ? (
+                      <PlaneIcon className={`w-3 h-3 ${isSelected ? 'text-apple-gray-900' : 'text-brand-green'}`} />
                     ) : (
-                      <span className={`w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-apple-gray-900' : 'bg-brand-green'}`} />
-                    ))}
+                      <img
+                        src={(day!.fixtures[0].isHome ? day!.fixtures[0].awayTeam : day!.fixtures[0].homeTeam).logo}
+                        alt=""
+                        className="w-3.5 h-3.5 object-contain"
+                      />
+                    )
+                  )}
+                  {hasFixture && day!.fixtures.length > 1 && (
+                    <span className={`w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-apple-gray-900' : 'bg-brand-green'}`} />
+                  )}
                   {hasSession && (
                     <span className={`w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-apple-gray-900/60' : 'bg-apple-gray-400'}`} />
                   )}
