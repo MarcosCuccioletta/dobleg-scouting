@@ -83,6 +83,26 @@ export async function fetchPlayersList(filters: {
   return { players: result.players ?? [], count: result.count ?? 0 };
 }
 
+/**
+ * `fetchPlayerDetail` trae las ultimas 2 temporadas (`currentSeasons()`) para no
+ * perder jugadores de ligas con convencion de temporada distinta (ver el comentario
+ * de `currentSeasons`) -- pero eso significa que un jugador con datos en ambas puede
+ * traer 2 filas para la MISMA posicion (una por temporada). Sin deduplicar, "Score
+ * por posicion" las mostraba como si fueran posiciones distintas (dos filas "EXT"
+ * sin ninguna marca de que son anos distintos, indistinguible de un bug de
+ * fragmentacion real) y el score principal de la ficha elegia la primera fila que
+ * encontraba `.find()`, sin garantia de que fuera la temporada mas reciente.
+ * Se queda con la fila de la temporada mas nueva para cada posicion.
+ */
+export function dedupeSeasonScoresByPosition(scores: PlayerSeasonScore[]): PlayerSeasonScore[] {
+  const bestByPosition = new Map<string, PlayerSeasonScore>();
+  for (const s of scores) {
+    const existing = bestByPosition.get(s.position);
+    if (!existing || s.season > existing.season) bestByPosition.set(s.position, s);
+  }
+  return [...bestByPosition.values()];
+}
+
 export async function fetchPlayerDetail(playerId: number, season?: number): Promise<{
   player: PlayerWithScore;
   matches: PlayerMatchStat[];
@@ -112,7 +132,7 @@ export async function fetchPlayerDetail(playerId: number, season?: number): Prom
 
   if (playerRes.error || !playerRes.data) return null;
 
-  const seasonScores = scoresRes.data ?? [];
+  const seasonScores = dedupeSeasonScoresByPosition(scoresRes.data ?? []);
   const primaryScore = seasonScores.find(
     (s: any) => s.position === playerRes.data.primary_position
   );
