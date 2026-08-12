@@ -149,45 +149,50 @@ export default function CoachCalendarTab({ coach }: { coach: AgencyCoach }) {
   const selectedMonthLabel = capitalize(selectedParsed.toLocaleDateString('es-AR', { month: 'long' }))
 
   return (
-    <div className="space-y-4 animate-fade-in">
-      <div className="flex items-center justify-between">
-        <button
-          type="button"
-          onClick={goPrevMonth}
-          aria-label="Mes anterior"
-          className="w-9 h-9 flex items-center justify-center rounded-full text-apple-gray-400 hover:text-apple-gray-700 dark:hover:text-apple-gray-200 hover:bg-apple-gray-100 dark:hover:bg-apple-gray-800 transition-colors"
-        >
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-        </button>
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold text-apple-gray-800 dark:text-white">{monthLabel}</span>
-          {!isCurrentMonthVisible && (
-            <button type="button" onClick={goToday} className="text-2xs font-semibold text-brand-green hover:underline">
-              Hoy
-            </button>
-          )}
-        </div>
-        <button
-          type="button"
-          onClick={goNextMonth}
-          aria-label="Mes siguiente"
-          className="w-9 h-9 flex items-center justify-center rounded-full text-apple-gray-400 hover:text-apple-gray-700 dark:hover:text-apple-gray-200 hover:bg-apple-gray-100 dark:hover:bg-apple-gray-800 transition-colors"
-        >
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-        </button>
-      </div>
-
-      <div className="grid grid-cols-7 gap-1">
-        {WEEKDAY_LABELS.map((label, i) => (
-          <div key={i} className="text-center text-2xs font-semibold text-apple-gray-400 uppercase py-1">
-            {label}
+    <div className="lg:flex lg:items-start lg:gap-8 animate-fade-in">
+      {/* Columna del calendario: ancho fijo en desktop -- una grilla de 7 columnas estirada
+          a lo ancho del layout de main.5xl (screen-2xl) da celdas gigantes con escudos de
+          14px perdidos en el centro. Se acota para que la grilla quede proporcionada y el
+          espacio sobrante en desktop se use para un detalle de partido mas grande, no vacio. */}
+      <div className="lg:w-[26rem] lg:flex-shrink-0 space-y-4">
+        <div className="flex items-center justify-between">
+          <button
+            type="button"
+            onClick={goPrevMonth}
+            aria-label="Mes anterior"
+            className="w-9 h-9 flex items-center justify-center rounded-full text-apple-gray-400 hover:text-apple-gray-700 dark:hover:text-apple-gray-200 hover:bg-apple-gray-100 dark:hover:bg-apple-gray-800 transition-colors"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-apple-gray-800 dark:text-white">{monthLabel}</span>
+            {!isCurrentMonthVisible && (
+              <button type="button" onClick={goToday} className="text-2xs font-semibold text-brand-green hover:underline">
+                Hoy
+              </button>
+            )}
           </div>
-        ))}
-        {grid.flat().map(cell => {
+          <button
+            type="button"
+            onClick={goNextMonth}
+            aria-label="Mes siguiente"
+            className="w-9 h-9 flex items-center justify-center rounded-full text-apple-gray-400 hover:text-apple-gray-700 dark:hover:text-apple-gray-200 hover:bg-apple-gray-100 dark:hover:bg-apple-gray-800 transition-colors"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="grid grid-cols-7 gap-1">
+          {WEEKDAY_LABELS.map((label, i) => (
+            <div key={i} className="text-center text-2xs font-semibold text-apple-gray-400 uppercase py-1">
+              {label}
+            </div>
+          ))}
+          {grid.flat().map(cell => {
           const isToday = cell.date === todayKey
           const isSelected = cell.date === selectedDate
           const day = eventsByDate.get(cell.date)
@@ -235,61 +240,81 @@ export default function CoachCalendarTab({ coach }: { coach: AgencyCoach }) {
             </button>
           )
         })}
+        </div>
       </div>
 
-      <div className="rounded-apple-lg border border-apple-gray-200/60 dark:border-apple-gray-700/40 bg-white dark:bg-apple-gray-800/60 px-4 py-3">
-        <p className="text-2xs font-semibold text-apple-gray-400 uppercase tracking-wide mb-2">
-          {selectedWeekday} {selectedParsed.getDate()} de {selectedMonthLabel}
-        </p>
-        {selectedDay.fixtures.length === 0 && selectedDay.sessions.length === 0 ? (
-          <p className="text-sm text-apple-gray-300 dark:text-apple-gray-600">Sin actividad este día</p>
-        ) : (
-          <div className="flex flex-wrap items-center gap-2">
-            {selectedDay.fixtures.map(f => {
-              const opponent = f.isHome ? f.awayTeam : f.homeTeam
-              const finished = isMatchFinished(f.statusShort)
-              const scoreLabel =
-                finished && f.goalsHome !== null && f.goalsAway !== null ? `${f.goalsHome}-${f.goalsAway}` : null
-              const pill = (
-                <span className="inline-flex items-center gap-1.5 text-xs font-medium bg-brand-green/10 text-brand-green px-2.5 py-1.5 rounded-full max-w-full">
-                  <img src={opponent.logo} alt="" className="w-4 h-4 object-contain flex-shrink-0" />
-                  <span className="truncate">
-                    {f.isHome ? 'vs' : '@'} {opponent.name}
-                  </span>
-                  {scoreLabel && <span className="font-bold flex-shrink-0">{scoreLabel}</span>}
-                </span>
-              )
-              return finished ? (
-                <Link
-                  key={f.fixtureId}
-                  to={`/entrenadores/${coach.key}/partido/${f.fixtureId}`}
-                  className="hover:opacity-80 transition-opacity"
-                >
-                  {pill}
-                </Link>
-              ) : (
-                <span key={f.fixtureId}>{pill}</span>
-              )
-            })}
-            {selectedDay.sessions.map(s => (
-              <span
-                key={s.id}
-                className="inline-flex items-center gap-1.5 text-xs font-medium bg-apple-gray-100 dark:bg-apple-gray-700 text-apple-gray-600 dark:text-apple-gray-300 px-2.5 py-1.5 rounded-full max-w-full"
-              >
-                <BoltIcon className="w-3.5 h-3.5 flex-shrink-0" />
-                <span className="truncate">{s.title}</span>
-              </span>
-            ))}
+      {/* Columna de detalle: en desktop usa el ancho que le sobra a la grilla acotada de al
+          lado -- partidos como tarjetas mas grandes en vez de las mismas pill chiquitas
+          estiradas sobre un contenedor ancho y vacio. */}
+      <div className="mt-4 lg:mt-0 lg:flex-1 lg:min-w-0">
+        <div className="rounded-apple-lg border border-apple-gray-200/60 dark:border-apple-gray-700/40 bg-white dark:bg-apple-gray-800/60 px-4 py-3 lg:p-5">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-2xs font-semibold text-apple-gray-400 uppercase tracking-wide">
+              {selectedWeekday} {selectedParsed.getDate()} de {selectedMonthLabel}
+            </p>
             {selectedDay.isAbroad && (
               <span
-                className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-apple-gray-100 dark:bg-apple-gray-700 text-apple-gray-400 flex-shrink-0"
+                className="inline-flex items-center gap-1 text-2xs font-medium text-apple-gray-400"
                 title="Viaje al exterior"
               >
                 <PlaneIcon className="w-3.5 h-3.5" />
+                Viaje al exterior
               </span>
             )}
           </div>
-        )}
+          {selectedDay.fixtures.length === 0 && selectedDay.sessions.length === 0 ? (
+            <p className="text-sm text-apple-gray-300 dark:text-apple-gray-600">Sin actividad este día</p>
+          ) : (
+            <div className="space-y-2 lg:space-y-3">
+              {selectedDay.fixtures.map(f => {
+                const opponent = f.isHome ? f.awayTeam : f.homeTeam
+                const finished = isMatchFinished(f.statusShort)
+                const scoreLabel =
+                  finished && f.goalsHome !== null && f.goalsAway !== null ? `${f.goalsHome}-${f.goalsAway}` : null
+                const card = (
+                  <div className="flex items-center gap-3 w-full bg-apple-gray-50 dark:bg-apple-gray-900/40 rounded-apple-lg px-3 py-2.5 lg:px-4 lg:py-3 hover:bg-apple-gray-100 dark:hover:bg-apple-gray-900/70 transition-colors">
+                    <img src={opponent.logo} alt="" className="w-8 h-8 lg:w-10 lg:h-10 object-contain flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-apple-gray-800 dark:text-white truncate">
+                        {f.isHome ? 'vs' : '@'} {opponent.name}
+                      </p>
+                      <p className="text-2xs text-apple-gray-400 truncate flex items-center gap-1">
+                        <img src={f.leagueLogo} alt="" className="w-3 h-3 object-contain flex-shrink-0" />
+                        {f.leagueName}
+                        {f.round && ` · ${f.round}`}
+                      </p>
+                    </div>
+                    {scoreLabel ? (
+                      <span className="text-base font-bold text-apple-gray-800 dark:text-white flex-shrink-0">{scoreLabel}</span>
+                    ) : (
+                      <span className="text-2xs font-medium text-brand-green flex-shrink-0">
+                        {new Date(f.date).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    )}
+                  </div>
+                )
+                return finished ? (
+                  <Link key={f.fixtureId} to={`/entrenadores/${coach.key}/partido/${f.fixtureId}`} className="block">
+                    {card}
+                  </Link>
+                ) : (
+                  <div key={f.fixtureId}>{card}</div>
+                )
+              })}
+              {selectedDay.sessions.map(s => (
+                <div
+                  key={s.id}
+                  className="flex items-center gap-3 w-full bg-apple-gray-50 dark:bg-apple-gray-900/40 rounded-apple-lg px-3 py-2.5 lg:px-4 lg:py-3"
+                >
+                  <span className="w-8 h-8 lg:w-10 lg:h-10 flex-shrink-0 rounded-full bg-apple-gray-200 dark:bg-apple-gray-700 flex items-center justify-center text-apple-gray-500 dark:text-apple-gray-300">
+                    <BoltIcon className="w-4 h-4" />
+                  </span>
+                  <p className="text-sm font-medium text-apple-gray-700 dark:text-apple-gray-300 truncate">{s.title}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )
