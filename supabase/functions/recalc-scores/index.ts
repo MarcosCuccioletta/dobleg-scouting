@@ -3,6 +3,7 @@ import { getSupabaseAdmin } from '../_shared/supabase-client.ts';
 import { calculateSeasonScores } from '../_shared/scoring.ts';
 import { fetchAllRows } from '../_shared/fetchAll.ts';
 import type { Position } from '../_shared/types.ts';
+import { mergeSeasonScoreFragments } from '../_shared/mergeSeasonFragments.ts';
 
 // Pool mínimo de jugadores de una posición (en la liga) para que el ranking sea
 // confiable. Solo entran al pool los que tienen suficientes partidos.
@@ -29,6 +30,12 @@ serve(async (req) => {
   })();
 
   try {
+    // Corrige posiciones adivinadas a ciegas en partidos sin dato de grilla
+    // (tipico de entradas de banco) ANTES de calcular distribucion y scores de
+    // esta misma corrida, para que ya salgan bien en esta pasada.
+    const { error: backfillError } = await supabase.rpc('backfill_ungridded_positions');
+    if (backfillError) throw new Error(`backfill_ungridded_positions: ${backfillError.message}`);
+
     const { data: domesticLeagues } = await supabase
       .from('leagues')
       .select('id, season')
@@ -228,17 +235,24 @@ serve(async (req) => {
         }
       }
 
+      // Fusionar fragmentos ANTES de elegir la posicion primaria: si no se hace aca,
+      // un jugador con partidos repartidos en mas de una liga para la MISMA posicion
+      // puede perder su posicion primaria real frente a una posicion distinta con un
+      // solo fragmento mas grande (bestPos comparaba fragmentos individuales, no el
+      // total sumado por posicion).
+      const mergedSeasonRows = mergeSeasonScoreFragments(allSeasonRows);
+
       // ── Consolidar a cada jugador en su posición PRIMARIA (la de más partidos) ──
       // Evita fragmentarlo entre puestos por detección ruidosa. Los overrides ya
       // vienen consolidados desde el agrupamiento (todos sus partidos en un puesto).
       const bestPos = new Map<number, { position: string; mp: number }>();
-      for (const r of allSeasonRows) {
+      for (const r of mergedSeasonRows) {
         const cur = bestPos.get(r.player_id);
         if (!cur || (r.matches_played ?? 0) > cur.mp) {
           bestPos.set(r.player_id, { position: r.position, mp: r.matches_played ?? 0 });
         }
       }
-      const primaryRows = allSeasonRows.filter((r: any) => bestPos.get(r.player_id)?.position === r.position);
+      const primaryRows = mergedSeasonRows.filter((r: any) => bestPos.get(r.player_id)?.position === r.position);
 
       // ── Ranking GLOBAL por posición: cada jugador contra TODOS los de su puesto
       // en la plataforma (todas las ligas), SIN ajuste por nivel de liga. ──
@@ -264,13 +278,15 @@ serve(async (req) => {
       // falló, la API caída), borrar igual dejaría la temporada sin scores y la app
       // en blanco. Mejor conservar los datos viejos que quedarse sin ninguno.
       if (primaryRows.length > 0) {
-        await supabase.from('player_season_scores').delete().eq('season', season);
+        const { error: deleteError } = await supabase.from('player_season_scores').delete().eq('season', season);
+        if (deleteError) throw new Error(`player_season_scores delete: ${deleteError.message}`);
         const CHUNK = 500;
         for (let i = 0; i < primaryRows.length; i += CHUNK) {
-          await supabase.from('player_season_scores').upsert(
+          const { error: upsertError } = await supabase.from('player_season_scores').upsert(
             primaryRows.slice(i, i + CHUNK),
-            { onConflict: 'player_id,season,position,league_id' }
+            { onConflict: 'player_id,season,position' }
           );
+          if (upsertError) throw new Error(`player_season_scores upsert: ${upsertError.message}`);
         }
         totalUpserted += primaryRows.length;
       }

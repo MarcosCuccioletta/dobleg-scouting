@@ -292,7 +292,7 @@ export default function Step3Contenido({ informe, content, onChange, onChangeInf
                 <span className={labelClass}>Fecha</span>
                 <span className={labelClass}>Rival</span>
                 <span className={labelClass}>Resultado</span>
-                <span className={labelClass}>Rating</span>
+                <span className={labelClass}>Rating (partido)</span>
                 <span className={labelClass}>Minutos</span>
                 <span />
               </div>

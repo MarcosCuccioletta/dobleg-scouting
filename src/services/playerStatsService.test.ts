@@ -1,9 +1,23 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { buildScoreLookup, currentSeasons, type ScoreLookupRow } from './playerStatsService'
+import { buildScoreLookup, currentSeasons, dedupeSeasonScoresByPosition, type ScoreLookupRow } from './playerStatsService'
+import type { PlayerSeasonScore } from '@/types/scoring'
 
 const row = (over: Partial<ScoreLookupRow> & Pick<ScoreLookupRow, 'player_id' | 'name'>): ScoreLookupRow => ({
   current_team_id: null, transfermarkt_id: null, birth_date: null,
   score: 5, position: 'VC', percentile: 50, matches_played: 1,
+  ...over,
+})
+
+const seasonScore = (
+  over: Partial<PlayerSeasonScore> & Pick<PlayerSeasonScore, 'player_id' | 'season' | 'position'>,
+): PlayerSeasonScore => ({
+  league_id: 1, matches_played: 1, avg_score: 5, avg_rating: null,
+  total_goals: 0, total_assists: 0, percentile: null, global_percentile: null,
+  tackles_p90: null, interceptions_p90: null, blocks_p90: null, duels_won_pct: null,
+  passes_accuracy: null, passes_key_p90: null, passes_total_p90: null,
+  dribbles_success_p90: null, dribbles_pct: null, shots_on_p90: null, shots_pct: null,
+  goals_p90: null, assists_p90: null, fouls_drawn_p90: null, saves_p90: null,
+  goals_conceded_p90: null, penalty_saved_avg: null, clean_sheet_pct: null,
   ...over,
 })
 
@@ -130,5 +144,37 @@ describe('currentSeasons', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-12-20'))
     expect(currentSeasons()).toEqual([2025, 2026])
+  })
+})
+
+describe('dedupeSeasonScoresByPosition', () => {
+  it('sin filas repetidas, las deja igual', () => {
+    const scores = [
+      seasonScore({ player_id: 1, season: 2026, position: 'EXT' }),
+      seasonScore({ player_id: 1, season: 2026, position: 'VC' }),
+    ]
+    expect(dedupeSeasonScoresByPosition(scores)).toHaveLength(2)
+  })
+
+  it('caso real Santiago Montiel: dos filas EXT (2025 y 2026) -- se queda con la de 2026', () => {
+    // currentSeasons() trae [2025, 2026] por diseño (ver test de arriba), asi que un
+    // jugador con datos en ambos anos para la misma posicion trae 2 filas -- sin
+    // deduplicar, "Score por posicion" las mostraba como si fueran dos posiciones
+    // distintas en vez de la misma posicion en dos temporadas.
+    const scores = [
+      seasonScore({ player_id: 265973, season: 2025, position: 'EXT', matches_played: 7, avg_score: 5.4 }),
+      seasonScore({ player_id: 265973, season: 2026, position: 'EXT', matches_played: 6, avg_score: 6.1 }),
+    ]
+    const deduped = dedupeSeasonScoresByPosition(scores)
+    expect(deduped).toHaveLength(1)
+    expect(deduped[0]).toMatchObject({ season: 2026, avg_score: 6.1 })
+  })
+
+  it('temporada mas nueva gana sin importar el orden de entrada', () => {
+    const scores = [
+      seasonScore({ player_id: 1, season: 2026, position: 'EXT', avg_score: 6.1 }),
+      seasonScore({ player_id: 1, season: 2025, position: 'EXT', avg_score: 5.4 }),
+    ]
+    expect(dedupeSeasonScoresByPosition(scores)[0].season).toBe(2026)
   })
 })

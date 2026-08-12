@@ -65,6 +65,11 @@ const S: Record<string, Six> = {
   r_marketValue: ['Valor de mercado', 'Market value', 'Valor de mercado', 'القيمة السوقية', 'Valore di mercato', 'Valeur marchande'],
   // Stats
   s_rating: ['Rating', 'Rating', 'Rating', 'التقييم', 'Rating', 'Note'],
+  // Específico para la columna de "Últimos 5 partidos": es la nota de ESE
+  // partido puntual (dato crudo de la API), no el Score GG del jugador — se
+  // usa una etiqueta distinta a s_rating para no confundirla con el rating
+  // principal del informe.
+  s_matchRating: ['Rating (partido)', 'Match rating', 'Rating (jogo)', 'تقييم المباراة', 'Rating (partita)', 'Note (match)'],
   s_pj: ['PJ', 'GP', 'J', 'مباريات', 'PG', 'MJ'],
   s_matches: ['Partidos', 'Matches', 'Jogos', 'مباريات', 'Partite', 'Matchs'],
   s_minutes: ['Minutos', 'Minutes', 'Minutos', 'دقائق', 'Minuti', 'Minutes'],

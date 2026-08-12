@@ -171,6 +171,15 @@
     scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
   }
 
+  .scrollbar-none {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
   /* Text gradient utility */
   .text-gradient-green {
     @apply bg-gradient-to-r from-brand-green to-emerald-400 bg-clip-text text-transparent;

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { AGENCY_PLAYERS, getExpiringContracts } from '@/constants/agencyPlayers'
+import { AGENCY_PLAYERS } from '@/constants/agencyPlayers'
 import { fetchAllAgencyFixtures, getFixturesForDate, groupFixturesByDate, toArDateKey } from '@/services/footballApiService'
 import { fetchManualFixtures, manualToAgencyFixtures } from '@/services/agencyManualFixturesService'
 import { useAuth } from '@/context/AuthContext'
@@ -55,15 +55,6 @@ function isMatchLive(status: string): boolean {
 
 function isAbroad(fixture: AgencyFixture): boolean {
   return fixture.leagueCountry !== 'Argentina'
-}
-
-function parseContractDate(str: string): Date {
-  const [d, m, y] = str.split('/')
-  return new Date(+y, +m - 1, +d)
-}
-
-function daysUntil(date: Date): number {
-  return Math.ceil((date.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
 }
 
 // ─── Match Card (today/live) ────────────────────────────────────────────────
@@ -129,7 +120,9 @@ function MatchCard({ fixture }: { fixture: AgencyFixture }) {
         </div>
       </div>
 
-      <div className="px-4 py-3 border-t border-apple-gray-100 dark:border-apple-gray-700/40 flex items-center gap-2 flex-wrap">
+      <div className={`px-4 py-3 border-t border-apple-gray-100 dark:border-apple-gray-700/40 flex items-center gap-2 flex-wrap ${
+        fixture.isHome ? 'justify-start' : 'justify-end'
+      }`}>
         {fixture.players.map(p => (
           <span key={p.fullName} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-sm font-medium bg-brand-green/10 text-brand-green">
             {p.image && <img src={p.image} alt="" className="w-6 h-6 rounded-full object-cover" />}
@@ -289,26 +282,6 @@ export default function HomePage() {
     }
     return results.sort((a, b) => b.timestamp - a.timestamp)
   }, [today, fixturesByDate])
-
-  const upcomingTravel = useMemo(() => {
-    const trips: AgencyFixture[] = []
-    for (let i = 0; i <= 10; i++) {
-      const d = new Date(today)
-      d.setDate(today.getDate() + i)
-      const key = toArDateKey(d)
-      const dayFixtures = fixturesByDate.get(key) || []
-      trips.push(...dayFixtures.filter(f => isAbroad(f) && !isMatchFinished(f.statusShort)))
-    }
-    return trips.sort((a, b) => a.timestamp - b.timestamp)
-  }, [today, fixturesByDate])
-
-  const expiringContracts = useMemo(() => {
-    return getExpiringContracts(8).sort((a, b) => {
-      const dateA = parseContractDate(a.contractEnd!)
-      const dateB = parseContractDate(b.contractEnd!)
-      return dateA.getTime() - dateB.getTime()
-    })
-  }, [])
 
   const calendarDays = useMemo(() => {
     const days: Date[] = []
@@ -506,107 +479,19 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── Viajes próximos (full width) ──────────────────── */}
-      {upcomingTravel.length > 0 && (
-        <section className="bg-gradient-to-r from-sky-50 to-blue-50 dark:from-sky-900/20 dark:to-blue-900/20 rounded-apple-lg border border-sky-200/50 dark:border-sky-800/30 p-5">
-          <h3 className="text-sm font-semibold text-apple-gray-800 dark:text-white mb-4 flex items-center gap-2">
-            <span className="text-lg">✈️</span>
-            Viajes próximos
-            <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1 rounded bg-sky-100 dark:bg-sky-900/40 text-sky-600 dark:text-sky-400 text-2xs font-bold">
-              {upcomingTravel.length}
-            </span>
+      {/* ── Resultados recientes ────────────────────────────── */}
+      {recentResults.length > 0 && (
+        <section className="bg-white dark:bg-apple-gray-800/40 rounded-apple-lg border border-apple-gray-200/50 dark:border-apple-gray-700/30 p-5">
+          <h3 className="text-sm font-semibold text-apple-gray-800 dark:text-white mb-2">
+            Resultados recientes
           </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {upcomingTravel.slice(0, 6).map(f => {
-              const d = new Date(f.date)
-              const opponent = f.isHome ? f.awayTeam : f.homeTeam
-              return (
-                <div key={f.fixtureId} className="flex items-center gap-3 bg-white/70 dark:bg-apple-gray-800/50 rounded-apple p-3">
-                  <div className="text-center w-12 flex-shrink-0">
-                    <p className="text-xs font-semibold text-apple-gray-700 dark:text-apple-gray-300">{formatDateShort(d)}</p>
-                    <p className="text-2xs text-apple-gray-400">{formatMatchTime(f.date)}</p>
-                  </div>
-                  {f.leagueFlag && (
-                    <img src={f.leagueFlag} alt="" className="w-5 h-3.5 object-cover rounded-[2px] flex-shrink-0" />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-apple-gray-700 dark:text-apple-gray-300 truncate">
-                      vs {opponent.name}
-                    </p>
-                    <p className="text-2xs text-sky-500">{f.leagueCountry} · {f.city}</p>
-                  </div>
-                  <div className="flex items-center gap-1 flex-shrink-0">
-                    {f.players.slice(0, 2).map(p => (
-                      <span key={p.fullName} className="text-2xs text-brand-green font-medium">{p.shortName}</span>
-                    ))}
-                  </div>
-                </div>
-              )
-            })}
+          <div className="divide-y divide-apple-gray-100 dark:divide-apple-gray-700/30">
+            {recentResults.slice(0, 8).map(f => (
+              <ResultRow key={f.fixtureId} fixture={f} />
+            ))}
           </div>
         </section>
       )}
-
-      {/* ── Results + Contracts (two columns) ─────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
-        {/* Recent Results */}
-        {recentResults.length > 0 && (
-          <section className="bg-white dark:bg-apple-gray-800/40 rounded-apple-lg border border-apple-gray-200/50 dark:border-apple-gray-700/30 p-5">
-            <h3 className="text-sm font-semibold text-apple-gray-800 dark:text-white mb-2">
-              Resultados recientes
-            </h3>
-            <div className="divide-y divide-apple-gray-100 dark:divide-apple-gray-700/30">
-              {recentResults.slice(0, 8).map(f => (
-                <ResultRow key={f.fixtureId} fixture={f} />
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* Expiring Contracts */}
-        {expiringContracts.length > 0 && (
-          <section className="bg-white dark:bg-apple-gray-800/40 rounded-apple-lg border border-apple-gray-200/50 dark:border-apple-gray-700/30 p-5">
-            <h3 className="text-sm font-semibold text-apple-gray-800 dark:text-white mb-3 flex items-center gap-2">
-              <svg className="w-4 h-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              Contratos por vencer
-            </h3>
-            <div className="space-y-2.5">
-              {expiringContracts.map(p => {
-                const endDate = parseContractDate(p.contractEnd!)
-                const days = daysUntil(endDate)
-                const urgent = days <= 60
-
-                return (
-                  <div key={p.fullName} className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full overflow-hidden bg-apple-gray-100 dark:bg-apple-gray-700 flex-shrink-0">
-                      {p.image ? (
-                        <img src={p.image} alt="" className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-apple-gray-400 text-xs">
-                          {p.shortName.charAt(0)}
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-apple-gray-800 dark:text-white truncate">{p.shortName}</p>
-                      <p className="text-2xs text-apple-gray-400 truncate">{p.team}</p>
-                    </div>
-                    <div className="text-right flex-shrink-0">
-                      <p className={`text-xs font-semibold ${urgent ? 'text-red-400' : 'text-amber-400'}`}>
-                        {days <= 0 ? 'Vencido' : `${days} días`}
-                      </p>
-                      <p className="text-2xs text-apple-gray-400">{p.contractEnd}</p>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </section>
-        )}
-      </div>
 
       {/* ── Oportunidades de mercado ────────────────────────── */}
       <OpportunityHero />
