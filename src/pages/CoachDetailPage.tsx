@@ -123,7 +123,7 @@ export default function CoachDetailPage() {
   const tabs = coach.reserveApiTeamId ? [...TABS, { id: 'reserva' as CoachTab, label: 'Reserva' }] : TABS
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
+    <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 py-6">
       {backLink}
 
       <div className="flex items-center gap-4 mb-6">
