@@ -1,21 +1,43 @@
+import { useState } from 'react'
 import { FORMATIONS, FORMATION_SHORT_LABEL_OVERRIDES } from '@/constants/formations'
 import type { FutureSquadSlot } from '@/services/futureSquadService'
+import type { CandidateVisuals } from '@/services/coachService'
+import type { SquadPlayer } from '@/services/footballApiService'
+
+function initialsOf(name: string): string {
+  return name
+    .split(' ')
+    .filter(Boolean)
+    .map(n => n[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase()
+}
 
 export default function FutureSquadPitch({
   formationType,
   slots,
+  squad,
+  ownTeamCrest,
+  candidateVisuals,
   onSlotClick,
   onRemoveSlot,
+  onDropSquadPlayer,
 }: {
   formationType: string
   slots: FutureSquadSlot[]
+  squad: SquadPlayer[]
+  ownTeamCrest: string | null
+  candidateVisuals: Record<number, CandidateVisuals>
   onSlotClick: (slotKey: string) => void
   onRemoveSlot: (slotKey: string) => void
+  onDropSquadPlayer: (slotKey: string, playerId: number) => void
 }) {
   const currentFormation = FORMATIONS[formationType] ?? FORMATIONS['4-3-3']
+  const [dragOverSlot, setDragOverSlot] = useState<string | null>(null)
 
   return (
-    <div className="bg-gradient-to-b from-emerald-600 to-emerald-700 rounded-2xl p-4 sm:p-6 relative aspect-[3/4] w-full max-w-xl mx-auto shadow-2xl overflow-hidden">
+    <div className="bg-gradient-to-b from-emerald-600 to-emerald-700 rounded-2xl p-4 sm:p-6 relative aspect-[3/4] w-full shadow-2xl overflow-hidden">
       {/* Lineas de campo -- mismo dibujo que /formacion y la pizarra tactica */}
       <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 130" preserveAspectRatio="none">
         <rect x="2" y="2" width="96" height="126" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="0.5" />
@@ -36,6 +58,12 @@ export default function FutureSquadPitch({
         const slot = slots.find(s => s.slotKey === pos.key)
         const occupied = !!slot && slot.source !== null
         const isCandidate = slot?.source === 'candidate'
+        const isDragOver = dragOverSlot === pos.key
+
+        const squadPlayer = !isCandidate && occupied ? squad.find(p => p.id === slot!.playerId) : undefined
+        const candidateVisual = isCandidate && occupied ? candidateVisuals[Number(slot!.playerId)] : undefined
+        const photo = squadPlayer?.photo ?? candidateVisual?.photo ?? null
+        const crest = isCandidate ? candidateVisual?.teamLogo ?? null : ownTeamCrest
 
         const label = occupied
           ? isCandidate
@@ -48,33 +76,75 @@ export default function FutureSquadPitch({
             key={pos.key}
             className="absolute -translate-x-1/2 -translate-y-1/2"
             style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
+            onDragOver={e => {
+              e.preventDefault()
+              setDragOverSlot(pos.key)
+            }}
+            onDragLeave={() => setDragOverSlot(prev => (prev === pos.key ? null : prev))}
+            onDrop={e => {
+              e.preventDefault()
+              setDragOverSlot(null)
+              const raw = e.dataTransfer.getData('text/plain')
+              const playerId = raw ? Number(raw) : NaN
+              if (!Number.isNaN(playerId)) onDropSquadPlayer(pos.key, playerId)
+            }}
           >
-            <button
-              type="button"
-              onClick={() => onSlotClick(pos.key)}
-              className={`relative w-11 h-11 sm:w-14 sm:h-14 rounded-full flex items-center justify-center shadow-xl transition-all ${
-                occupied
-                  ? isCandidate
-                    ? 'bg-white text-apple-gray-900 ring-2 ring-sky-400'
-                    : 'bg-white text-apple-gray-900'
-                  : 'bg-white/15 border-2 border-dashed border-white/50 text-white/80 hover:bg-white/25 hover:border-white/70'
-              }`}
-            >
-              <span className={occupied ? 'text-xs font-bold' : 'text-sm font-semibold'}>{label}</span>
-            </button>
-
-            {occupied && (
+            {/* Avatar: circulo de foto + badges, todos anclados a ESTE tamano fijo (no al
+                div padre, que tambien contiene el nombre debajo -- eso hacia que los badges
+                "bottom" quedaran calculados contra el borde inferior del nombre y lo taparan). */}
+            <div className="relative w-12 h-12 sm:w-16 sm:h-16">
               <button
                 type="button"
-                onClick={() => onRemoveSlot(pos.key)}
-                aria-label={isCandidate ? 'Quitar' : 'Dar de baja'}
-                className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center shadow-md"
+                onClick={() => onSlotClick(pos.key)}
+                className={`w-full h-full rounded-full flex items-center justify-center shadow-xl transition-all overflow-hidden ${
+                  occupied
+                    ? 'bg-apple-gray-100'
+                    : `bg-white/15 border-2 border-dashed text-white/80 hover:bg-white/25 hover:border-white/70 ${
+                        isDragOver ? 'border-brand-green bg-white/30 scale-110' : 'border-white/50'
+                      }`
+                } ${occupied && isDragOver ? 'ring-4 ring-brand-green' : ''} ${isCandidate ? 'ring-2 ring-sky-400' : ''}`}
               >
-                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                {occupied ? (
+                  photo ? (
+                    <img src={photo} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-xs font-bold text-apple-gray-500">{initialsOf(slot!.playerName!)}</span>
+                  )
+                ) : (
+                  <span className="text-sm font-semibold">{label}</span>
+                )}
               </button>
-            )}
+
+              {/* Dorsal: solo jugadores de plantel, con numero real. */}
+              {occupied && !isCandidate && slot!.playerNumber != null && (
+                <span className="absolute -bottom-1 -left-1 w-5 h-5 rounded-full bg-apple-gray-900 text-white text-2xs font-bold flex items-center justify-center shadow-md ring-2 ring-white/80">
+                  {slot!.playerNumber}
+                </span>
+              )}
+
+              {/* Escudo del club -- PNG con fondo transparente, con sombra propia para que se
+                  despegue de la foto de perfil detras. */}
+              {occupied && crest && (
+                <img
+                  src={crest}
+                  alt=""
+                  className="absolute -bottom-1 -right-1 w-5 h-5 sm:w-6 sm:h-6 drop-shadow-[0_1px_3px_rgba(0,0,0,0.6)]"
+                />
+              )}
+
+              {occupied && (
+                <button
+                  type="button"
+                  onClick={() => onRemoveSlot(pos.key)}
+                  aria-label={isCandidate ? 'Quitar' : 'Dar de baja'}
+                  className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center shadow-md"
+                >
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
+            </div>
 
             {occupied && !isCandidate && (
               <p className="mt-1 text-center whitespace-nowrap text-2xs font-semibold text-white/90">

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   getFutureSquad,
   saveFutureSquad,
@@ -6,10 +6,12 @@ import {
   type FutureSquadBaja,
 } from '@/services/futureSquadService'
 import { mapLineupToSlots, type LineupPlayerForPrefill } from '@/features/coaches/futureSquadPrefill'
+import { groupSquadByPosition, POSITION_LABEL } from '@/features/coaches/squadGrouping'
 import FutureSquadPitch from './FutureSquadPitch'
 import FutureSquadPlayerPicker from './FutureSquadPlayerPicker'
 import { FORMATIONS } from '@/constants/formations'
 import { fetchSquadCached, fetchSeasonFixtures, fetchFixtureLineups, type SquadPlayer } from '@/services/footballApiService'
+import { fetchCandidateVisuals, type CandidateVisuals } from '@/services/coachService'
 import type { PlayerWithScore } from '@/types/scoring'
 import type { AgencyCoach } from '@/constants/agencyCoaches'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
@@ -17,6 +19,10 @@ import { isMatchFinished } from '@/utils/coachCalendar'
 
 function uid(): string {
   return crypto.randomUUID()
+}
+
+function initialsOf(name: string): string {
+  return name.split(' ').filter(Boolean).map(n => n[0]).join('').slice(0, 2).toUpperCase()
 }
 
 function emptySlots(formationType: string): FutureSquadSlot[] {
@@ -51,6 +57,50 @@ async function buildPrefill(coach: AgencyCoach): Promise<{ formationType: string
   return mapLineupToSlots(startXI, ownLineup.formation ?? '4-3-3')
 }
 
+/** Fila de jugador del plantel, arrastrable hacia la cancha (izquierda) o hacia Bajas
+ *  planificadas (abajo). Una sola forma de moverla -- arrastrar -- para no mezclar
+ *  gestos distintos con el mismo significado. */
+function DraggableSquadRow({
+  player,
+  placed,
+}: {
+  player: SquadPlayer
+  placed: boolean
+}) {
+  return (
+    <div
+      draggable
+      onDragStart={e => {
+        e.dataTransfer.setData('text/plain', String(player.id))
+        e.dataTransfer.effectAllowed = 'move'
+      }}
+      className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg cursor-grab active:cursor-grabbing transition-colors border ${
+        placed
+          ? 'border-brand-green/30 bg-brand-green/5'
+          : 'border-transparent hover:bg-apple-gray-50 dark:hover:bg-apple-gray-800/60'
+      }`}
+    >
+      <div className="w-8 h-8 rounded-full flex-shrink-0 overflow-hidden bg-apple-gray-100 dark:bg-apple-gray-700 flex items-center justify-center">
+        {player.photo ? (
+          <img src={player.photo} alt="" className="w-full h-full object-cover" draggable={false} />
+        ) : (
+          <span className="text-2xs font-bold text-apple-gray-500">{initialsOf(player.name)}</span>
+        )}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-apple-gray-800 dark:text-white truncate">{player.name}</p>
+        <p className="text-2xs text-apple-gray-400">
+          {player.position ? POSITION_LABEL[player.position] ?? player.position : '—'}
+          {player.number != null && ` · #${player.number}`}
+        </p>
+      </div>
+      {placed && (
+        <span className="flex-shrink-0 text-2xs font-semibold text-brand-green">En cancha</span>
+      )}
+    </div>
+  )
+}
+
 export default function CoachFutureSquadTab({ coach }: { coach: AgencyCoach }) {
   const [squad, setSquad] = useState<SquadPlayer[]>([])
   const [loading, setLoading] = useState(true)
@@ -61,6 +111,8 @@ export default function CoachFutureSquadTab({ coach }: { coach: AgencyCoach }) {
   const [savedSnapshot, setSavedSnapshot] = useState<string>('')
   const [pickerSlotKey, setPickerSlotKey] = useState<string | null>(null)
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [candidateVisuals, setCandidateVisuals] = useState<Record<number, CandidateVisuals>>({})
+  const [isDragOverBajas, setIsDragOverBajas] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -100,6 +152,25 @@ export default function CoachFutureSquadTab({ coach }: { coach: AgencyCoach }) {
     return () => { active = false }
   }, [coach.key, coach.apiTeamId, coach.leagueSeason])
 
+  // Foto y escudo de los candidatos de scouting puestos en la cancha (no vienen en el
+  // plantel crudo del equipo -- se resuelven aparte, una vez por cada id nuevo que aparezca).
+  const candidateIds = useMemo(
+    () => [...new Set(slots.filter(s => s.source === 'candidate').map(s => Number(s.playerId)))],
+    [slots],
+  )
+  useEffect(() => {
+    const missing = candidateIds.filter(id => !(id in candidateVisuals))
+    if (missing.length === 0) return
+    let active = true
+    fetchCandidateVisuals(missing).then(visuals => {
+      if (active) setCandidateVisuals(prev => ({ ...prev, ...visuals }))
+    })
+    return () => { active = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [candidateIds])
+
+  const ownTeamCrest = coach.apiTeamId ? `https://media.api-sports.io/football/teams/${coach.apiTeamId}.png` : null
+
   const hasUnsavedChanges = JSON.stringify({ formationType, slots, bajas }) !== savedSnapshot
 
   function handleFormationChange(next: string) {
@@ -115,17 +186,16 @@ export default function CoachFutureSquadTab({ coach }: { coach: AgencyCoach }) {
     ))
   }
 
-  function handleSelectSquad(player: SquadPlayer) {
-    if (!pickerSlotKey) return
+  function assignSquadPlayer(targetSlotKey: string, player: SquadPlayer) {
     // If the target slot is currently held by a different squad player, that incumbent is being
     // bumped out of the plan entirely (not just relocated) — he needs a baja so he doesn't
     // silently vanish from both the pitch and the bajas list.
-    const targetSlot = slots.find(s => s.slotKey === pickerSlotKey)
+    const targetSlot = slots.find(s => s.slotKey === targetSlotKey)
     if (targetSlot?.source === 'squad' && targetSlot.playerId !== player.id) {
       pushBaja(targetSlot.playerId as number, targetSlot.playerName as string)
     }
     setSlots(prev => prev.map(s => {
-      if (s.slotKey === pickerSlotKey) {
+      if (s.slotKey === targetSlotKey) {
         return { slotKey: s.slotKey, source: 'squad', playerId: player.id, playerName: player.name, playerNumber: player.number, ggScore: null }
       }
       // Repositioning: if this player already occupies another slot, vacate it instead of
@@ -135,7 +205,34 @@ export default function CoachFutureSquadTab({ coach }: { coach: AgencyCoach }) {
       }
       return s
     }))
+    // Si el jugador estaba en Bajas y se lo reincorpora a la cancha (arrastrado de vuelta), sacarlo de ahi.
+    setBajas(prev => prev.filter(b => b.playerId !== player.id))
+  }
+
+  function handleSelectSquad(player: SquadPlayer) {
+    if (!pickerSlotKey) return
+    assignSquadPlayer(pickerSlotKey, player)
     setPickerSlotKey(null)
+  }
+
+  function handleDropSquadPlayer(slotKey: string, playerId: number) {
+    const player = squad.find(p => p.id === playerId)
+    if (!player) return
+    assignSquadPlayer(slotKey, player)
+  }
+
+  function handleDropToBaja(playerId: number) {
+    const player = squad.find(p => p.id === playerId)
+    if (!player) return
+    const occupiedSlot = slots.find(s => s.source === 'squad' && s.playerId === player.id)
+    if (occupiedSlot) {
+      setSlots(prev => prev.map(s => (
+        s.slotKey === occupiedSlot.slotKey
+          ? { slotKey: s.slotKey, source: null, playerId: null, playerName: null, playerNumber: null, ggScore: null }
+          : s
+      )))
+    }
+    pushBaja(player.id, player.name)
   }
 
   function handleSelectCandidate(player: PlayerWithScore) {
@@ -152,6 +249,7 @@ export default function CoachFutureSquadTab({ coach }: { coach: AgencyCoach }) {
         ? { slotKey: s.slotKey, source: 'candidate', playerId: String(player.id), playerName: player.name, playerNumber: null, ggScore: player.primary_score }
         : s
     )))
+    setCandidateVisuals(prev => ({ ...prev, [player.id]: { photo: player.photo, teamLogo: player.team?.logo ?? null } }))
     setPickerSlotKey(null)
   }
 
@@ -165,10 +263,6 @@ export default function CoachFutureSquadTab({ coach }: { coach: AgencyCoach }) {
     setSlots(prev => prev.map(s => (
       s.slotKey === slotKey ? { slotKey: s.slotKey, source: null, playerId: null, playerName: null, playerNumber: null, ggScore: null } : s
     )))
-  }
-
-  function handleBajaReasonChange(id: string, reason: string) {
-    setBajas(prev => prev.map(b => (b.id === id ? { ...b, reason } : b)))
   }
 
   function handleRemoveBaja(id: string) {
@@ -191,6 +285,11 @@ export default function CoachFutureSquadTab({ coach }: { coach: AgencyCoach }) {
   const usedCandidateIds = new Set(slots.filter(s => s.source === 'candidate').map(s => s.playerId as string))
   const bajaPlayerIds = new Set(bajas.map(b => b.playerId))
   const pickerSlot = pickerSlotKey ? slots.find(s => s.slotKey === pickerSlotKey) : null
+  const rosterGroups = useMemo(
+    () => groupSquadByPosition(squad.filter(p => !bajaPlayerIds.has(p.id))),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [squad, bajas],
+  )
 
   if (loading) return <LoadingSpinner message="Cargando plantel a futuro..." />
 
@@ -222,6 +321,9 @@ export default function CoachFutureSquadTab({ coach }: { coach: AgencyCoach }) {
             ))}
           </select>
         </div>
+        <p className="hidden lg:block text-2xs text-apple-gray-400 max-w-xs">
+          Arrastrá jugadores del plantel a la cancha o a Bajas planificadas.
+        </p>
         <div className="flex-1" />
         {saveStatus === 'error' && <span className="text-xs text-brand-red">Error al guardar</span>}
         {hasUnsavedChanges && saveStatus === 'idle' && <span className="text-xs text-amber-500">Cambios sin guardar</span>}
@@ -235,44 +337,92 @@ export default function CoachFutureSquadTab({ coach }: { coach: AgencyCoach }) {
         </button>
       </div>
 
-      <FutureSquadPitch
-        formationType={formationType}
-        slots={slots}
-        onSlotClick={setPickerSlotKey}
-        onRemoveSlot={handleRemoveSlot}
-      />
+      {/* Cancha a la izquierda (ancho fijo, cómoda), plantel + bajas a la derecha usando el
+          espacio que sobra en desktop. En mobile se apila: cancha arriba, plantel abajo. */}
+      <div className="lg:flex lg:items-start lg:gap-6">
+        <div className="lg:flex-1 lg:max-w-2xl mx-auto">
+          <FutureSquadPitch
+            formationType={formationType}
+            slots={slots}
+            squad={squad}
+            ownTeamCrest={ownTeamCrest}
+            candidateVisuals={candidateVisuals}
+            onSlotClick={setPickerSlotKey}
+            onRemoveSlot={handleRemoveSlot}
+            onDropSquadPlayer={handleDropSquadPlayer}
+          />
+        </div>
 
-      <div className="bg-white dark:bg-apple-gray-800/60 rounded-apple-lg border border-apple-gray-200/60 dark:border-apple-gray-700/40 p-4">
-        <h3 className="text-sm font-semibold text-apple-gray-800 dark:text-white mb-1">Bajas planificadas</h3>
-        <p className="text-2xs text-apple-gray-400 mb-3">
-          Jugadores que salen del plantel: se agregan solos al sacar a alguien de la cancha, o podés anotar el motivo acá.
-        </p>
-        {bajas.length === 0 ? (
-          <p className="text-sm text-apple-gray-400">Sin bajas planificadas todavía.</p>
-        ) : (
-          <div className="space-y-2">
-            {bajas.map(b => (
-              <div key={b.id} className="flex items-center gap-2">
-                <span className="text-sm font-medium text-apple-gray-800 dark:text-white w-32 truncate flex-shrink-0">
-                  {b.playerName}
-                </span>
-                <input
-                  value={b.reason}
-                  onChange={e => handleBajaReasonChange(b.id, e.target.value)}
-                  placeholder="Motivo (opcional)..."
-                  className="flex-1 min-h-[36px] rounded-lg border border-apple-gray-200 dark:border-apple-gray-700 bg-white dark:bg-apple-gray-900 px-3 text-sm text-apple-gray-800 dark:text-white placeholder:text-apple-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-green/40"
-                />
-                <button
-                  type="button"
-                  onClick={() => handleRemoveBaja(b.id)}
-                  className="text-xs font-semibold text-red-500 flex-shrink-0"
-                >
-                  Quitar
-                </button>
+        <div className="mt-4 lg:mt-0 lg:w-80 lg:flex-shrink-0 space-y-4">
+          <div className="bg-white dark:bg-apple-gray-800/60 rounded-apple-lg border border-apple-gray-200/60 dark:border-apple-gray-700/40 p-3 max-h-[28rem] overflow-y-auto">
+            <h3 className="text-sm font-semibold text-apple-gray-800 dark:text-white px-1.5 mb-2">Plantel</h3>
+            {rosterGroups.length === 0 ? (
+              <p className="text-sm text-apple-gray-400 px-1.5 py-4">No hay plantel disponible.</p>
+            ) : (
+              <div className="space-y-3">
+                {rosterGroups.map(group => (
+                  <div key={group.positionKey}>
+                    <h4 className="text-2xs font-semibold uppercase tracking-wide text-apple-gray-400 px-1.5 mb-1">
+                      {group.label}
+                    </h4>
+                    <div className="space-y-0.5">
+                      {group.players.map(player => (
+                        <DraggableSquadRow
+                          key={player.id}
+                          player={player}
+                          placed={usedSquadIds.has(player.id)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
           </div>
-        )}
+
+          <div
+            onDragOver={e => {
+              e.preventDefault()
+              setIsDragOverBajas(true)
+            }}
+            onDragLeave={() => setIsDragOverBajas(false)}
+            onDrop={e => {
+              e.preventDefault()
+              setIsDragOverBajas(false)
+              const raw = e.dataTransfer.getData('text/plain')
+              const playerId = raw ? Number(raw) : NaN
+              if (!Number.isNaN(playerId)) handleDropToBaja(playerId)
+            }}
+            className={`bg-white dark:bg-apple-gray-800/60 rounded-apple-lg border p-4 transition-colors ${
+              isDragOverBajas ? 'border-red-400 bg-red-50/60 dark:bg-red-900/10' : 'border-apple-gray-200/60 dark:border-apple-gray-700/40'
+            }`}
+          >
+            <h3 className="text-sm font-semibold text-apple-gray-800 dark:text-white mb-1">Bajas planificadas</h3>
+            <p className="text-2xs text-apple-gray-400 mb-3">
+              Arrastrá acá un jugador para sacarlo del plantel (o soltalo fuera de la cancha).
+            </p>
+            {bajas.length === 0 ? (
+              <p className="text-sm text-apple-gray-400">Sin bajas planificadas todavía.</p>
+            ) : (
+              <div className="space-y-1">
+                {bajas.map(b => (
+                  <div key={b.id} className="flex items-center justify-between gap-2 px-1">
+                    <span className="text-sm font-medium text-apple-gray-800 dark:text-white truncate">
+                      {b.playerName}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveBaja(b.id)}
+                      className="text-xs font-semibold text-red-500 flex-shrink-0"
+                    >
+                      Quitar
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       {pickerSlotKey && (

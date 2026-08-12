@@ -302,3 +302,34 @@ export async function fetchSquadProfiles(playerIds: number[]): Promise<Record<nu
   }
   return result
 }
+
+export interface CandidateVisuals {
+  photo: string | null
+  teamLogo: string | null
+}
+
+/**
+ * Foto y escudo del club actual para candidatos de scouting puestos en el plantel a
+ * futuro (`source: 'candidate'`, id = fila de `players`, no de la API cruda del
+ * plantel). No se persiste junto al slot -- se recalcula en cada carga a partir de la
+ * id ya guardada, para no duplicar datos que pueden cambiar (jugador cambia de club).
+ */
+export async function fetchCandidateVisuals(playerIds: number[]): Promise<Record<number, CandidateVisuals>> {
+  if (playerIds.length === 0) return {}
+
+  const { data, error } = await supabase
+    .from('players')
+    .select('id, photo, team:teams(logo)')
+    .in('id', playerIds)
+
+  if (error || !data) {
+    console.error('Error buscando fotos de candidatos:', error)
+    return {}
+  }
+
+  const result: Record<number, CandidateVisuals> = {}
+  for (const row of data as unknown as { id: number; photo: string | null; team: { logo: string | null } | null }[]) {
+    result[row.id] = { photo: row.photo, teamLogo: row.team?.logo ?? null }
+  }
+  return result
+}
