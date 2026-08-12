@@ -46,10 +46,14 @@ export async function listTacticalBoards(coachKey: string): Promise<TacticalBoar
   return data as unknown as TacticalBoard[]
 }
 
-export async function createTacticalBoard(coachKey: string, name: string): Promise<TacticalBoard | null> {
+export async function createTacticalBoard(
+  coachKey: string,
+  name: string,
+  initialMarkers: BoardMarker[] = [],
+): Promise<TacticalBoard | null> {
   const { data, error } = await supabase
     .from('coach_tactical_boards')
-    .insert({ coach_key: coachKey, name, markers: [], annotations: [] })
+    .insert({ coach_key: coachKey, name, markers: initialMarkers, annotations: [] })
     .select()
     .single()
 

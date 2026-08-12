@@ -11,16 +11,73 @@ import {
   type MarkerTeam,
   type AnnotationColor,
 } from '@/services/tacticalBoardService'
-import { fetchSquadCached, type SquadPlayer } from '@/services/footballApiService'
+import { fetchSquadCached, fetchSeasonFixtures, fetchFixtureLineups, type SquadPlayer } from '@/services/footballApiService'
 import TacticalBoardPitch, { type BoardTool } from './TacticalBoardPitch'
 import TacticalBoardToolbar from './TacticalBoardToolbar'
 import type { AgencyCoach } from '@/constants/agencyCoaches'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
+import { mirrorFormationForRival, nextMarkerPosition } from '@/features/coaches/tacticalBoardPrefill'
+import { mapLineupToSlots, type LineupPlayerForPrefill } from '@/features/coaches/futureSquadPrefill'
+import { isMatchFinished } from '@/utils/coachCalendar'
+import { FORMATIONS } from '@/constants/formations'
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
 function uid(): string {
   return crypto.randomUUID()
+}
+
+// Arma los 22 markers de arranque (11 propios reales del ultimo partido jugado + 11
+// rivales genericos del lado espejado) para que la primera vez que un entrenador entra
+// a la pestana ya vea la cancha poblada, sin tener que crear ni nombrar una pizarra antes.
+// Mismo patron de datos que buildPrefill en CoachFutureSquadTab.tsx.
+async function buildDefaultBoardMarkers(coach: AgencyCoach): Promise<BoardMarker[]> {
+  const markers: BoardMarker[] = []
+  let formationType = '4-3-3'
+  let ownStartXI: LineupPlayerForPrefill[] = []
+
+  if (coach.apiTeamId && coach.leagueSeason) {
+    const fixtures = await fetchSeasonFixtures(coach.apiTeamId, coach.leagueSeason)
+    const lastPlayed = fixtures.filter(f => isMatchFinished(f.statusShort)).sort((a, b) => b.timestamp - a.timestamp)[0]
+    if (lastPlayed) {
+      const lineups = await fetchFixtureLineups(lastPlayed.fixtureId)
+      const ownLineup = lineups.find(l => l.team.id === coach.apiTeamId)
+      if (ownLineup) {
+        formationType = ownLineup.formation ?? '4-3-3'
+        ownStartXI = ownLineup.startXI.map(({ player }) => ({ id: player.id, name: player.name, number: player.number }))
+      }
+    }
+  }
+
+  const { formationType: resolvedFormation, slots } = mapLineupToSlots(ownStartXI, formationType)
+  for (const slot of slots) {
+    if (slot.source !== 'squad' || slot.playerId === null) continue
+    const pos = FORMATIONS[resolvedFormation].positions.find(p => p.key === slot.slotKey)!
+    markers.push({
+      id: crypto.randomUUID(),
+      kind: 'player',
+      team: 'propio',
+      label: slot.playerNumber != null ? String(slot.playerNumber) : (slot.playerName ?? '').split(' ').slice(-1)[0],
+      playerId: slot.playerId as number,
+      x: pos.x,
+      y: pos.y,
+    })
+  }
+
+  const rivalPositions = mirrorFormationForRival(resolvedFormation)
+  rivalPositions.forEach((pos, i) => {
+    markers.push({
+      id: crypto.randomUUID(),
+      kind: 'generic',
+      team: 'rival',
+      label: String(i + 1),
+      playerId: null,
+      x: pos.x,
+      y: pos.y,
+    })
+  })
+
+  return markers
 }
 
 function PlayerPickerModal({
@@ -97,8 +154,30 @@ export default function CoachTacticalBoardTab({ coach }: { coach: AgencyCoach })
 
   useEffect(() => {
     let active = true
-    listTacticalBoards(coach.key).then(b => {
-      if (active) setBoards(b)
+    listTacticalBoards(coach.key).then(async b => {
+      if (!active) return
+      if (b.length > 0) {
+        setBoards(b)
+        return
+      }
+      // Primera vez sin ninguna pizarra guardada: se arma y se muestra una por
+      // defecto con los 11 propios reales + 11 rivales genericos, sin que el
+      // usuario tenga que crear ni nombrar nada primero.
+      const markers = await buildDefaultBoardMarkers(coach)
+      if (!active) return
+      const board = await createTacticalBoard(coach.key, 'Titular', markers)
+      if (!active) return
+      if (board) {
+        setCurrent(board)
+        setMarkers(board.markers)
+        setAnnotations(board.annotations)
+        setSavedSnapshot(JSON.stringify({ markers: board.markers, annotations: board.annotations }))
+        setBoards([board])
+      } else {
+        // No se pudo crear (migracion no corrida, etc.) -- se cae al estado vacio
+        // de siempre, con los botones Nueva/Cargar disponibles.
+        setBoards([])
+      }
     })
     return () => {
       active = false
@@ -186,15 +265,15 @@ export default function CoachTacticalBoardTab({ coach }: { coach: AgencyCoach })
 
   function addGenericMarker() {
     const count = markers.filter(m => m.kind === 'generic' && m.team === markerTeam).length
-    // x/y en 0-100 sobre ambos ejes (mismo sistema que las anotaciones en TacticalBoardPitch,
-    // no el viewBox 0-130 de FormationPage): 50/50 es el centro real de esta cancha.
+    const pos = nextMarkerPosition(markers, markerTeam, '4-3-3')
     setMarkers([
       ...markers,
-      { id: uid(), kind: 'generic', team: markerTeam, label: String(count + 1), playerId: null, x: 50, y: 50 },
+      { id: uid(), kind: 'generic', team: markerTeam, label: String(count + 1), playerId: null, x: pos.x, y: pos.y },
     ])
   }
 
   function addPlayerMarker(player: SquadPlayer) {
+    const pos = nextMarkerPosition(markers, 'propio', '4-3-3')
     setMarkers([
       ...markers,
       {
@@ -203,8 +282,8 @@ export default function CoachTacticalBoardTab({ coach }: { coach: AgencyCoach })
         team: 'propio',
         label: player.number != null ? String(player.number) : player.name.split(' ').slice(-1)[0],
         playerId: player.id,
-        x: 50,
-        y: 50,
+        x: pos.x,
+        y: pos.y,
       },
     ])
     setShowPlayerPicker(false)
@@ -212,7 +291,10 @@ export default function CoachTacticalBoardTab({ coach }: { coach: AgencyCoach })
 
   function addBallMarker() {
     if (markers.some(m => m.kind === 'ball')) return
-    setMarkers([...markers, { id: uid(), kind: 'ball', team: null, label: '', playerId: null, x: 50, y: 50 }])
+    // La pelota no compite por slots de formacion -- un unico punto neutral cerca
+    // del centro, pero no exactamente sobre el circulo central (mas facil de
+    // distinguir de una ficha si alguna cae cerca).
+    setMarkers([...markers, { id: uid(), kind: 'ball', team: null, label: '', playerId: null, x: 50, y: 46 }])
   }
 
   function handleUndo() {
