@@ -15,7 +15,7 @@ CREATE OR REPLACE FUNCTION backfill_ungridded_positions()
 RETURNS void AS $$
 WITH grid_majority AS (
   SELECT player_id, detected_position AS position,
-         ROW_NUMBER() OVER (PARTITION BY player_id ORDER BY COUNT(*) DESC) AS rn
+         ROW_NUMBER() OVER (PARTITION BY player_id ORDER BY COUNT(*) DESC, detected_position) AS rn
   FROM player_match_stats
   WHERE grid_position IS NOT NULL AND detected_position IS NOT NULL
   GROUP BY player_id, detected_position

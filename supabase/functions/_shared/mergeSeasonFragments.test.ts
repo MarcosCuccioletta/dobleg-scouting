@@ -65,7 +65,18 @@ Deno.test('mergeSeasonScoreFragments: campos null en un fragmento no rompen el p
   ];
   const result = mergeSeasonScoreFragments(rows);
   assertEquals(result.length, 1);
-  // passes_accuracy nulo cuenta como 0 en la ponderacion, no se descarta el fragmento:
-  // (80*4 + 0*2) / 6 = 320/6 = 53.33...
-  assertEquals(result[0].passes_accuracy, 53.33);
+  // El fragmento sin dato de passes_accuracy se excluye del promedio (no cuenta
+  // como 0): queda el promedio ponderado solo sobre los fragmentos con dato,
+  // que en este caso es un unico fragmento -> exactamente su valor, 80.
+  assertEquals(result[0].passes_accuracy, 80);
+});
+
+Deno.test('mergeSeasonScoreFragments: campo null en TODOS los fragmentos queda null, no se convierte en 0', () => {
+  const rows = [
+    makeRow({ league_id: 100, matches_played: 4, avg_score: 6, penalty_saved_avg: null }),
+    makeRow({ league_id: 200, matches_played: 3, avg_score: 5, penalty_saved_avg: null }),
+  ];
+  const result = mergeSeasonScoreFragments(rows);
+  assertEquals(result.length, 1);
+  assertEquals(result[0].penalty_saved_avg, null);
 });

@@ -499,19 +499,21 @@ git commit -m "fix(informes): aclara que el rating de ultimos partidos es por pa
 - [ ] **Correr toda la suite de tests**
 
 Run: `npm test` (o `npx vitest run`)
-Expected: todos los tests en verde, incluidos los 5 nuevos de `mergeSeasonFragments.test.ts` y los ya existentes de `_shared/` (`position-mapper.test.ts`, `scoring.test.ts`, `stats-normalize.test.ts`, `fetchAll.test.ts`), que no deben haberse roto.
+Expected: todos los tests en verde, incluidos los 6 de `mergeSeasonFragments.test.ts` (5 originales + 1 agregado en la revisión final para el caso "campo null en todos los fragmentos") y los ya existentes de `_shared/` (`position-mapper.test.ts`, `scoring.test.ts`, `stats-normalize.test.ts`, `fetchAll.test.ts`), que no deben haberse roto.
 
 - [ ] **Typecheck y build de `src/`**
 
 Run: `npx tsc --noEmit && npm run build`
 Expected: sin errores (recordar: esto NO cubre `supabase/functions/`, que no tiene un typecheck automatizado disponible en esta máquina).
 
-- [ ] **Avisar al usuario que corra a mano en Supabase, en este orden:**
-  1. `supabase/migrations/20260811_merge_season_score_fragments.sql`
-  2. `supabase/migrations/20260811_backfill_ungridded_positions.sql`
-  3. Deploy de la función `recalc-scores` actualizada (y `sync-player-stats` si el proceso de deploy los actualiza juntos, aunque esta función no tuvo cambios funcionales).
+- [ ] **Avisar al usuario que corra a mano en Supabase, en este orden (el deploy va primero, antes que las migraciones — ver nota abajo):**
+  1. Deploy de la función `recalc-scores` actualizada (y `sync-player-stats` si el proceso de deploy los actualiza juntos, aunque esta función no tuvo cambios funcionales), **con las migraciones todavía sin correr**.
+  2. `supabase/migrations/20260811_merge_season_score_fragments.sql`
+  3. `supabase/migrations/20260811_backfill_ungridded_positions.sql`
   4. Disparar una corrida manual de `recalc-scores` (su URL de función, sin `body.season` para que cubra los dos años vigentes por defecto) — **no esperar el cron de 6h** para verificar.
-  5. Confirmar en la tabla `sync_log` que la corrida de `recalc-scores` quedó con `status: 'success'` **y** confirmar además que `player_season_scores` tiene filas para la temporada actual (`count(*) > 0`) — no alcanza con mirar solo `sync_log` (ver nota de riesgo en la spec, sección Rollout: si por error se hiciera el deploy antes que la migración 1, la función ahora corta y reporta error correctamente, pero conviene confirmar igual que la tabla no haya quedado vacía). Si la primera corrida falla puntualmente en `backfill_ungridded_positions` puede ser timeout por la cantidad de filas históricas a corregir la primera vez — reintentar (es idempotente).
+  5. Confirmar en la tabla `sync_log` que la corrida de `recalc-scores` quedó con `status: 'success'` **y** confirmar además que `player_season_scores` tiene filas para la temporada actual (`count(*) > 0`) — no alcanza con mirar solo `sync_log`.
+
+  Por qué el deploy va primero: mientras las migraciones no corrieron, la función nueva falla segura (su primer paso, `backfill_ungridded_positions()`, todavía no existe como RPC, así que corta antes de tocar `player_season_scores` y queda logueado como error). Si en cambio se corriera la migración 1 antes del deploy, la función VIEJA (que no revisa errores de `upsert`) seguiría en el cron, y su `upsert` fallaría contra la PK ya angostada dejando `player_season_scores` vacía con `sync_log` en `status: 'success'` — pérdida silenciosa de datos. Ver nota de riesgo completa en la spec, sección Rollout. Si la primera corrida (ya con ambas migraciones aplicadas) falla puntualmente en `backfill_ungridded_positions` puede ser timeout por la cantidad de filas históricas a corregir la primera vez — reintentar (es idempotente).
 
 - [ ] **Verificación visual final en el navegador, con las migraciones y el recalc ya corridos:**
   - Ficha de Santiago Montiel (Externo): "Posiciones" ya no debería mostrar un % relevante de DEL para sus entradas de banco; "Historial de partidos" debería mostrar más partidos que antes, incluyendo los más recientes.

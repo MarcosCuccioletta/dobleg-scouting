@@ -65,12 +65,16 @@ export function mergeSeasonScoreFragments(rows: SeasonScoreRow[]): SeasonScoreRo
 
     const totalMatches = fragments.reduce((s, f) => s + (f.matches_played ?? 0), 0);
     const weightedAvg = (field: keyof SeasonScoreRow): number | null => {
-      if (totalMatches === 0) return null;
-      const weighted = fragments.reduce(
-        (s, f) => s + ((f[field] as number | null) ?? 0) * (f.matches_played ?? 0),
-        0,
-      );
-      return Math.round((weighted / totalMatches) * 100) / 100;
+      let num = 0;
+      let den = 0;
+      for (const f of fragments) {
+        const v = f[field] as number | null | undefined;
+        if (v === null || v === undefined) continue;
+        const w = f.matches_played ?? 0;
+        num += v * w;
+        den += w;
+      }
+      return den === 0 ? null : Math.round((num / den) * 100) / 100;
     };
 
     // La liga con mas partidos queda como league_id de referencia (informativo:
