@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { usePlayersList } from '@/hooks/usePlayerStats'
+import { usePlayersList, useLeagues } from '@/hooks/usePlayerStats'
 import type { PlayerWithScore, Position } from '@/types/scoring'
 import { getScoreColorClass } from '@/components/ui/ScoreBar'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
@@ -18,6 +18,7 @@ export default function FutureSquadPlayerPicker({
   slotKey,
   formationType,
   squad,
+  apiTeamId,
   usedSquadIds,
   bajaPlayerIds,
   usedCandidateIds,
@@ -28,6 +29,7 @@ export default function FutureSquadPlayerPicker({
   slotKey: string
   formationType: string
   squad: SquadPlayer[]
+  apiTeamId?: number | null
   usedSquadIds: Set<number>
   bajaPlayerIds: Set<number>
   usedCandidateIds: Set<string>
@@ -38,6 +40,10 @@ export default function FutureSquadPlayerPicker({
   const [activeTab, setActiveTab] = useState<PickerTab>('plantel')
   const [searchQuery, setSearchQuery] = useState('')
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const [suggestedLeagueId, setSuggestedLeagueId] = useState<number | null>(null)
+  const [suggestedMaxValue, setSuggestedMaxValue] = useState<number | null>(null)
+  const [suggestedCountry, setSuggestedCountry] = useState<string | null>(null)
+  const leagues = useLeagues()
 
   const displayName =
     FORMATION_DISPLAY_OVERRIDES[formationType]?.[slotKey] ?? POSITION_DISPLAY_NAME[slotKey] ?? slotKey
@@ -55,14 +61,38 @@ export default function FutureSquadPlayerPicker({
     return [...unplaced, ...placed]
   }, [squad, usedSquadIds, bajaPlayerIds])
 
+  // Score GG del plantel actual -- consulta acotada por equipo, no bloquea el render de la
+  // pestaña "Plantel" (arranca vacia, se completa cuando llega la respuesta).
+  const { players: squadScored } = usePlayersList(
+    activeTab === 'plantel' && apiTeamId ? { team_id: apiTeamId, pageSize: 60 } : { pageSize: 0 },
+  )
+  const squadScoreById = useMemo(() => new Map(squadScored.map(p => [p.id, p.primary_score])), [squadScored])
+
   const { players: suggestionPool, loading: suggestionsLoading } = usePlayersList(
     activeTab === 'sugeridos' && allowedPositions.length > 0
-      ? { positions: allowedPositions, pageSize: 200 }
+      ? {
+          positions: allowedPositions,
+          pageSize: 200,
+          league_id: suggestedLeagueId ?? undefined,
+          max_market_value: suggestedMaxValue ?? undefined,
+        }
       : { pageSize: 0 },
   )
+  const suggestedCountries = useMemo(
+    () => [...new Set(suggestionPool.map(p => p.nationality).filter((n): n is string => !!n))].sort(),
+    [suggestionPool],
+  )
   const suggestions = useMemo(
-    () => suggestionPool.filter(p => !usedCandidateIds.has(String(p.id)) && p.primary_score !== null).slice(0, 15),
-    [suggestionPool, usedCandidateIds],
+    () =>
+      suggestionPool
+        .filter(
+          p =>
+            !usedCandidateIds.has(String(p.id)) &&
+            p.primary_score !== null &&
+            (!suggestedCountry || p.nationality === suggestedCountry),
+        )
+        .slice(0, 15),
+    [suggestionPool, usedCandidateIds, suggestedCountry],
   )
 
   const debouncedSearch = useDebouncedValue(searchQuery.trim(), 250)
@@ -149,6 +179,7 @@ export default function FutureSquadPlayerPicker({
               <div className="space-y-2">
                 {availableSquad.map(p => {
                   const isPlacedElsewhere = usedSquadIds.has(p.id)
+                  const score = squadScoreById.get(p.id)
                   return (
                     <button
                       key={p.id}
@@ -181,21 +212,68 @@ export default function FutureSquadPlayerPicker({
                           {p.number != null ? ` · #${p.number}` : ''}
                         </p>
                       </div>
+                      <div className="text-right flex-shrink-0">
+                        {score != null ? (
+                          <p className={`text-sm font-bold ${getScoreColorClass(score, '10')}`}>{score.toFixed(1)}</p>
+                        ) : (
+                          <p className="text-sm font-bold text-apple-gray-400">—</p>
+                        )}
+                      </div>
                     </button>
                   )
                 })}
               </div>
             )
           ) : activeTab === 'sugeridos' ? (
-            suggestionsLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="w-6 h-6 border-2 border-brand-green border-t-transparent rounded-full animate-spin" />
+            <>
+              <div className="flex flex-wrap gap-2 mb-3">
+                <select
+                  value={suggestedLeagueId ?? ''}
+                  onChange={e => setSuggestedLeagueId(e.target.value ? Number(e.target.value) : null)}
+                  className="min-h-[32px] rounded-lg border border-apple-gray-200 dark:border-apple-gray-700 bg-white dark:bg-apple-gray-900 px-2 text-2xs text-apple-gray-700 dark:text-apple-gray-300"
+                >
+                  <option value="">Todas las ligas</option>
+                  {leagues.map(l => (
+                    <option key={l.id} value={l.id}>
+                      {l.name}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={suggestedMaxValue ?? ''}
+                  onChange={e => setSuggestedMaxValue(e.target.value ? Number(e.target.value) : null)}
+                  className="min-h-[32px] rounded-lg border border-apple-gray-200 dark:border-apple-gray-700 bg-white dark:bg-apple-gray-900 px-2 text-2xs text-apple-gray-700 dark:text-apple-gray-300"
+                >
+                  <option value="">Cualquier valor</option>
+                  <option value="500000">Hasta 500.000 €</option>
+                  <option value="1000000">Hasta 1.000.000 €</option>
+                  <option value="5000000">Hasta 5.000.000 €</option>
+                </select>
+                {suggestedCountries.length > 0 && (
+                  <select
+                    value={suggestedCountry ?? ''}
+                    onChange={e => setSuggestedCountry(e.target.value || null)}
+                    className="min-h-[32px] rounded-lg border border-apple-gray-200 dark:border-apple-gray-700 bg-white dark:bg-apple-gray-900 px-2 text-2xs text-apple-gray-700 dark:text-apple-gray-300"
+                  >
+                    <option value="">Cualquier nacionalidad</option>
+                    {suggestedCountries.map(c => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
-            ) : suggestions.length === 0 ? (
-              <p className="text-center text-apple-gray-500 py-8 text-sm">No hay jugadores sugeridos para esta posición.</p>
-            ) : (
-              <div className="space-y-2">{suggestions.map(renderCandidateCard)}</div>
-            )
+              {suggestionsLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="w-6 h-6 border-2 border-brand-green border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : suggestions.length === 0 ? (
+                <p className="text-center text-apple-gray-500 py-8 text-sm">No hay jugadores sugeridos para esta posición.</p>
+              ) : (
+                <div className="space-y-2">{suggestions.map(renderCandidateCard)}</div>
+              )}
+            </>
           ) : (
             <div className="space-y-3">
               <div className="relative">

@@ -243,7 +243,10 @@ export default function CoachFutureSquadTab({ coach }: { coach: AgencyCoach }) {
       />
 
       <div className="bg-white dark:bg-apple-gray-800/60 rounded-apple-lg border border-apple-gray-200/60 dark:border-apple-gray-700/40 p-4">
-        <h3 className="text-sm font-semibold text-apple-gray-800 dark:text-white mb-3">Bajas planificadas</h3>
+        <h3 className="text-sm font-semibold text-apple-gray-800 dark:text-white mb-1">Bajas planificadas</h3>
+        <p className="text-2xs text-apple-gray-400 mb-3">
+          Jugadores que salen del plantel: se agregan solos al sacar a alguien de la cancha, o podés anotar el motivo acá.
+        </p>
         {bajas.length === 0 ? (
           <p className="text-sm text-apple-gray-400">Sin bajas planificadas todavía.</p>
         ) : (
@@ -277,6 +280,7 @@ export default function CoachFutureSquadTab({ coach }: { coach: AgencyCoach }) {
           slotKey={pickerSlotKey}
           formationType={formationType}
           squad={squad}
+          apiTeamId={coach.apiTeamId}
           usedSquadIds={pickerSlot?.source === 'squad' ? new Set([...usedSquadIds].filter(id => id !== pickerSlot.playerId)) : usedSquadIds}
           bajaPlayerIds={bajaPlayerIds}
           usedCandidateIds={pickerSlot?.source === 'candidate' ? new Set([...usedCandidateIds].filter(id => id !== pickerSlot.playerId)) : usedCandidateIds}
