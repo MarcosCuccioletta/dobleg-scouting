@@ -23,6 +23,8 @@ const TABS: { id: CoachTab; label: string }[] = [
   { id: 'plantel_futuro', label: 'Plantel futuro' },
 ]
 
+const SIN_CLUB_TAB_IDS: CoachTab[] = ['resumen', 'entrenamientos', 'pizarra']
+
 function initialsOf(fullName: string): string {
   return fullName
     .split(' ')
@@ -39,7 +41,7 @@ export default function CoachDetailPage() {
   const tabParam = searchParams.get('tab')
   const isValidTab = (val: string): val is CoachTab =>
     ['resumen', 'plantel', 'liga', 'calendario', 'entrenamientos', 'notas', 'pizarra', 'plantel_futuro', 'reserva'].includes(val)
-  const activeTab: CoachTab = tabParam && isValidTab(tabParam) ? tabParam : 'resumen'
+  const requestedTab: CoachTab = tabParam && isValidTab(tabParam) ? tabParam : 'resumen'
   const setActiveTab = (tab: CoachTab) => setSearchParams(prev => {
     const next = new URLSearchParams(prev)
     next.set('tab', tab)
@@ -101,11 +103,14 @@ export default function CoachDetailPage() {
       </div>
     )
 
-  const SIN_CLUB_TAB_IDS: CoachTab[] = ['resumen', 'entrenamientos', 'pizarra']
-
   const tabs = isActive
     ? (coach.reserveApiTeamId ? [...TABS, { id: 'reserva' as CoachTab, label: 'Reserva' }] : TABS)
     : TABS.filter(t => SIN_CLUB_TAB_IDS.includes(t.id))
+
+  // Un ?tab= de una URL vieja/compartida puede apuntar a un tab que no está
+  // visible para este entrenador puntual (p.ej. "plantel" para uno sin_club):
+  // en ese caso volvemos a "resumen" en vez de dejar la vista en blanco.
+  const activeTab: CoachTab = tabs.some(t => t.id === requestedTab) ? requestedTab : 'resumen'
 
   return (
     <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 py-6">

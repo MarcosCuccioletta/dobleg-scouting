@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'fs'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
-import { mapStandingsResponse, mapCoachProfileResponse } from './footballApiService'
+import { mapStandingsResponse, mapCoachProfileResponse, surnameOf } from './footballApiService'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const fixture = JSON.parse(
@@ -85,5 +85,25 @@ describe('mapCoachProfileResponse', () => {
   it('devuelve null si la respuesta no tiene resultados', () => {
     const raw = { response: [] }
     expect(mapCoachProfileResponse(raw)).toBeNull()
+  })
+})
+
+describe('surnameOf', () => {
+  it('devuelve la última palabra de un nombre compuesto', () => {
+    expect(surnameOf('Leandro Stillitano')).toBe('Stillitano')
+    expect(surnameOf('Gianluca Prestianni')).toBe('Prestianni')
+  })
+
+  it('devuelve null si el nombre es una sola palabra (no hay fallback distinto)', () => {
+    expect(surnameOf('Guardiola')).toBeNull()
+  })
+
+  it('devuelve null para un nombre vacío o solo espacios', () => {
+    expect(surnameOf('')).toBeNull()
+    expect(surnameOf('   ')).toBeNull()
+  })
+
+  it('ignora espacios extra entre palabras', () => {
+    expect(surnameOf('Leandro   Gabriel   Stillitano')).toBe('Stillitano')
   })
 })

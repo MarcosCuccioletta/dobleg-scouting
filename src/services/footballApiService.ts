@@ -598,21 +598,72 @@ export function mapCoachProfileResponse(raw: any): CoachProfile | null {
 }
 
 const COACH_PROFILE_CACHE_TTL = 24 * 60 * 60 * 1000 // 24h: bio/trayectoria casi no cambian
+const COACH_PROFILE_NOT_FOUND_TTL = 60 * 60 * 1000 // 1h: resultado negativo, reintentar antes que uno positivo
+
+// Sentinel wrapper: getCachedGeneric ya devuelve null tanto para "cache miss"
+// como para "no encontrado", así que un resultado negativo genuino necesita
+// su propia forma para no perderse (y para poder aplicarle su propio TTL, más
+// corto que el de un perfil encontrado).
+interface CoachProfileCacheEntry {
+  found: boolean
+  profile: CoachProfile | null
+}
+
+function getCachedCoachProfile(cacheKey: string): CoachProfileCacheEntry | null {
+  try {
+    const raw = localStorage.getItem(cacheKey)
+    if (!raw) return null
+    const cached: { data: CoachProfileCacheEntry; timestamp: number } = JSON.parse(raw)
+    const ttl = cached.data.found ? COACH_PROFILE_CACHE_TTL : COACH_PROFILE_NOT_FOUND_TTL
+    if (Date.now() - cached.timestamp > ttl) {
+      localStorage.removeItem(cacheKey)
+      return null
+    }
+    return cached.data
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Devuelve el apellido (última palabra) de un nombre completo para usarlo
+ * como fallback de búsqueda, o null si no hay nada distinto que probar
+ * (nombre de una sola palabra, o vacío).
+ */
+export function surnameOf(fullName: string): string | null {
+  const trimmed = fullName.trim()
+  if (!trimmed) return null
+  const parts = trimmed.split(/\s+/)
+  const surname = parts[parts.length - 1]
+  return surname && surname !== trimmed ? surname : null
+}
 
 export async function fetchCoachProfile(
   coachKey: string,
   fullName: string,
   apiId?: number | null,
 ): Promise<CoachProfile | null> {
-  const cacheKey = `dg-coach-profile-cache:${coachKey}`
-  const cached = getCachedGeneric<CoachProfile>(cacheKey, COACH_PROFILE_CACHE_TTL)
-  if (cached) return cached
+  // La clave incluye el modo de búsqueda (id vs. search) para que setear un
+  // coachApiId manual (ver agencyCoaches.ts) no siga sirviendo un resultado
+  // viejo/incorrecto cacheado por una búsqueda de nombre anterior.
+  const cacheKey = `dg-coach-profile-cache:${coachKey}:${apiId ?? 'search'}`
+  const cached = getCachedCoachProfile(cacheKey)
+  if (cached) return cached.found ? cached.profile : null
 
   const params: Record<string, string> = apiId ? { id: String(apiId) } : { search: fullName }
-  const raw = await apiFetch<any>('/coachs', params).catch(() => null)
-  if (!raw) return null
+  let raw = await apiFetch<any>('/coachs', params).catch(() => null)
 
-  const profile = mapCoachProfileResponse(raw)
-  if (profile) setCacheGeneric(cacheKey, profile)
+  // Sin id explícito, la búsqueda por nombre completo suele devolver 0
+  // resultados (la API matchea mejor por apellido solo). Reintentar una vez
+  // con el apellido antes de darnos por vencidos.
+  if (!apiId && (!raw || !Array.isArray(raw.response) || raw.response.length === 0)) {
+    const surname = surnameOf(fullName)
+    if (surname) {
+      raw = await apiFetch<any>('/coachs', { search: surname }).catch(() => null)
+    }
+  }
+
+  const profile = raw ? mapCoachProfileResponse(raw) : null
+  setCacheGeneric<CoachProfileCacheEntry>(cacheKey, { found: profile !== null, profile })
   return profile
 }

@@ -31,6 +31,9 @@ export const AGENCY_COACHES: AgencyCoach[] = [
     status: 'sin_club',
     club: null,
     apiTeamId: null,
+    // La búsqueda por nombre completo en /coachs no matchea (la API-Football
+    // matchea mejor por apellido); id verificado a mano contra /coachs?search=Stillitano.
+    coachApiId: 19200,
   },
 ]
 

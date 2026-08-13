@@ -4,9 +4,17 @@ import type { AgencyCoach } from '@/constants/agencyCoaches'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 
 function formatMonthYear(iso: string | null): string {
-  if (!iso) return 'Actualidad'
+  if (!iso) return '—'
   const [y, m] = iso.split('-').map(Number)
-  return new Date(y, m - 1, 1).toLocaleDateString('es-AR', { month: 'short', year: 'numeric' })
+  if (Number.isNaN(y) || Number.isNaN(m)) return '—'
+  const date = new Date(y, m - 1, 1)
+  if (Number.isNaN(date.getTime())) return '—'
+  return date.toLocaleDateString('es-AR', { month: 'short', year: 'numeric' })
+}
+
+function formatCareerEnd(iso: string | null): string {
+  if (!iso) return 'Actualidad'
+  return formatMonthYear(iso)
 }
 
 function EmptyState({ message }: { message: string }) {
@@ -63,11 +71,16 @@ export default function CoachBioTab({ coach }: { coach: AgencyCoach }) {
             key={`${entry.teamId}-${entry.start ?? i}`}
             className="flex items-center gap-3 sm:gap-4 bg-white dark:bg-apple-gray-800/60 rounded-apple-lg border border-apple-gray-200/60 dark:border-apple-gray-700/40 p-4"
           >
-            <img src={entry.teamLogo} alt="" className="w-8 h-8 object-contain flex-shrink-0" />
+            <img
+              src={entry.teamLogo}
+              alt=""
+              className="w-8 h-8 object-contain flex-shrink-0"
+              onError={e => { e.currentTarget.style.display = 'none' }}
+            />
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold text-apple-gray-800 dark:text-white truncate">{entry.teamName}</p>
               <p className="text-xs text-apple-gray-400">
-                {formatMonthYear(entry.start)} — {formatMonthYear(entry.end)}
+                {formatMonthYear(entry.start)} — {formatCareerEnd(entry.end)}
               </p>
             </div>
           </div>
