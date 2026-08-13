@@ -2,11 +2,14 @@ import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'fs'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
-import { mapStandingsResponse } from './footballApiService'
+import { mapStandingsResponse, mapCoachProfileResponse } from './footballApiService'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const fixture = JSON.parse(
   readFileSync(join(__dirname, '__fixtures__', 'primera-nacional-standings-2026-08-08.json'), 'utf-8'),
+)
+const coachFixture = JSON.parse(
+  readFileSync(join(__dirname, '__fixtures__', 'coach-profile-sample.json'), 'utf-8'),
 )
 
 describe('mapStandingsResponse', () => {
@@ -38,5 +41,49 @@ describe('mapStandingsResponse', () => {
     expect(groups[0][0].teamName).toBe('Ferro Carril Oeste')
     expect(groups[0][0].points).toBe(43)
     expect(groups[0][0].rank).toBe(1)
+  })
+})
+
+describe('mapCoachProfileResponse', () => {
+  it('mapea edad, nacionalidad y lugar de nacimiento', () => {
+    const profile = mapCoachProfileResponse(coachFixture)
+    expect(profile).toMatchObject({
+      age: 47,
+      nationality: 'Argentina',
+      birthPlace: 'Ramos Mejía',
+      birthCountry: 'Argentina',
+    })
+  })
+
+  it('ordena la trayectoria del club más reciente al más antiguo', () => {
+    const profile = mapCoachProfileResponse(coachFixture)
+    expect(profile?.career.map(c => c.start)).toEqual(['2022-06-01', '2019-01-01', '2016-07-01'])
+  })
+
+  it('mapea escudo y nombre de cada club de la trayectoria', () => {
+    const profile = mapCoachProfileResponse(coachFixture)
+    expect(profile?.career[0]).toMatchObject({
+      teamId: 435,
+      teamName: 'Vélez Sarsfield',
+      teamLogo: 'https://media.api-sports.io/football/teams/435.png',
+      start: '2022-06-01',
+      end: '2023-05-01',
+    })
+  })
+
+  it('un club actual sin fecha de fin queda con end: null', () => {
+    const raw = {
+      response: [{
+        age: 40, nationality: 'Argentina', birth: { place: 'CABA', country: 'Argentina' },
+        career: [{ team: { id: 1, name: 'Club Actual', logo: 'logo.png' }, start: '2025-01-01', end: null }],
+      }],
+    }
+    const profile = mapCoachProfileResponse(raw)
+    expect(profile?.career[0].end).toBeNull()
+  })
+
+  it('devuelve null si la respuesta no tiene resultados', () => {
+    const raw = { response: [] }
+    expect(mapCoachProfileResponse(raw)).toBeNull()
   })
 })

@@ -1,0 +1,43 @@
+{
+  "get": "coachs",
+  "parameters": { "search": "Stillitano" },
+  "errors": [],
+  "results": 1,
+  "paging": { "current": 1, "total": 1 },
+  "response": [
+    {
+      "id": 12345,
+      "name": "L. Stillitano",
+      "firstname": "Leandro",
+      "lastname": "Stillitano",
+      "age": 47,
+      "birth": {
+        "date": "1978-03-10",
+        "place": "Ramos Mejía",
+        "country": "Argentina"
+      },
+      "nationality": "Argentina",
+      "height": null,
+      "weight": null,
+      "photo": "https://media.api-sports.io/football/coachs/12345.png",
+      "team": null,
+      "career": [
+        {
+          "team": { "id": 435, "name": "Vélez Sarsfield", "logo": "https://media.api-sports.io/football/teams/435.png" },
+          "start": "2022-06-01",
+          "end": "2023-05-01"
+        },
+        {
+          "team": { "id": 451, "name": "Talleres", "logo": "https://media.api-sports.io/football/teams/451.png" },
+          "start": "2019-01-01",
+          "end": "2021-12-01"
+        },
+        {
+          "team": { "id": 435, "name": "Vélez Sarsfield", "logo": "https://media.api-sports.io/football/teams/435.png" },
+          "start": "2016-07-01",
+          "end": "2018-11-01"
+        }
+      ]
+    }
+  ]
+}

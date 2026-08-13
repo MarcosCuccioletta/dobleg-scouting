@@ -554,3 +554,65 @@ export async function fetchFixtureEvents(fixtureId: number): Promise<ApiFixtureE
   if (events.length > 0) setCacheGeneric(cacheKey, events)
   return events
 }
+
+// ─── COACH PROFILE ──────────────────────────────────────────────────────────
+
+export interface CoachCareerEntry {
+  teamId: number
+  teamName: string
+  teamLogo: string
+  start: string | null
+  end: string | null
+}
+
+export interface CoachProfile {
+  age: number | null
+  nationality: string | null
+  birthPlace: string | null
+  birthCountry: string | null
+  career: CoachCareerEntry[]
+}
+
+export function mapCoachProfileResponse(raw: any): CoachProfile | null {
+  const entry = raw?.response?.[0]
+  if (!entry) return null
+
+  const career: CoachCareerEntry[] = (entry.career ?? [])
+    .filter((c: any) => c?.team?.id)
+    .map((c: any): CoachCareerEntry => ({
+      teamId: c.team.id,
+      teamName: c.team.name,
+      teamLogo: c.team.logo,
+      start: c.start ?? null,
+      end: c.end ?? null,
+    }))
+    .sort((a: CoachCareerEntry, b: CoachCareerEntry) => (b.start ?? '').localeCompare(a.start ?? ''))
+
+  return {
+    age: entry.age ?? null,
+    nationality: entry.nationality ?? null,
+    birthPlace: entry.birth?.place ?? null,
+    birthCountry: entry.birth?.country ?? null,
+    career,
+  }
+}
+
+const COACH_PROFILE_CACHE_TTL = 24 * 60 * 60 * 1000 // 24h: bio/trayectoria casi no cambian
+
+export async function fetchCoachProfile(
+  coachKey: string,
+  fullName: string,
+  apiId?: number | null,
+): Promise<CoachProfile | null> {
+  const cacheKey = `dg-coach-profile-cache:${coachKey}`
+  const cached = getCachedGeneric<CoachProfile>(cacheKey, COACH_PROFILE_CACHE_TTL)
+  if (cached) return cached
+
+  const params: Record<string, string> = apiId ? { id: String(apiId) } : { search: fullName }
+  const raw = await apiFetch<any>('/coachs', params).catch(() => null)
+  if (!raw) return null
+
+  const profile = mapCoachProfileResponse(raw)
+  if (profile) setCacheGeneric(cacheKey, profile)
+  return profile
+}
