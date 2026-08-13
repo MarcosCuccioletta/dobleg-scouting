@@ -9,6 +9,7 @@ export interface AgencyCoach {
   leagueApiId?: number | null
   leagueName?: string | null
   leagueSeason?: number | null
+  coachApiId?: number | null
 }
 
 export const AGENCY_COACHES: AgencyCoach[] = [

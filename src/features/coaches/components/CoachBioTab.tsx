@@ -1,0 +1,78 @@
+import { useEffect, useState } from 'react'
+import { fetchCoachProfile, type CoachProfile } from '@/services/footballApiService'
+import type { AgencyCoach } from '@/constants/agencyCoaches'
+import LoadingSpinner from '@/components/ui/LoadingSpinner'
+
+function formatMonthYear(iso: string | null): string {
+  if (!iso) return 'Actualidad'
+  const [y, m] = iso.split('-').map(Number)
+  return new Date(y, m - 1, 1).toLocaleDateString('es-AR', { month: 'short', year: 'numeric' })
+}
+
+function EmptyState({ message }: { message: string }) {
+  return (
+    <div className="flex items-center justify-center py-16 px-4 text-center">
+      <p className="text-sm text-apple-gray-400 max-w-xs">{message}</p>
+    </div>
+  )
+}
+
+export default function CoachBioTab({ coach }: { coach: AgencyCoach }) {
+  const [profile, setProfile] = useState<CoachProfile | null | undefined>(undefined)
+
+  useEffect(() => {
+    let active = true
+    fetchCoachProfile(coach.key, coach.fullName, coach.coachApiId).then(p => {
+      if (active) setProfile(p)
+    })
+    return () => {
+      active = false
+    }
+  }, [coach.key, coach.fullName, coach.coachApiId])
+
+  if (profile === undefined) return <LoadingSpinner message="Cargando perfil..." />
+
+  if (profile === null) {
+    return <EmptyState message="No encontramos el perfil de este entrenador en la base de datos." />
+  }
+
+  const bioFacts = [
+    profile.age !== null && { label: 'Edad', value: `${profile.age} años` },
+    profile.nationality && { label: 'Nacionalidad', value: profile.nationality },
+    profile.birthPlace && { label: 'Lugar de nacimiento', value: `${profile.birthPlace}${profile.birthCountry ? `, ${profile.birthCountry}` : ''}` },
+  ].filter((f): f is { label: string; value: string } => Boolean(f))
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      {bioFacts.length > 0 && (
+        <div className="bg-white dark:bg-apple-gray-800/60 rounded-apple-lg border border-apple-gray-200/60 dark:border-apple-gray-700/40 p-4 sm:p-5 grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {bioFacts.map(fact => (
+            <div key={fact.label}>
+              <p className="text-2xs font-semibold uppercase text-apple-gray-400 mb-0.5">{fact.label}</p>
+              <p className="text-sm font-semibold text-apple-gray-800 dark:text-white">{fact.value}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="space-y-2">
+        <h2 className="text-sm font-semibold text-apple-gray-800 dark:text-white">Trayectoria</h2>
+        {profile.career.length === 0 && <EmptyState message="No hay trayectoria registrada para este entrenador." />}
+        {profile.career.map((entry, i) => (
+          <div
+            key={`${entry.teamId}-${entry.start ?? i}`}
+            className="flex items-center gap-3 sm:gap-4 bg-white dark:bg-apple-gray-800/60 rounded-apple-lg border border-apple-gray-200/60 dark:border-apple-gray-700/40 p-4"
+          >
+            <img src={entry.teamLogo} alt="" className="w-8 h-8 object-contain flex-shrink-0" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-apple-gray-800 dark:text-white truncate">{entry.teamName}</p>
+              <p className="text-xs text-apple-gray-400">
+                {formatMonthYear(entry.start)} — {formatMonthYear(entry.end)}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
