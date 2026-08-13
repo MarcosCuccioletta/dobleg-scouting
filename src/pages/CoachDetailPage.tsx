@@ -1,6 +1,7 @@
 import { useParams, Link, useSearchParams } from 'react-router-dom'
 import { getCoachByKey } from '@/constants/agencyCoaches'
 import CoachSummaryTab from '@/features/coaches/components/CoachSummaryTab'
+import CoachBioTab from '@/features/coaches/components/CoachBioTab'
 import TeamRosterPanel from '@/features/coaches/components/TeamRosterPanel'
 import CoachLeagueTab from '@/features/coaches/components/CoachLeagueTab'
 import CoachCalendarTab from '@/features/coaches/components/CoachCalendarTab'
@@ -100,27 +101,11 @@ export default function CoachDetailPage() {
       </div>
     )
 
-  if (coach.status === 'sin_club') {
-    return (
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6">
-        {backLink}
-        <div className="flex flex-col items-center text-center bg-white dark:bg-apple-gray-800 rounded-apple-lg border border-apple-gray-200 dark:border-apple-gray-700 shadow-apple dark:shadow-apple-dark px-6 py-12 animate-fade-in">
-          {avatar('w-24 h-24 text-2xl')}
-          <h1 className="text-xl font-bold text-apple-gray-800 dark:text-white mt-4 mb-1.5">{coach.fullName}</h1>
-          <span className="inline-flex items-center gap-1.5 mb-4 text-sm font-medium text-apple-gray-500 dark:text-apple-gray-400">
-            <span className="w-1.5 h-1.5 rounded-full bg-apple-gray-300 dark:bg-apple-gray-600 flex-shrink-0" />
-            Sin club actualmente
-          </span>
-          <p className="text-sm text-apple-gray-500 dark:text-apple-gray-400 max-w-sm leading-relaxed">
-            Todavía no hay un club asignado para este entrenador. Cuando firme con un nuevo equipo, esta ficha se
-            va a completar automáticamente con plantel, calendario y estadísticas.
-          </p>
-        </div>
-      </div>
-    )
-  }
+  const SIN_CLUB_TAB_IDS: CoachTab[] = ['resumen', 'entrenamientos', 'pizarra']
 
-  const tabs = coach.reserveApiTeamId ? [...TABS, { id: 'reserva' as CoachTab, label: 'Reserva' }] : TABS
+  const tabs = isActive
+    ? (coach.reserveApiTeamId ? [...TABS, { id: 'reserva' as CoachTab, label: 'Reserva' }] : TABS)
+    : TABS.filter(t => SIN_CLUB_TAB_IDS.includes(t.id))
 
   return (
     <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 py-6">
@@ -132,9 +117,17 @@ export default function CoachDetailPage() {
           <h1 className="text-xl sm:text-2xl font-bold text-apple-gray-800 dark:text-white tracking-tight truncate">
             {coach.fullName}
           </h1>
-          <span className="inline-flex items-center gap-1.5 mt-1 text-sm font-medium text-brand-green">
-            <span className="w-1.5 h-1.5 rounded-full bg-brand-green animate-pulse-soft flex-shrink-0" />
-            <span className="truncate">{coach.club}</span>
+          <span
+            className={`inline-flex items-center gap-1.5 mt-1 text-sm font-medium ${
+              isActive ? 'text-brand-green' : 'text-apple-gray-500 dark:text-apple-gray-400'
+            }`}
+          >
+            <span
+              className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                isActive ? 'bg-brand-green animate-pulse-soft' : 'bg-apple-gray-300 dark:bg-apple-gray-600'
+              }`}
+            />
+            <span className="truncate">{isActive ? coach.club : 'Sin club actualmente'}</span>
           </span>
         </div>
       </div>
@@ -157,7 +150,7 @@ export default function CoachDetailPage() {
       </div>
 
       {/* Cada Task 11-16 agrega su bloque acá, condicionado por activeTab === 'resumen' | 'plantel' | 'liga' | 'calendario' | 'entrenamientos' | 'notas' | 'reserva' */}
-      {activeTab === 'resumen' && <CoachSummaryTab coach={coach} />}
+      {activeTab === 'resumen' && (coach.apiTeamId ? <CoachSummaryTab coach={coach} /> : <CoachBioTab coach={coach} />)}
       {activeTab === 'plantel' && coach.apiTeamId && <TeamRosterPanel teamId={coach.apiTeamId} teamName={coach.club ?? ''} />}
       {activeTab === 'reserva' && coach.reserveApiTeamId && (
         <TeamRosterPanel teamId={coach.reserveApiTeamId} teamName={coach.club ? `${coach.club} (Reserva)` : 'Reserva'} />
