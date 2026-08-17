@@ -533,6 +533,75 @@ export async function fetchLeagueStandings(leagueId: number, season: number, for
   return groups
 }
 
+// ─── TEAM COMPETITIONS ──────────────────────────────────────────────────────
+
+export interface TeamCompetition {
+  leagueId: number
+  leagueName: string
+  leagueLogo: string
+  type: 'League' | 'Cup'
+  season: number
+  hasStandings: boolean
+  country: string
+}
+
+export function mapCompetitionsResponse(raw: any): TeamCompetition[] {
+  const entries: any[] = raw?.response ?? []
+  const result: TeamCompetition[] = []
+  for (const entry of entries) {
+    const season = (entry.seasons ?? []).find((s: any) => s.current)
+    if (!season) continue
+    result.push({
+      leagueId: entry.league.id,
+      leagueName: entry.league.name,
+      leagueLogo: entry.league.logo,
+      type: entry.league.type,
+      season: season.year,
+      hasStandings: !!season.coverage?.standings,
+      country: entry.country?.name ?? '',
+    })
+  }
+  return result
+}
+
+const TEAM_COMPETITIONS_CACHE_PREFIX = 'dg-team-competitions-cache'
+const TEAM_COMPETITIONS_CACHE_TTL = 24 * 60 * 60 * 1000 // 24h: las competencias vigentes de un equipo no cambian de un día para el otro
+
+export async function fetchTeamCompetitions(teamId: number, forceRefresh = false): Promise<TeamCompetition[]> {
+  const cacheKey = `${TEAM_COMPETITIONS_CACHE_PREFIX}:${teamId}`
+  if (!forceRefresh) {
+    const cached = getCachedGeneric<TeamCompetition[]>(cacheKey, TEAM_COMPETITIONS_CACHE_TTL)
+    if (cached) return cached
+  }
+  const raw = await apiFetch<any>('/leagues', { team: String(teamId) })
+  const competitions = mapCompetitionsResponse(raw)
+  setCacheGeneric(cacheKey, competitions)
+  return competitions
+}
+
+const COMPETITION_FIXTURES_CACHE_PREFIX = 'dg-competition-fixtures-cache'
+
+export async function fetchTeamCompetitionFixtures(
+  teamId: number,
+  leagueId: number,
+  season: number,
+  forceRefresh = false,
+): Promise<AgencyFixture[]> {
+  const cacheKey = `${COMPETITION_FIXTURES_CACHE_PREFIX}:${teamId}:${leagueId}:${season}`
+  if (!forceRefresh) {
+    const cached = getCachedGeneric<AgencyFixture[]>(cacheKey, CACHE_TTL)
+    if (cached) return cached
+  }
+  const res = await apiFetch<ApiFixture[]>('/fixtures', {
+    team: String(teamId),
+    league: String(leagueId),
+    season: String(season),
+  }).catch(() => null)
+  const fixtures = (res?.response ?? []).map(f => mapFixture(f, teamId))
+  if (fixtures.length > 0) setCacheGeneric(cacheKey, fixtures)
+  return fixtures
+}
+
 const FIXTURE_DETAIL_CACHE_TTL = 7 * 24 * 60 * 60 * 1000 // partido ya jugado no cambia: cache largo
 
 export async function fetchFixtureLineups(fixtureId: number): Promise<ApiFixtureLineup[]> {

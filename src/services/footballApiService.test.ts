@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'fs'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
-import { mapStandingsResponse, mapCoachProfileResponse, surnameOf } from './footballApiService'
+import { mapStandingsResponse, mapCoachProfileResponse, surnameOf, mapCompetitionsResponse } from './footballApiService'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const fixture = JSON.parse(
@@ -10,6 +10,9 @@ const fixture = JSON.parse(
 )
 const coachFixture = JSON.parse(
   readFileSync(join(__dirname, '__fixtures__', 'coach-profile-sample.json'), 'utf-8'),
+)
+const competitionsFixture = JSON.parse(
+  readFileSync(join(__dirname, '__fixtures__', 'bhayangkara-fc-leagues-2026-08-17.json'), 'utf-8'),
 )
 
 describe('mapStandingsResponse', () => {
@@ -105,5 +108,35 @@ describe('surnameOf', () => {
 
   it('ignora espacios extra entre palabras', () => {
     expect(surnameOf('Leandro   Gabriel   Stillitano')).toBe('Stillitano')
+  })
+})
+
+describe('mapCompetitionsResponse', () => {
+  it('descarta competencias sin temporada vigente', () => {
+    const result = mapCompetitionsResponse(competitionsFixture)
+    expect(result.find(c => c.leagueId === 924)).toBeUndefined() // Piala Presiden, última temporada 2022, current: false
+    expect(result.find(c => c.leagueId === 275)).toBeUndefined() // Liga 2, última temporada 2024, current: false
+  })
+
+  it('mapea la liga vigente con hasStandings true', () => {
+    const result = mapCompetitionsResponse(competitionsFixture)
+    const liga1 = result.find(c => c.leagueId === 274)
+    expect(liga1).toMatchObject({
+      leagueName: 'Liga 1',
+      type: 'League',
+      season: 2026,
+      hasStandings: true,
+      country: 'Indonesia',
+    })
+  })
+
+  it('mapea copas vigentes con hasStandings false', () => {
+    const result = mapCompetitionsResponse(competitionsFixture)
+    const piala = result.find(c => c.leagueId === 718)
+    expect(piala).toMatchObject({ leagueName: 'Piala Indonesia', type: 'Cup', hasStandings: false })
+  })
+
+  it('devuelve 3 competencias vigentes para Bhayangkara FC', () => {
+    expect(mapCompetitionsResponse(competitionsFixture)).toHaveLength(3)
   })
 })
