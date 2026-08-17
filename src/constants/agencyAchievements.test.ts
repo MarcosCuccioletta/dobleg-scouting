@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { aggregateAchievementsByYear, resolveAchievementPlayer, type AgencyAchievement } from './agencyAchievements'
-import type { AgencyPlayer } from './agencyPlayers'
+import { aggregateAchievementsByYear, resolveAchievementNavigationTarget, type AgencyAchievement } from './agencyAchievements'
 
 describe('aggregateAchievementsByYear', () => {
   it('devuelve vacío sin logros', () => {
@@ -34,19 +33,8 @@ describe('aggregateAchievementsByYear', () => {
   })
 })
 
-describe('resolveAchievementPlayer', () => {
-  const players: AgencyPlayer[] = [
-    {
-      shortName: 'M. Vera',
-      fullName: 'Mauricio Vera',
-      image: null,
-      contractEnd: null,
-      marketValue: null,
-      team: 'Bhayangkara FC',
-      apiTeamId: 2443,
-      isReserve: false,
-    },
-  ]
+describe('resolveAchievementNavigationTarget', () => {
+  const players = [{ Jugador: 'Mauricio Vera' }]
 
   it('matchea por nombre completo tolerando acentos/mayúsculas', () => {
     const achievement: AgencyAchievement = {
@@ -56,7 +44,7 @@ describe('resolveAchievementPlayer', () => {
       club: 'Y',
       year: 2023,
     }
-    expect(resolveAchievementPlayer(achievement, players)?.shortName).toBe('M. Vera')
+    expect(resolveAchievementNavigationTarget(achievement, players)).toBe('Mauricio Vera')
   })
 
   it('devuelve null si no hay match en el roster', () => {
@@ -67,6 +55,35 @@ describe('resolveAchievementPlayer', () => {
       club: 'Y',
       year: 2023,
     }
-    expect(resolveAchievementPlayer(achievement, players)).toBeNull()
+    expect(resolveAchievementNavigationTarget(achievement, players)).toBeNull()
+  })
+
+  it('el match exacto por nombre completo gana sobre una colisión de identityKey (Federico vs. Francesco Paradela)', () => {
+    // Ambos jugadores tienen shortName "F. Paradela" -> misma identityKey "f:paradela".
+    // Si el logro es de Federico, la fila interna de Federico debe ganar aunque
+    // Francesco aparezca antes en el array (el bug original dependía del orden).
+    const rosterWithCollision = [
+      { Jugador: 'Francesco Paradela' },
+      { Jugador: 'Federico Paradela' },
+    ]
+    const achievement: AgencyAchievement = {
+      playerName: 'Federico Paradela',
+      type: 'liga',
+      competition: 'X',
+      club: 'Y',
+      year: 2023,
+    }
+    expect(resolveAchievementNavigationTarget(achievement, rosterWithCollision)).toBe('Federico Paradela')
+  })
+
+  it('sin match exacto, cae a identityKey (short name del sheet reconciliado con el nombre completo del logro)', () => {
+    const achievement: AgencyAchievement = {
+      playerName: 'Mario Sanabria',
+      type: 'liga',
+      competition: 'X',
+      club: 'Y',
+      year: 2023,
+    }
+    expect(resolveAchievementNavigationTarget(achievement, [{ Jugador: 'M. Sanabria' }])).toBe('M. Sanabria')
   })
 })

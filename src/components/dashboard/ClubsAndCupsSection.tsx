@@ -3,11 +3,14 @@ import {
   fetchTeamCompetitions,
   fetchTeamCompetitionFixtures,
   fetchLeagueStandings,
+  toArDateKey,
   type TeamCompetition,
   type StandingRow,
 } from '@/services/footballApiService'
 import type { AgencyFixture } from '@/types/footballApi'
-import { getUniqueTeamIds, getPlayersByTeamId } from '@/constants/agencyPlayers'
+import { getUniqueTeamIds, type AgencyPlayer } from '@/constants/agencyPlayers'
+import { isMatchFinished } from '@/utils/coachCalendar'
+import { useData } from '@/context/DataContext'
 import StandingsTable from '@/components/shared/StandingsTable'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 
@@ -17,14 +20,27 @@ interface TeamOption {
   playerNames: string[]
 }
 
-function buildTeamOptions(): TeamOption[] {
+function buildTeamOptions(agencyPlayers: AgencyPlayer[]): TeamOption[] {
   return getUniqueTeamIds()
     .map(teamId => {
-      const players = getPlayersByTeamId(teamId)
+      // Sólo jugadores no-reserva: el dropdown de equipos ya sale de
+      // getUniqueTeamIds (que también filtra isReserve) — mantener la leyenda
+      // de "quién juega acá" consistente con eso, no getPlayersByTeamId crudo
+      // (que sí incluye reservas, necesarias en otros consumidores como
+      // footballApiService.mapFixture).
+      const players = agencyPlayers.filter(p => p.apiTeamId === teamId && !p.isReserve)
       return { teamId, teamName: players[0]?.team ?? '', playerNames: players.map(p => p.shortName) }
     })
     .filter(t => t.teamName)
     .sort((a, b) => a.teamName.localeCompare(b.teamName))
+}
+
+/** Formatea una fecha de fixture en hora de Argentina (dd/mm/yyyy), evitando
+ *  el corrimiento de un día que da `new Date(isoString).toLocaleDateString()`
+ *  en husos negativos (ver convención en CoachCalendarTab/toArDateKey). */
+function formatFixtureDate(dateStr: string): string {
+  const [y, m, d] = toArDateKey(dateStr).split('-').map(Number)
+  return new Date(y, m - 1, d).toLocaleDateString('es-AR')
 }
 
 function CompetitionStandings({ teamId, leagueId, season }: { teamId: number; leagueId: number; season: number }) {
@@ -86,7 +102,7 @@ function CompetitionFixtures({ teamId, leagueId, season }: { teamId: number; lea
   return (
     <div className="space-y-1">
       {sorted.map(f => {
-        const isFinished = ['FT', 'AET', 'PEN'].includes(f.statusShort)
+        const isFinished = isMatchFinished(f.statusShort)
         const opponent = f.isHome ? f.awayTeam : f.homeTeam
         return (
           <div
@@ -101,7 +117,7 @@ function CompetitionFixtures({ teamId, leagueId, season }: { teamId: number; lea
               <p className="text-xs text-apple-gray-500 truncate">{f.round}</p>
             </div>
             <span className="text-sm font-semibold text-apple-gray-700 dark:text-apple-gray-200 tabular-nums flex-shrink-0">
-              {isFinished ? `${f.goalsHome ?? '-'}-${f.goalsAway ?? '-'}` : new Date(f.date).toLocaleDateString('es-AR')}
+              {isFinished ? `${f.goalsHome ?? '-'}-${f.goalsAway ?? '-'}` : formatFixtureDate(f.date)}
             </span>
           </div>
         )
@@ -111,10 +127,18 @@ function CompetitionFixtures({ teamId, leagueId, season }: { teamId: number; lea
 }
 
 export default function ClubsAndCupsSection() {
-  const options = useMemo(buildTeamOptions, [])
+  const { agencyPlayers } = useData()
+  const options = useMemo(() => buildTeamOptions(agencyPlayers), [agencyPlayers])
   const [selectedTeamId, setSelectedTeamId] = useState<number | null>(options[0]?.teamId ?? null)
   const [competitions, setCompetitions] = useState<TeamCompetition[] | null>(null)
   const [activeCompetitionIdx, setActiveCompetitionIdx] = useState(0)
+
+  // Si `options` cambia (roster recién cargado o refrescado a mitad de sesión)
+  // y la selección actual ya no es válida, recaer en el primer equipo.
+  useEffect(() => {
+    if (selectedTeamId != null && options.some(o => o.teamId === selectedTeamId)) return
+    setSelectedTeamId(options[0]?.teamId ?? null)
+  }, [options, selectedTeamId])
 
   useEffect(() => {
     if (selectedTeamId == null) return
@@ -168,7 +192,12 @@ export default function ClubsAndCupsSection() {
             ))}
           </select>
           {selected && (
-            <span className="text-xs text-apple-gray-500 truncate">{selected.playerNames.join(', ')}</span>
+            <span
+              className="text-xs text-apple-gray-500 truncate"
+              title={selected.playerNames.join(', ')}
+            >
+              {selected.playerNames.join(', ')}
+            </span>
           )}
         </div>
 

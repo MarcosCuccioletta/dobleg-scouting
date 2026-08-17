@@ -130,13 +130,57 @@ describe('mapCompetitionsResponse', () => {
     })
   })
 
-  it('mapea copas vigentes con hasStandings false', () => {
+  it('descarta una temporada current pero vieja (Piala Indonesia, current:true con temporada 2018-2019)', () => {
     const result = mapCompetitionsResponse(competitionsFixture)
-    const piala = result.find(c => c.leagueId === 718)
-    expect(piala).toMatchObject({ leagueName: 'Piala Indonesia', type: 'Cup', hasStandings: false })
+    expect(result.find(c => c.leagueId === 718)).toBeUndefined()
   })
 
-  it('devuelve 3 competencias vigentes para Bhayangkara FC', () => {
-    expect(mapCompetitionsResponse(competitionsFixture)).toHaveLength(3)
+  it('descarta amistosos por nombre o país "World" (Friendlies Clubs, current:true pero no es una competencia real)', () => {
+    const result = mapCompetitionsResponse(competitionsFixture)
+    expect(result.find(c => c.leagueId === 667)).toBeUndefined()
+  })
+
+  it('devuelve sólo Liga 1 vigente para Bhayangkara FC tras descartar temporada stale y amistosos', () => {
+    const result = mapCompetitionsResponse(competitionsFixture)
+    expect(result).toHaveLength(1)
+    expect(result[0].leagueName).toBe('Liga 1')
+  })
+
+  it('mapea una copa vigente (temporada current no vieja) con type Cup y hasStandings false', () => {
+    const raw = {
+      response: [
+        {
+          league: { id: 42, name: 'Copa Vigente', type: 'Cup', logo: '' },
+          country: { name: 'Testland' },
+          seasons: [{ year: 2026, current: true, end: '2099-01-01', coverage: { standings: false } }],
+        },
+      ],
+    }
+    const result = mapCompetitionsResponse(raw)
+    expect(result[0]).toMatchObject({ leagueName: 'Copa Vigente', type: 'Cup', hasStandings: false })
+  })
+
+  it('ordena ligas antes que copas, preservando el orden relativo dentro de cada grupo', () => {
+    const futureEnd = '2099-01-01'
+    const raw = {
+      response: [
+        { league: { id: 1, name: 'Copa A', type: 'Cup', logo: '' }, country: { name: 'Testland' }, seasons: [{ year: 2026, current: true, end: futureEnd, coverage: {} }] },
+        { league: { id: 2, name: 'Liga B', type: 'League', logo: '' }, country: { name: 'Testland' }, seasons: [{ year: 2026, current: true, end: futureEnd, coverage: {} }] },
+        { league: { id: 3, name: 'Copa C', type: 'Cup', logo: '' }, country: { name: 'Testland' }, seasons: [{ year: 2026, current: true, end: futureEnd, coverage: {} }] },
+        { league: { id: 4, name: 'Liga D', type: 'League', logo: '' }, country: { name: 'Testland' }, seasons: [{ year: 2026, current: true, end: futureEnd, coverage: {} }] },
+      ],
+    }
+    const result = mapCompetitionsResponse(raw)
+    expect(result.map(c => c.leagueId)).toEqual([2, 4, 1, 3])
+  })
+
+  it('usa "Cup" como default cuando el tipo de competencia no es "League" ni "Cup"', () => {
+    const raw = {
+      response: [
+        { league: { id: 9, name: 'Torneo Raro', type: 'Weird', logo: '' }, country: { name: 'Testland' }, seasons: [{ year: 2026, current: true, end: '2099-01-01', coverage: {} }] },
+      ],
+    }
+    const result = mapCompetitionsResponse(raw)
+    expect(result[0].type).toBe('Cup')
   })
 })

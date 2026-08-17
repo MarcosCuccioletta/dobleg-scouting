@@ -15,11 +15,11 @@ import {
   ACHIEVEMENT_TYPE_LABEL,
   ACHIEVEMENT_TYPE_ORDER,
   aggregateAchievementsByYear,
+  resolveAchievementNavigationTarget,
   type AchievementType,
-  type AgencyAchievement,
+  type YearlyAchievementCount,
 } from '@/constants/agencyAchievements'
-import { useData, identityKey } from '@/context/DataContext'
-import { normalizeName } from '@/utils/scoring'
+import { useData } from '@/context/DataContext'
 
 const TYPE_LINE_COLOR: Record<AchievementType, string> = {
   liga: '#22C55E', // brand-green
@@ -32,18 +32,33 @@ const TYPE_LINE_COLOR: Record<AchievementType, string> = {
 const TYPE_FILTER_ALL = 'todos' as const
 type TypeFilter = AchievementType | typeof TYPE_FILTER_ALL
 
-function resolveAchievementNavigationTarget(
-  achievement: AgencyAchievement,
-  internal: { Jugador: string }[],
-): string | null {
-  // AgencyAchievement.playerName siempre es el nombre completo, pero el `Jugador`
-  // de una fila interna preexistente puede seguir en formato corto del sheet
-  // ("M. Sanabria"). normalizeName no reconcilia eso — hace falta identityKey
-  // (initial:apellido), igual que mergeAgencyIntoInternal.
-  const exact = normalizeName(achievement.playerName)
-  const key = identityKey(achievement.playerName)
-  const match = internal.find(p => normalizeName(p.Jugador) === exact || identityKey(p.Jugador) === key)
-  return match?.Jugador ?? null
+interface TooltipPayloadItem {
+  name: string
+  value: number
+  color: string
+}
+
+interface CustomTooltipProps {
+  active?: boolean
+  payload?: TooltipPayloadItem[]
+  label?: string | number
+}
+
+function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
+  if (!active || !payload?.length) return null
+
+  return (
+    <div className="bg-white dark:bg-apple-gray-800 rounded-xl shadow-lg border border-apple-gray-200 dark:border-apple-gray-700 p-4">
+      <p className="text-xs text-apple-gray-400 mb-2">{label}</p>
+      {payload.map((entry, i) => (
+        <div key={i} className="flex items-center gap-2 mb-1">
+          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: entry.color }} />
+          <span className="text-xs text-apple-gray-600 dark:text-apple-gray-300">{entry.name}:</span>
+          <span className="text-xs font-bold text-apple-gray-800 dark:text-white">{entry.value}</span>
+        </div>
+      ))}
+    </div>
+  )
 }
 
 export default function AchievementsSection() {
@@ -51,6 +66,16 @@ export default function AchievementsSection() {
   const { internal } = useData()
   const [typeFilter, setTypeFilter] = useState<TypeFilter>(TYPE_FILTER_ALL)
   const [yearFilter, setYearFilter] = useState<number | null>(null)
+  const [hiddenSeries, setHiddenSeries] = useState<Set<string>>(new Set())
+
+  const toggleSeries = (name: string) => {
+    setHiddenSeries(prev => {
+      const next = new Set(prev)
+      if (next.has(name)) next.delete(name)
+      else next.add(name)
+      return next
+    })
+  }
 
   const yearlyCounts = useMemo(() => aggregateAchievementsByYear(AGENCY_ACHIEVEMENTS), [])
 
@@ -94,25 +119,62 @@ export default function AchievementsSection() {
         ) : (
           <>
             {yearlyCounts.length > 1 && (
-              <div className="h-64 mb-6">
+              <div className="h-64 mb-6 bg-apple-gray-50/50 dark:bg-apple-gray-800/30 rounded-xl p-4">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={yearlyCounts}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-apple-gray-200 dark:stroke-apple-gray-700" />
-                    <XAxis dataKey="year" tick={{ fontSize: 12 }} />
-                    <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
-                    <Tooltip />
-                    <Legend />
-                    <Line type="monotone" dataKey="total" name="Total" stroke="#22C55E" strokeWidth={2.5} dot />
+                  <LineChart data={yearlyCounts} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke="currentColor"
+                      className="text-apple-gray-200 dark:text-apple-gray-700"
+                      vertical={false}
+                    />
+                    <XAxis
+                      dataKey="year"
+                      tick={{ fontSize: 11 }}
+                      tickLine={false}
+                      axisLine={false}
+                      className="text-apple-gray-500"
+                    />
+                    <YAxis
+                      allowDecimals={false}
+                      tick={{ fontSize: 11 }}
+                      tickLine={false}
+                      axisLine={false}
+                      className="text-apple-gray-500"
+                    />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Legend
+                      onClick={(entry: { value?: string }) => entry.value && toggleSeries(entry.value)}
+                      wrapperStyle={{ cursor: 'pointer' }}
+                      formatter={(value: string) => (
+                        <span
+                          style={{ opacity: hiddenSeries.has(value) ? 0.4 : 1 }}
+                          className="text-apple-gray-600 dark:text-apple-gray-300"
+                        >
+                          {value}
+                        </span>
+                      )}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="total"
+                      name="Total"
+                      stroke="#22C55E"
+                      strokeWidth={2.5}
+                      dot
+                      hide={hiddenSeries.has('Total')}
+                    />
                     {ACHIEVEMENT_TYPE_ORDER.map(type => (
                       <Line
                         key={type}
                         type="monotone"
-                        dataKey={(row: (typeof yearlyCounts)[number]) => row.byType[type]}
+                        dataKey={(row: YearlyAchievementCount) => row.byType[type]}
                         name={ACHIEVEMENT_TYPE_LABEL[type]}
                         stroke={TYPE_LINE_COLOR[type]}
                         strokeWidth={1.5}
                         strokeDasharray="4 3"
                         dot={false}
+                        hide={hiddenSeries.has(ACHIEVEMENT_TYPE_LABEL[type])}
                       />
                     ))}
                   </LineChart>

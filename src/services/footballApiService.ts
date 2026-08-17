@@ -545,23 +545,62 @@ export interface TeamCompetition {
   country: string
 }
 
+// La API a veces marca `current: true` en una temporada que ya terminó hace
+// mucho (ej. Piala Indonesia con una única temporada 2018-2019, ver fixture
+// bhayangkara-fc-leagues-2026-08-17.json) — sin refrescar ese flag, tomarlo
+// tal cual mostraría "progreso vigente" de un torneo de hace años. Se tolera
+// una ventana de gracia para no descartar una temporada que recién terminó y
+// todavía no fue marcada `current: false` por la API.
+const STALE_SEASON_GRACE_MS = 60 * 24 * 60 * 60 * 1000 // 60 días
+
+function isSeasonStillCurrent(season: any): boolean {
+  const end = season?.end ? new Date(season.end) : null
+  if (!end || Number.isNaN(end.getTime())) return true // sin fecha de fin confiable, no descartar por antigüedad
+  return Date.now() - end.getTime() <= STALE_SEASON_GRACE_MS
+}
+
+// Amistosos (ej. league id 667 "Friendlies Clubs", país "World") vienen con
+// `current: true` y temporada vigente, pero no son una competencia real cuyo
+// progreso tenga sentido trackear como club. Chequeo genérico por nombre/país
+// en vez de hardcodear el id, para no depender de un id específico por equipo.
+function isFriendlyOrGeneric(entry: any): boolean {
+  const name: string = entry?.league?.name ?? ''
+  const country: string = entry?.country?.name ?? ''
+  return /friendlies/i.test(name) || country === 'World'
+}
+
+// El tipo de la API es un string libre; sólo 'League' y 'Cup' están
+// modelados. Ante un valor inesperado, 'Cup' es el default más seguro:
+// una competencia desconocida es más probablemente eliminación directa
+// (donde no ordenarla antes que las ligas importa menos) que un todos-contra-
+// todos con tabla de posiciones, que es lo que 'League' habilita en la UI.
+function normalizeCompetitionType(type: unknown): 'League' | 'Cup' {
+  return type === 'League' ? 'League' : 'Cup'
+}
+
 export function mapCompetitionsResponse(raw: any): TeamCompetition[] {
   const entries: any[] = raw?.response ?? []
   const result: TeamCompetition[] = []
   for (const entry of entries) {
+    if (isFriendlyOrGeneric(entry)) continue
     const season = (entry.seasons ?? []).find((s: any) => s.current)
     if (!season) continue
+    if (!isSeasonStillCurrent(season)) continue
     result.push({
       leagueId: entry.league.id,
       leagueName: entry.league.name,
       leagueLogo: entry.league.logo,
-      type: entry.league.type,
+      type: normalizeCompetitionType(entry.league.type),
       season: season.year,
       hasStandings: !!season.coverage?.standings,
       country: entry.country?.name ?? '',
     })
   }
-  return result
+  // Liga primero, copas después (orden estable dentro de cada grupo).
+  return result.sort((a, b) => {
+    if (a.type === b.type) return 0
+    return a.type === 'League' ? -1 : 1
+  })
 }
 
 const TEAM_COMPETITIONS_CACHE_PREFIX = 'dg-team-competitions-cache'
@@ -575,7 +614,10 @@ export async function fetchTeamCompetitions(teamId: number, forceRefresh = false
   }
   const raw = await apiFetch<any>('/leagues', { team: String(teamId) })
   const competitions = mapCompetitionsResponse(raw)
-  setCacheGeneric(cacheKey, competitions)
+  // No cachear [] por 24h: una falla transitoria de la API (o una respuesta sin
+  // temporada vigente todavía) dejaría "Clubes y Copas" en blanco un día entero
+  // sin forma de reintentar, igual que fetchTeamCompetitionFixtures ya evita.
+  if (competitions.length > 0) setCacheGeneric(cacheKey, competitions)
   return competitions
 }
 

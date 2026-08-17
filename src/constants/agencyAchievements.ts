@@ -1,10 +1,10 @@
 import { normalizeName } from '@/utils/scoring'
-import type { AgencyPlayer } from './agencyPlayers'
+import { identityKey } from '@/context/DataContext'
 
 export type AchievementType = 'liga' | 'copa' | 'copa_liga' | 'continental' | 'otro'
 
 export interface AgencyAchievement {
-  playerName: string // fullName, matcheado contra AgencyPlayer.fullName
+  playerName: string // fullName; resuelto contra `Jugador` de una fila interna vía resolveAchievementNavigationTarget
   type: AchievementType
   competition: string // ej. "Liga Profesional Argentina"
   club: string // club con el que lo ganó
@@ -54,10 +54,27 @@ export function aggregateAchievementsByYear(achievements: AgencyAchievement[]): 
   return result
 }
 
-export function resolveAchievementPlayer(
+/**
+ * Resuelve a qué `Jugador` (fila interna) navegar al tocar un logro.
+ *
+ * Dos pasadas, exacta primero: `AgencyAchievement.playerName` siempre es el
+ * nombre completo, pero el `Jugador` de una fila interna preexistente puede
+ * seguir en formato corto del sheet ("M. Sanabria"). normalizeName no
+ * reconcilia eso — hace falta identityKey (inicial:apellido), igual que
+ * mergeAgencyIntoInternal. Probar primero el match exacto por normalizeName y
+ * sólo caer a identityKey si no hay exacto evita que un `find()` con OR
+ * devuelva la primera coincidencia fuzzy cuando el roster tiene una colisión
+ * de identityKey real (p. ej. "Federico Paradela" y "Francesco Paradela",
+ * ambos con shortName "F. Paradela" → misma clave "f:paradela").
+ */
+export function resolveAchievementNavigationTarget(
   achievement: AgencyAchievement,
-  players: AgencyPlayer[],
-): AgencyPlayer | null {
-  const target = normalizeName(achievement.playerName)
-  return players.find(p => normalizeName(p.fullName) === target) ?? null
+  players: { Jugador: string }[],
+): string | null {
+  const exact = normalizeName(achievement.playerName)
+  const exactMatch = players.find(p => normalizeName(p.Jugador) === exact)
+  if (exactMatch) return exactMatch.Jugador
+
+  const key = identityKey(achievement.playerName)
+  return players.find(p => identityKey(p.Jugador) === key)?.Jugador ?? null
 }
