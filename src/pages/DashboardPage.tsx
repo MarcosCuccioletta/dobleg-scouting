@@ -12,6 +12,7 @@ import { useScoreLookup } from '@/hooks/usePlayerStats'
 import PortfolioValueChart from '@/components/charts/PortfolioValueChart'
 import LeagueAnalysis from '@/components/dashboard/LeagueAnalysis'
 import AgencyTransferHistory from '@/components/dashboard/AgencyTransferHistory'
+import ClubsAndCupsSection from '@/components/dashboard/ClubsAndCupsSection'
 import { useAgencyTransfers } from '@/hooks/usePlayerApiData'
 import type { EnrichedPlayer, MonitoringPlayer } from '@/types'
 
@@ -1033,6 +1034,8 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
+
+      <ClubsAndCupsSection />
     </div>
   )
 }
