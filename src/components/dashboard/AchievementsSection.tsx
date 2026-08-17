@@ -15,10 +15,11 @@ import {
   ACHIEVEMENT_TYPE_LABEL,
   ACHIEVEMENT_TYPE_ORDER,
   aggregateAchievementsByYear,
-  resolveAchievementPlayer,
   type AchievementType,
+  type AgencyAchievement,
 } from '@/constants/agencyAchievements'
-import { getAgencyPlayersList } from '@/constants/agencyPlayers'
+import { useData, identityKey } from '@/context/DataContext'
+import { normalizeName } from '@/utils/scoring'
 
 const TYPE_LINE_COLOR: Record<AchievementType, string> = {
   liga: '#22C55E', // brand-green
@@ -31,12 +32,26 @@ const TYPE_LINE_COLOR: Record<AchievementType, string> = {
 const TYPE_FILTER_ALL = 'todos' as const
 type TypeFilter = AchievementType | typeof TYPE_FILTER_ALL
 
+function resolveAchievementNavigationTarget(
+  achievement: AgencyAchievement,
+  internal: { Jugador: string }[],
+): string | null {
+  // AgencyAchievement.playerName siempre es el nombre completo, pero el `Jugador`
+  // de una fila interna preexistente puede seguir en formato corto del sheet
+  // ("M. Sanabria"). normalizeName no reconcilia eso — hace falta identityKey
+  // (initial:apellido), igual que mergeAgencyIntoInternal.
+  const exact = normalizeName(achievement.playerName)
+  const key = identityKey(achievement.playerName)
+  const match = internal.find(p => normalizeName(p.Jugador) === exact || identityKey(p.Jugador) === key)
+  return match?.Jugador ?? null
+}
+
 export default function AchievementsSection() {
   const navigate = useNavigate()
+  const { internal } = useData()
   const [typeFilter, setTypeFilter] = useState<TypeFilter>(TYPE_FILTER_ALL)
   const [yearFilter, setYearFilter] = useState<number | null>(null)
 
-  const players = useMemo(() => getAgencyPlayersList(), [])
   const yearlyCounts = useMemo(() => aggregateAchievementsByYear(AGENCY_ACHIEVEMENTS), [])
 
   const years = useMemo(
@@ -150,12 +165,15 @@ export default function AchievementsSection() {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {filtered.map((achievement, i) => {
-                  const player = resolveAchievementPlayer(achievement, players)
+                  const navigationJugador = resolveAchievementNavigationTarget(achievement, internal)
                   return (
                     <button
                       key={i}
-                      onClick={() => player && navigate(`/jugador/${encodeURIComponent(player.fullName)}?source=interno`)}
-                      disabled={!player}
+                      onClick={() =>
+                        navigationJugador &&
+                        navigate(`/jugador/${encodeURIComponent(navigationJugador)}?source=interno`)
+                      }
+                      disabled={!navigationJugador}
                       className="flex items-center gap-3 p-4 bg-apple-gray-50 dark:bg-apple-gray-700/50 rounded-xl text-left hover:bg-apple-gray-100 dark:hover:bg-apple-gray-700 transition-colors disabled:hover:bg-apple-gray-50 dark:disabled:hover:bg-apple-gray-700/50"
                     >
                       <img
