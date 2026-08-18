@@ -14,7 +14,7 @@ export default defineConfig({
     },
   },
   test: {
-    environment: 'jsdom',
+    environment: 'node',
     setupFiles: ['./vitest.setup.ts'],
     // Las edge functions también se testean acá: sus tests eran de Deno, que no
     // está instalado, así que en los hechos no corrían nunca.

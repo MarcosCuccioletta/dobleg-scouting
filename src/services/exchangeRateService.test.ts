@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { fetchEurUsdRate, FALLBACK_EUR_USD_RATE } from './exchangeRateService'
 
