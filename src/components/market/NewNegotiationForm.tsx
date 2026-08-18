@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import MobileSheet from '@/components/ui/MobileSheet'
 import TeamSearchSelect from './TeamSearchSelect'
 import AssigneeSelect from './AssigneeSelect'
@@ -21,6 +21,24 @@ export default function NewNegotiationForm({ open, onClose, onCreated }: { open:
   const [error, setError] = useState('')
 
   const canSave = team != null && playerName.trim().length > 0
+
+  // Reiniciar el formulario cada vez que se abre la hoja: MobileSheet no desmonta
+  // sus hijos al cerrar (retorna null visualmente pero mantiene el árbol montado),
+  // así que sin este efecto el estado local sobrevive a un cierre por backdrop
+  // sin guardar y reaparece con datos de un intento abandonado al reabrir.
+  useEffect(() => {
+    if (!open) return
+    setTeam(null)
+    setPlayerName('')
+    setPlayerApiId(null)
+    setContactName('')
+    setContactRole('')
+    setAssigneeId(null)
+    setAssigneeName('')
+    setFollowupDate('')
+    setSaving(false)
+    setError('')
+  }, [open])
 
   const handleSave = async () => {
     if (!team || !playerName.trim()) return
