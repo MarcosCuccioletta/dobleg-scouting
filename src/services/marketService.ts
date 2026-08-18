@@ -106,38 +106,68 @@ export async function linkNegotiationPlayer(id: number, playerApiId: number, pla
   return true
 }
 
-/** Reasigna y deja una nota automática con el historial del cambio. */
-export async function reassignNeed(id: number, newAssigneeId: number, newAssigneeName: string, actingUserName: string): Promise<boolean> {
-  const { data: current } = await supabase.from('market_club_needs').select('assigned_to_name').eq('id', id).single()
+/**
+ * Reasigna y deja una nota automática con el historial del cambio.
+ *
+ * La nota `is_system=true` es la prueba de auditoría del handoff — si falla,
+ * la reasignación completa se considera fallida. Se actualiza el padre
+ * primero para tener el `fromName` fresco en la nota; si la nota luego falla
+ * al insertarse, se revierte la fila del padre a su responsable original
+ * para no dejarla reasignada sin rastro, y se devuelve `false` reportando el
+ * fallo de la operación completa (no queda ambiguo qué escritura falló: se
+ * loguean ambas por separado).
+ */
+export async function reassignNeed(id: number, newAssigneeId: number, newAssigneeName: string, actingUserId: string | null, actingUserName: string): Promise<boolean> {
+  const { data: current } = await supabase.from('market_club_needs').select('assigned_to_id, assigned_to_name').eq('id', id).single()
   const { error } = await supabase
     .from('market_club_needs')
     .update({ assigned_to_id: newAssigneeId, assigned_to_name: newAssigneeName, updated_at: new Date().toISOString() })
     .eq('id', id)
   if (error) { console.error('reassignNeed error:', error); return false }
   const fromName = current?.assigned_to_name ?? 'sin responsable'
-  await supabase.from('market_negotiation_notes').insert({
+  const { error: noteError } = await supabase.from('market_negotiation_notes').insert({
     need_id: id,
     body: `${actingUserName} reasignó de ${fromName} a ${newAssigneeName}.`,
     is_system: true,
+    author_id: actingUserId,
     author_name: actingUserName,
   })
+  if (noteError) {
+    console.error('reassignNeed note error:', noteError)
+    const { error: rollbackError } = await supabase
+      .from('market_club_needs')
+      .update({ assigned_to_id: current?.assigned_to_id ?? null, assigned_to_name: current?.assigned_to_name ?? null, updated_at: new Date().toISOString() })
+      .eq('id', id)
+    if (rollbackError) console.error('reassignNeed rollback error:', rollbackError)
+    return false
+  }
   return true
 }
 
-export async function reassignNegotiation(id: number, newAssigneeId: number, newAssigneeName: string, actingUserName: string): Promise<boolean> {
-  const { data: current } = await supabase.from('market_negotiations').select('assigned_to_name').eq('id', id).single()
+export async function reassignNegotiation(id: number, newAssigneeId: number, newAssigneeName: string, actingUserId: string | null, actingUserName: string): Promise<boolean> {
+  const { data: current } = await supabase.from('market_negotiations').select('assigned_to_id, assigned_to_name').eq('id', id).single()
   const { error } = await supabase
     .from('market_negotiations')
     .update({ assigned_to_id: newAssigneeId, assigned_to_name: newAssigneeName, updated_at: new Date().toISOString() })
     .eq('id', id)
   if (error) { console.error('reassignNegotiation error:', error); return false }
   const fromName = current?.assigned_to_name ?? 'sin responsable'
-  await supabase.from('market_negotiation_notes').insert({
+  const { error: noteError } = await supabase.from('market_negotiation_notes').insert({
     negotiation_id: id,
     body: `${actingUserName} reasignó de ${fromName} a ${newAssigneeName}.`,
     is_system: true,
+    author_id: actingUserId,
     author_name: actingUserName,
   })
+  if (noteError) {
+    console.error('reassignNegotiation note error:', noteError)
+    const { error: rollbackError } = await supabase
+      .from('market_negotiations')
+      .update({ assigned_to_id: current?.assigned_to_id ?? null, assigned_to_name: current?.assigned_to_name ?? null, updated_at: new Date().toISOString() })
+      .eq('id', id)
+    if (rollbackError) console.error('reassignNegotiation rollback error:', rollbackError)
+    return false
+  }
   return true
 }
 
@@ -149,7 +179,15 @@ export async function fetchNotesFor(target: { negotiationId?: number; needId?: n
   return data ?? []
 }
 
-/** Agrega una nota y, si trae fecha de seguimiento, la refleja en el padre (negociación u objetivo) en el mismo paso. */
+/**
+ * Agrega una nota y, si trae fecha de seguimiento, la refleja en el padre
+ * (negociación u objetivo) en el mismo paso. La nota ya quedó guardada en
+ * ese punto — un fallo al sincronizar `next_followup_date` en el padre no
+ * invalida la nota en sí, así que se loguea el error pero igual se devuelve
+ * la nota creada (no `null`) para no ocultar una escritura que sí tuvo
+ * éxito. El caller puede inspeccionar los logs si necesita saber que el
+ * seguimiento no quedó reflejado en el padre.
+ */
 export async function addNoteTo(
   target: { negotiationId?: number; needId?: number },
   body: string,
@@ -175,7 +213,11 @@ export async function addNoteTo(
   if (nextFollowupDate) {
     const table = target.negotiationId != null ? 'market_negotiations' : 'market_club_needs'
     const id = target.negotiationId ?? target.needId!
-    await supabase.from(table).update({ next_followup_date: nextFollowupDate, updated_at: new Date().toISOString() }).eq('id', id)
+    const { error: syncError } = await supabase
+      .from(table)
+      .update({ next_followup_date: nextFollowupDate, updated_at: new Date().toISOString() })
+      .eq('id', id)
+    if (syncError) console.error('addNoteTo followup sync error:', syncError)
   }
 
   return data

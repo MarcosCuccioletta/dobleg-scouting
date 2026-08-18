@@ -6,7 +6,11 @@ function item(over: Partial<AlertableItem> & Pick<AlertableItem, 'id' | 'kind'>)
 }
 
 describe('computeAlerts', () => {
-  const today = new Date('2026-08-18')
+  // Componentes locales (mes 0-indexado), no un string ISO de solo fecha:
+  // `new Date('2026-08-18')` se parsea como medianoche UTC, y los getters
+  // locales que usa `computeAlerts` la desalinean un día en zonas con offset
+  // negativo (ej. Argentina, UTC-3).
+  const today = new Date(2026, 7, 18)
 
   it('marca "vencido" un seguimiento con fecha de hoy o anterior', () => {
     const items = [item({ id: 1, kind: 'negotiation', next_followup_date: '2026-08-18' }), item({ id: 2, kind: 'negotiation', next_followup_date: '2026-08-10' })]

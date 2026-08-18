@@ -24,13 +24,16 @@ function daysBetween(from: Date, to: Date): number {
  * fecha vencida — cerrar una negociación/objetivo apaga su alerta.
  */
 export function computeAlerts(items: AlertableItem[], today: Date): MarketAlert[] {
-  // Se leen los componentes de fecha en UTC (no locales) para que el cálculo
-  // sea determinista sin importar la zona horaria de quien lo ejecuta: igual
-  // que `next_followup_date` (un string plano "YYYY-MM-DD" sin zona horaria),
-  // un `today` construido con `new Date('YYYY-MM-DD')` se parsea como
-  // medianoche UTC — usar getters locales ahí desalinea la fecha en zonas con
-  // offset negativo (ej. Argentina, UTC-3).
-  const todayMidnight = new Date(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate())
+  // Se leen los componentes de fecha LOCALES de `today` (no UTC), igual que
+  // `next_followup_date` se parsea con componentes locales (`new Date(y, m-1,
+  // d)`) más abajo. `today` debe ser un `Date` real (p.ej. `new Date()` en
+  // producción) — usar getters UTC acá rompería la clasificación de alertas
+  // durante ~3hs cada noche en Argentina (UTC-3), donde el calendario UTC ya
+  // está "un día adelante" del calendario local. Si se necesita construir un
+  // `today` de prueba a partir de una fecha fija, usar componentes locales
+  // (`new Date(2026, 7, 18)`) y no un string ISO de solo fecha (`new
+  // Date('2026-08-18')`), que siempre se parsea como medianoche UTC.
+  const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate())
 
   const alerts: MarketAlert[] = []
   for (const item of items) {
