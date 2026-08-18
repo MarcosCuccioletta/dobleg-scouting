@@ -7,6 +7,7 @@ import html2canvas from 'html2canvas'
 import jsPDF from 'jspdf'
 import AddToReportButton from '@/components/pdf/AddToReportButton'
 import ScoutsGGBadge from '@/components/ui/ScoutsGGBadge'
+import { PlayerPhoto } from '@/components/ui/PlayerPhoto'
 import { usePlayersList, useLeagues } from '@/hooks/usePlayerStats'
 import type { PlayerWithScore, Position } from '@/types/scoring'
 import { POSITION_DISPLAY } from '@/types/scoring'
@@ -306,16 +307,13 @@ export default function ScatterChartPage() {
     return (
       <div className={`bg-white dark:bg-apple-gray-800 rounded-2xl shadow-2xl border-2 p-4 max-w-xs ${isSelected ? 'border-blue-500' : 'border-apple-gray-200 dark:border-apple-gray-700'}`}>
         <div className="flex items-center gap-3 mb-3">
-          {d.player.photo ? (
-            <img src={d.player.photo} alt="" className={`w-11 h-11 rounded-full object-cover ring-2 ${isSelected ? 'ring-blue-500' : 'ring-apple-gray-200 dark:ring-apple-gray-600'}`} />
-          ) : (
-            <div
-              className={`w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold text-white ring-2 ${isSelected ? 'ring-blue-500 bg-blue-500' : 'ring-white/30'}`}
-              style={{ backgroundColor: isSelected ? undefined : color }}
-            >
-              {d.player.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
-            </div>
-          )}
+          <PlayerPhoto
+            src={d.player.photo}
+            name={d.player.name}
+            size="md"
+            rounded="full"
+            className={`ring-2 ${isSelected ? 'ring-blue-500' : 'ring-apple-gray-200 dark:ring-apple-gray-600'}`}
+          />
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
               <p className="font-bold text-apple-gray-800 dark:text-white truncate">{d.player.name}</p>

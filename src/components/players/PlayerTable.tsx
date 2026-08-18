@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { EnrichedPlayer, SortState } from '@/types'
 import ContractBadge from '@/components/ui/ContractBadge'
+import { PlayerPhoto } from '@/components/ui/PlayerPhoto'
 import ScoreBar, { type ScoreScale } from '@/components/ui/ScoreBar'
 import EmptyState from '@/components/ui/EmptyState'
 import ScoutsGGBadge from '@/components/ui/ScoutsGGBadge'
@@ -198,18 +199,7 @@ export default function PlayerTable({ players, source, isLoading, selectedMetric
             >
               <div className="flex items-center gap-2.5">
                 {/* Avatar */}
-                {player.Imagen ? (
-                  <img src={player.Imagen} alt={player.Jugador}
-                    className="w-10 h-10 rounded-xl object-cover flex-shrink-0"
-                    onError={(e) => { e.currentTarget.style.display = 'none' }}
-                  />
-                ) : (
-                  <div className="w-10 h-10 bg-apple-gray-100 dark:bg-apple-gray-700 rounded-xl flex items-center justify-center flex-shrink-0">
-                    <span className="text-sm font-semibold text-apple-gray-500">
-                      {player.Jugador.split(' ').map(w => w[0]).slice(0, 2).join('')}
-                    </span>
-                  </div>
-                )}
+                <PlayerPhoto src={player.Imagen} name={player.Jugador} size="md" rounded="xl" />
                 {/* Info */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2">

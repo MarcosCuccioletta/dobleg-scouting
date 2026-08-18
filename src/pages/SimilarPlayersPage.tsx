@@ -6,6 +6,7 @@ import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import EmptyState from '@/components/ui/EmptyState'
 import ScoreBar from '@/components/ui/ScoreBar'
 import CopyChartButton from '@/components/ui/CopyChartButton'
+import { PlayerPhoto } from '@/components/ui/PlayerPhoto'
 import { displayPosition } from '@/types/scoring'
 import type { PlayerWithScore, Position } from '@/types/scoring'
 import { computeSimilarity } from '@/utils/similarity'
@@ -139,13 +140,7 @@ export default function SimilarPlayersPage() {
                   }}
                   className="w-full px-4 py-3 text-left hover:bg-apple-gray-50 dark:hover:bg-apple-gray-700 transition-colors flex items-center gap-3"
                 >
-                  {p.photo ? (
-                    <img src={p.photo} alt="" className="w-8 h-8 rounded-full object-cover" />
-                  ) : (
-                    <div className="w-8 h-8 rounded-full bg-apple-gray-200 dark:bg-apple-gray-600 flex items-center justify-center text-xs font-medium text-apple-gray-600 dark:text-apple-gray-300">
-                      {p.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
-                    </div>
-                  )}
+                  <PlayerPhoto src={p.photo} name={p.name} size="sm" rounded="full" />
                   <div className="flex-1 min-w-0">
                     <div className="font-medium text-apple-gray-800 dark:text-white truncate">{p.name}</div>
                     <div className="text-xs text-apple-gray-500 dark:text-apple-gray-400 truncate">
@@ -173,13 +168,7 @@ export default function SimilarPlayersPage() {
       {selectedPlayer && (
         <div className="card-apple p-6 mb-6">
           <div className="flex items-center gap-3 sm:gap-4">
-            {selectedPlayer.photo ? (
-              <img src={selectedPlayer.photo} alt="" className="w-12 h-12 sm:w-16 sm:h-16 rounded-full object-cover" />
-            ) : (
-              <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-brand-green/20 flex items-center justify-center text-xl font-semibold text-brand-green">
-                {selectedPlayer.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
-              </div>
-            )}
+            <PlayerPhoto src={selectedPlayer.photo} name={selectedPlayer.name} size="md" rounded="full" />
             <div className="flex-1">
               <h2 className="text-xl font-bold text-apple-gray-800 dark:text-white">{selectedPlayer.name}</h2>
               <p className="text-sm text-apple-gray-500 dark:text-apple-gray-400">
@@ -245,13 +234,7 @@ export default function SimilarPlayersPage() {
                     </div>
 
                     {/* Player image */}
-                    {player.photo ? (
-                      <img src={player.photo} alt="" className="w-10 h-10 rounded-full object-cover" />
-                    ) : (
-                      <div className="w-10 h-10 rounded-full bg-apple-gray-200 dark:bg-apple-gray-600 flex items-center justify-center text-xs font-medium text-apple-gray-600 dark:text-apple-gray-300">
-                        {player.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
-                      </div>
-                    )}
+                    <PlayerPhoto src={player.photo} name={player.name} size="md" rounded="full" />
 
                     {/* Player info */}
                     <div className="flex-1 min-w-0">

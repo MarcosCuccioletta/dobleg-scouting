@@ -6,6 +6,7 @@ import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, LabelList,
 } from 'recharts'
 import { fuzzyMatch } from '@/lib/search'
+import { PlayerPhoto } from '@/components/ui/PlayerPhoto'
 import { usePlayersList, usePositionMetricAverages } from '@/hooks/usePlayerStats'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import type { PlayerWithScore, Position, PositionMetricAverages } from '@/types/scoring'
@@ -829,14 +830,7 @@ export default function BusquedaPage() {
             <div ref={dropdownRef} className="absolute z-50 left-0 right-0 top-full mt-1 bg-white dark:bg-apple-gray-800 border border-apple-gray-200 dark:border-apple-gray-700 rounded-xl shadow-xl overflow-hidden max-h-72 overflow-y-auto">
               {filteredCandidates.map((c, i) => (
                 <button key={i} onMouseDown={() => selectCandidate(c)} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-apple-gray-50 dark:hover:bg-apple-gray-700/60 transition-colors text-left border-b border-apple-gray-100 dark:border-apple-gray-700/50 last:border-0">
-                  <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 bg-apple-gray-100 dark:bg-apple-gray-700">
-                    {c.player.photo
-                      ? <img src={c.player.photo} alt={c.name} className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
-                      : <div className="w-full h-full flex items-center justify-center">
-                          <span className="text-xs font-semibold text-apple-gray-600 dark:text-apple-gray-300">{getInitials(c.name)}</span>
-                        </div>
-                    }
-                  </div>
+                  <PlayerPhoto src={c.player.photo} name={c.name} size="sm" rounded="full" />
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-apple-gray-900 dark:text-white truncate">{c.name}</p>
                     <p className="text-xs text-apple-gray-500 dark:text-apple-gray-400 truncate">{c.club} · {c.position}</p>
@@ -861,15 +855,7 @@ export default function BusquedaPage() {
             {/* Player header */}
             <div className="bg-white dark:bg-apple-gray-800 rounded-2xl border border-apple-gray-200 dark:border-apple-gray-700 p-6 shadow-sm">
               <div className="flex items-start gap-4">
-                <div className="w-16 h-16 rounded-2xl overflow-hidden flex-shrink-0 bg-apple-gray-100 dark:bg-apple-gray-700">
-                  {selectedPlayer.photo ? (
-                    <img src={selectedPlayer.photo} alt={selectedPlayer.name} className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <span className="text-xl font-bold text-apple-gray-500 dark:text-apple-gray-300">{getInitials(selectedPlayer.name)}</span>
-                    </div>
-                  )}
-                </div>
+                <PlayerPhoto src={selectedPlayer.photo} name={selectedPlayer.name} size="lg" rounded="2xl" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <button onClick={() => navigate(`/jugador/${encodeURIComponent(selectedPlayer.name)}?source=externo&apiId=${selectedPlayer.id}`)} className="text-xl font-semibold text-apple-gray-900 dark:text-white hover:text-brand-green transition-colors">

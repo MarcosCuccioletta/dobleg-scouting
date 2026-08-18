@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useData } from '@/context/DataContext'
 import { useLanguage } from '@/context/LanguageContext'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
+import { PlayerPhoto } from '@/components/ui/PlayerPhoto'
 import Section from '@/components/dashboard/Section'
 import { getRelativeScoreColorClass, getRelativeScoreBgClass } from '@/components/ui/ScoreBar'
 import type { ScoreScale } from '@/components/ui/ScoreBar'
@@ -77,13 +78,7 @@ function PlayerRow({ player, metric, metricValue, onClick, posAvg, score, scale 
       onClick={onClick}
       className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-apple-gray-50 dark:hover:bg-apple-gray-700/50 transition-colors text-left"
     >
-      {player.Imagen ? (
-        <img src={player.Imagen} alt="" className="w-10 h-10 rounded-full object-cover" />
-      ) : (
-        <div className="w-10 h-10 rounded-full bg-apple-gray-200 dark:bg-apple-gray-700 flex items-center justify-center text-sm font-bold text-apple-gray-500">
-          {player.Jugador.split(' ').map(n => n[0]).join('').slice(0, 2)}
-        </div>
-      )}
+      <PlayerPhoto src={player.Imagen} name={player.Jugador} size="md" rounded="full" />
       <div className="flex-1 min-w-0">
         <p className="font-medium text-apple-gray-800 dark:text-white text-sm truncate">{player.Jugador}</p>
         <p className="text-xs text-apple-gray-500 truncate">{player.Equipo} · {player.ageNum} años</p>
@@ -891,13 +886,7 @@ export default function DashboardPage() {
                   onClick={() => navigateToPlayer(p)}
                   className="flex items-center gap-3 p-4 bg-apple-gray-50 dark:bg-apple-gray-700/50 rounded-xl hover:bg-apple-gray-100 dark:hover:bg-apple-gray-700 transition-colors text-left"
                 >
-                  {p.Imagen ? (
-                    <img src={p.Imagen} alt="" className="w-12 h-12 rounded-full object-cover" />
-                  ) : (
-                    <div className="w-12 h-12 rounded-full bg-apple-gray-200 dark:bg-apple-gray-600 flex items-center justify-center text-sm font-bold text-apple-gray-500">
-                      {p.Jugador.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                    </div>
-                  )}
+                  <PlayerPhoto src={p.Imagen} name={p.Jugador} size="md" rounded="full" />
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-apple-gray-800 dark:text-white text-sm truncate">{p.Jugador}</p>
                     <p className="text-xs text-apple-gray-500 truncate">{p.Equipo} · {p.ageNum} años</p>

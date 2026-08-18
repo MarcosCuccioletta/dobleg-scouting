@@ -5,6 +5,7 @@ import { POSITION_MAP, FILTER_POSITION_MAP } from '@/constants/scoring'
 import { getRelativeScoreColorClass, getRelativeScoreBgClass } from '@/components/ui/ScoreBar'
 import { useScoreLookup } from '@/hooks/usePlayerStats'
 import { normalizeName } from '@/utils/scoring'
+import { PlayerPhoto } from '@/components/ui/PlayerPhoto'
 import type { EnrichedPlayer } from '@/types'
 
 interface Message {
@@ -636,13 +637,7 @@ export default function AIAnalystChat() {
                                 <div className="flex items-center justify-center w-5 h-5 rounded-full bg-apple-gray-200 dark:bg-apple-gray-600 text-apple-gray-500 dark:text-apple-gray-400 text-2xs font-bold">
                                   {i + 1}
                                 </div>
-                                {p.Imagen ? (
-                                  <img src={p.Imagen} alt="" className="w-8 h-8 rounded-full object-cover" />
-                                ) : (
-                                  <div className="w-8 h-8 rounded-full bg-apple-gray-200 dark:bg-apple-gray-600 flex items-center justify-center text-xs font-bold text-apple-gray-600 dark:text-apple-gray-300">
-                                    {p.Jugador.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                                  </div>
-                                )}
+                                <PlayerPhoto src={p.Imagen} name={p.Jugador} size="sm" rounded="full" />
                                 <div className="flex-1 min-w-0">
                                   <p className="font-medium text-xs truncate text-apple-gray-800 dark:text-white">{p.Jugador}</p>
                                   <p className="text-2xs text-apple-gray-500 dark:text-apple-gray-400 truncate">{p.Equipo} · {p.ageNum} años</p>

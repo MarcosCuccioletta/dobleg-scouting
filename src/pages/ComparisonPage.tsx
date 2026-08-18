@@ -14,6 +14,7 @@ import {
 } from '@/constants/apiMetrics'
 import { getScoreColorClass } from '@/components/ui/ScoreBar'
 import AddToReportButton from '@/components/pdf/AddToReportButton'
+import { PlayerPhoto } from '@/components/ui/PlayerPhoto'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -84,16 +85,7 @@ function PlayerSearch({ selected, onSelect, color, label }: PlayerSearchProps) {
           style={{ borderColor: color + '60' }}
         >
           <div className="flex items-center gap-3">
-            {selected.photo ? (
-              <img src={selected.photo} alt="" className="w-10 h-10 rounded-lg object-cover" />
-            ) : (
-              <div
-                className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold text-sm"
-                style={{ backgroundColor: color }}
-              >
-                {initials(selected.name)}
-              </div>
-            )}
+            <PlayerPhoto src={selected.photo} name={selected.name} size="md" rounded="lg" />
             <div>
               <p className="font-semibold text-apple-gray-800 dark:text-white text-sm">{selected.name}</p>
               <p className="text-xs text-apple-gray-500 dark:text-apple-gray-400">
@@ -135,13 +127,7 @@ function PlayerSearch({ selected, onSelect, color, label }: PlayerSearchProps) {
                   onMouseDown={() => handleSelect(p)}
                   className="w-full px-4 py-3 text-left hover:bg-apple-gray-50 dark:hover:bg-apple-gray-700 transition-colors flex items-center gap-3"
                 >
-                  {p.photo ? (
-                    <img src={p.photo} alt="" className="w-8 h-8 rounded-full object-cover" />
-                  ) : (
-                    <div className="w-8 h-8 rounded-full bg-apple-gray-200 dark:bg-apple-gray-600 flex items-center justify-center text-xs font-medium text-apple-gray-600 dark:text-apple-gray-300">
-                      {initials(p.name)}
-                    </div>
-                  )}
+                  <PlayerPhoto src={p.photo} name={p.name} size="sm" rounded="full" />
                   <div className="flex-1 min-w-0">
                     <span className="font-medium text-apple-gray-800 dark:text-white text-sm truncate block">{p.name}</span>
                     <span className="text-xs text-apple-gray-500 dark:text-apple-gray-400 truncate block">
@@ -364,16 +350,7 @@ function ComparisonContent({ players }: { players: PlayerWithScore[] }) {
             style={{ borderLeftColor: PLAYER_COLORS[i] }}
           >
             <div className="flex items-center gap-3">
-              {player.photo ? (
-                <img src={player.photo} alt="" className="w-12 h-12 rounded-xl object-cover" />
-              ) : (
-                <div
-                  className="w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold"
-                  style={{ backgroundColor: PLAYER_COLORS[i] }}
-                >
-                  {player.name.split(' ').filter(Boolean).slice(0, 2).map(w => w[0]).join('')}
-                </div>
-              )}
+              <PlayerPhoto src={player.photo} name={player.name} size="md" rounded="xl" />
               <div className="flex-1 min-w-0">
                 <h3 className="font-bold text-apple-gray-800 dark:text-white text-sm truncate">{player.name}</h3>
                 <p className="text-xs text-apple-gray-500 dark:text-apple-gray-400 truncate">

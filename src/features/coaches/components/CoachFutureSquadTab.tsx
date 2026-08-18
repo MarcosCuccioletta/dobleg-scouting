@@ -15,6 +15,7 @@ import { fetchCandidateVisuals, type CandidateVisuals } from '@/services/coachSe
 import type { PlayerWithScore } from '@/types/scoring'
 import type { AgencyCoach } from '@/constants/agencyCoaches'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
+import { PlayerPhoto } from '@/components/ui/PlayerPhoto'
 import { isMatchFinished } from '@/utils/coachCalendar'
 
 function uid(): string {
@@ -80,13 +81,7 @@ function DraggableSquadRow({
           : 'border-transparent hover:bg-apple-gray-50 dark:hover:bg-apple-gray-800/60'
       }`}
     >
-      <div className="w-8 h-8 rounded-full flex-shrink-0 overflow-hidden bg-apple-gray-100 dark:bg-apple-gray-700 flex items-center justify-center">
-        {player.photo ? (
-          <img src={player.photo} alt="" className="w-full h-full object-cover" draggable={false} />
-        ) : (
-          <span className="text-2xs font-bold text-apple-gray-500">{initialsOf(player.name)}</span>
-        )}
-      </div>
+      <PlayerPhoto src={player.photo} name={player.name} size="sm" rounded="full" />
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-apple-gray-800 dark:text-white truncate">{player.name}</p>
         <p className="text-2xs text-apple-gray-400">
