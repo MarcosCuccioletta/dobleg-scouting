@@ -715,12 +715,11 @@ export default function MonitoringPage() {
         <LinkPlayerModal
           player={linkingPlayer}
           onClose={() => setLinkingPlayer(null)}
-          onLinked={updated => {
-            setPlayers(prev => prev.map(p =>
-              p.id === updated.id
-                ? { ...p, player_db_id: updated.player_db_id, player_db_source: updated.player_db_source }
-                : p
-            ))
+          onLinked={() => {
+            // Recarga desde el server: cuando se linkea supabase_player_id,
+            // fetchScoutPlayersWithScores recién ahí resuelve el Score GG/foto/equipo
+            // reales — un patch local los dejaría vacíos.
+            loadData()
           }}
         />
       )}
@@ -730,12 +729,8 @@ export default function MonitoringPage() {
         <FichaManualModal
           player={fichaPlayer}
           onClose={() => setFichaPlayer(null)}
-          onLinked={updated => {
-            setPlayers(prev => prev.map(p =>
-              p.id === updated.id
-                ? { ...p, player_db_id: updated.player_db_id, player_db_source: updated.player_db_source }
-                : p
-            ))
+          onLinked={() => {
+            loadData()
             setFichaPlayer(null)
           }}
         />

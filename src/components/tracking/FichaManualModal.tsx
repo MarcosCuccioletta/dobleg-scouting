@@ -34,7 +34,7 @@ function ScoreDot({ score }: { score: number | null }) {
 interface Props {
   player: ScoutPlayer
   onClose: () => void
-  onLinked?: (updated: Pick<ScoutPlayer, 'id' | 'player_db_id' | 'player_db_source'>) => void
+  onLinked?: (updated: Pick<ScoutPlayer, 'id' | 'player_db_id' | 'player_db_source' | 'supabase_player_id'>) => void
 }
 
 export default function FichaManualModal({ player, onClose, onLinked }: Props) {

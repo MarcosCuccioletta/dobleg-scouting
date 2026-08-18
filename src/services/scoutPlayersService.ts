@@ -315,15 +315,24 @@ export async function fetchScoutScores(
   return avgResult
 }
 
-// Link (or unlink) a scout player to a DB player
+// Link (or unlink) a scout player to a DB player.
+// supabasePlayerId links to the live Supabase `players.id` (API-Football/Sofascore) —
+// when set, fetchScoutPlayersWithScores resolves the real Score GG/photo/team from it
+// instead of leaving those columns empty.
 export async function linkScoutPlayerToDb(
   id: string,
   playerDbId: string | null,
-  playerDbSource: 'interno' | 'externo' | null
+  playerDbSource: 'interno' | 'externo' | null,
+  supabasePlayerId?: number | null
 ): Promise<boolean> {
   const { error } = await supabase
     .from('scout_players')
-    .update({ player_db_id: playerDbId, player_db_source: playerDbSource, updated_at: new Date().toISOString() })
+    .update({
+      player_db_id: playerDbId,
+      player_db_source: playerDbSource,
+      supabase_player_id: supabasePlayerId ?? null,
+      updated_at: new Date().toISOString(),
+    })
     .eq('id', id)
 
   if (error) { console.error('Error linking scout player:', error); return false }

@@ -1,62 +1,123 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useData } from '@/context/DataContext'
 import { linkScoutPlayerToDb } from '@/services/scoutPlayersService'
+import { fetchPlayersList } from '@/services/playerStatsService'
 import { fuzzyMatch } from '@/lib/search'
 import type { ScoutPlayer } from '@/types'
 
 interface Props {
   player: ScoutPlayer
   onClose: () => void
-  onLinked: (updated: Pick<ScoutPlayer, 'id' | 'player_db_id' | 'player_db_source'>) => void
+  onLinked: (updated: Pick<ScoutPlayer, 'id' | 'player_db_id' | 'player_db_source' | 'supabase_player_id'>) => void
+}
+
+interface ResultItem {
+  source: 'externo' | 'interno'
+  jugador: string
+  equipo: string | null
+  liga: string | null
+  posicion: string | null
+  edad: number | null
+  ggScore: number | null
+  supabasePlayerId: number | null
+}
+
+function getAge(birthDate: string | null): number | null {
+  if (!birthDate) return null
+  const diff = Date.now() - new Date(birthDate).getTime()
+  return Math.floor(diff / (365.25 * 24 * 60 * 60 * 1000))
 }
 
 export default function LinkPlayerModal({ player, onClose, onLinked }: Props) {
-  const { external, internal } = useData()
+  const { internal } = useData()
   const [query, setQuery] = useState('')
+  const [debouncedQuery, setDebouncedQuery] = useState('')
   const [sourceFilter, setSourceFilter] = useState<'todos' | 'externo' | 'interno'>('todos')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [externoResults, setExternoResults] = useState<ResultItem[]>([])
+  const [externoLoading, setExternoLoading] = useState(false)
 
-  const results = useMemo(() => {
-    const q = query.trim()
-    if (!q) return []
+  // Debounce: evita golpear la API en cada tecla mientras el usuario escribe.
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(query.trim()), 300)
+    return () => clearTimeout(t)
+  }, [query])
 
-    const candidates = [
-      ...(sourceFilter !== 'interno' ? external.map(p => ({ ...p, source: 'externo' as const })) : []),
-      ...(sourceFilter !== 'externo' ? internal.map(p => ({ ...p, source: 'interno' as const })) : []),
-    ]
+  // Búsqueda "externo" en vivo contra Supabase (API-Football/Sofascore) — el CSV
+  // legacy de Google Sheets no tiene a todos los jugadores (recién debutados,
+  // ligas no cubiertas por la planilla, etc.), por eso una búsqueda que sólo
+  // mirara el CSV no encontraba jugadores reales que sí están en la base.
+  useEffect(() => {
+    if (!debouncedQuery || sourceFilter === 'interno') { setExternoResults([]); return }
+    let cancelled = false
+    setExternoLoading(true)
+    fetchPlayersList({ search: debouncedQuery, pageSize: 30 })
+      .then(({ players }) => {
+        if (cancelled) return
+        setExternoResults(players.map(p => ({
+          source: 'externo' as const,
+          jugador: p.name,
+          equipo: p.team?.name ?? null,
+          liga: p.league?.name ?? null,
+          posicion: p.primary_position,
+          edad: getAge(p.birth_date),
+          ggScore: p.primary_score,
+          supabasePlayerId: p.id,
+        })))
+      })
+      .catch(() => { if (!cancelled) setExternoResults([]) })
+      .finally(() => { if (!cancelled) setExternoLoading(false) })
+    return () => { cancelled = true }
+  }, [debouncedQuery, sourceFilter])
 
-    return candidates
-      .filter(p =>
-        fuzzyMatch(q, p.Jugador) ||
-        fuzzyMatch(q, p.Equipo || '')
-      )
+  const internoResults = useMemo<ResultItem[]>(() => {
+    if (!debouncedQuery || sourceFilter === 'externo') return []
+    return internal
+      .filter(p => fuzzyMatch(debouncedQuery, p.Jugador) || fuzzyMatch(debouncedQuery, p.Equipo || ''))
       .slice(0, 30)
-  }, [query, sourceFilter, external, internal])
+      .map(p => ({
+        source: 'interno' as const,
+        jugador: p.Jugador,
+        equipo: p.Equipo || null,
+        liga: p.Liga || null,
+        posicion: p['Posición'] || null,
+        edad: p.Edad ? Number(p.Edad) || null : null,
+        ggScore: p.ggScore ?? null,
+        supabasePlayerId: null,
+      }))
+  }, [debouncedQuery, sourceFilter, internal])
 
-  const handleLink = async (jugador: string, source: 'externo' | 'interno') => {
+  const results = useMemo<ResultItem[]>(() => {
+    if (!debouncedQuery) return []
+    return [...externoResults, ...internoResults]
+  }, [debouncedQuery, externoResults, internoResults])
+
+  const loading = externoLoading && sourceFilter !== 'interno'
+
+  const handleLink = async (r: ResultItem) => {
     setSaving(true)
     setError(null)
-    const ok = await linkScoutPlayerToDb(player.id, jugador, source)
+    const ok = await linkScoutPlayerToDb(player.id, r.jugador, r.source, r.supabasePlayerId)
     setSaving(false)
     if (!ok) {
       setError('Error al guardar el vínculo. Intentá de nuevo.')
       return
     }
-    onLinked({ id: player.id, player_db_id: jugador, player_db_source: source })
+    onLinked({ id: player.id, player_db_id: r.jugador, player_db_source: r.source, supabase_player_id: r.supabasePlayerId })
     onClose()
   }
 
   const handleUnlink = async () => {
     setSaving(true)
     setError(null)
-    const ok = await linkScoutPlayerToDb(player.id, null, null)
+    const ok = await linkScoutPlayerToDb(player.id, null, null, null)
     setSaving(false)
     if (!ok) {
       setError('Error al desvincular. Intentá de nuevo.')
       return
     }
-    onLinked({ id: player.id, player_db_id: null, player_db_source: null })
+    onLinked({ id: player.id, player_db_id: null, player_db_source: null, supabase_player_id: null })
     onClose()
   }
 
@@ -129,6 +190,10 @@ export default function LinkPlayerModal({ player, onClose, onLinked }: Props) {
             <p className="text-sm text-apple-gray-400 text-center py-8">
               Escribí el nombre o equipo del jugador
             </p>
+          ) : loading && results.length === 0 ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="w-5 h-5 border-2 border-brand-green border-t-transparent rounded-full animate-spin" />
+            </div>
           ) : results.length === 0 ? (
             <p className="text-sm text-apple-gray-400 text-center py-8">
               Sin resultados para "{query}"
@@ -137,17 +202,17 @@ export default function LinkPlayerModal({ player, onClose, onLinked }: Props) {
             <div className="space-y-1">
               {results.map((p, i) => (
                 <button
-                  key={`${p.source}-${p.Jugador}-${i}`}
-                  onClick={() => !saving && handleLink(p.Jugador, p.source)}
+                  key={`${p.source}-${p.supabasePlayerId ?? p.jugador}-${i}`}
+                  onClick={() => !saving && handleLink(p)}
                   disabled={saving}
                   className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-brand-green/5 dark:hover:bg-brand-green/10 transition-colors text-left group"
                 >
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-apple-gray-900 dark:text-white truncate group-hover:text-brand-green transition-colors">
-                      {p.Jugador}
+                      {p.jugador}
                     </p>
                     <p className="text-xs text-apple-gray-500 truncate">
-                      {[p.Equipo, p.Liga, p['Posición'], p.Edad ? `${p.Edad}a` : null].filter(Boolean).join(' · ')}
+                      {[p.equipo, p.liga, p.posicion, p.edad ? `${p.edad}a` : null].filter(Boolean).join(' · ')}
                     </p>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0 ml-3">
