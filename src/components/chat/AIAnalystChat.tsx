@@ -4,7 +4,8 @@ import { useData } from '@/context/DataContext'
 import { POSITION_MAP, FILTER_POSITION_MAP } from '@/constants/scoring'
 import { getRelativeScoreColorClass, getRelativeScoreBgClass } from '@/components/ui/ScoreBar'
 import { useScoreLookup } from '@/hooks/usePlayerStats'
-import { normalizeName } from '@/utils/scoring'
+import { normalizeName, formatMarketValueInCurrency } from '@/utils/scoring'
+import { useCurrency } from '@/context/CurrencyContext'
 import type { EnrichedPlayer } from '@/types'
 
 interface Message {
@@ -435,6 +436,7 @@ export default function AIAnalystChat() {
   const navigate = useNavigate()
   const { external, internal, positionAverages } = useData()
   const { lookup: scoreLookup } = useScoreLookup()
+  const { currency, rate } = useCurrency()
   const allPlayers = useMemo(() => [...external, ...internal], [external, internal])
 
   function getSupabaseScore(player: EnrichedPlayer): number | null {
@@ -652,7 +654,7 @@ export default function AIAnalystChat() {
                                     {displayScore?.toFixed(1) ?? '—'}
                                     {isElite && <span className="ml-0.5 text-2xs">★</span>}
                                   </span>
-                                  <p className="text-2xs text-apple-gray-500 dark:text-apple-gray-400">{p.marketValueFormatted}</p>
+                                  <p className="text-2xs text-apple-gray-500 dark:text-apple-gray-400">{formatMarketValueInCurrency(p.marketValueRaw, currency, rate)}</p>
                                 </div>
                               </button>
                             )
