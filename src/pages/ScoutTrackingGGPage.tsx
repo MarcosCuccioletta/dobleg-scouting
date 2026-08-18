@@ -17,28 +17,29 @@ import LinkPlayerModal from '@/components/tracking/LinkPlayerModal'
 import FichaManualModal from '@/components/tracking/FichaManualModal'
 import type { ScoutPlayer, ScoutPlayerStatusRecord, TrackingStatus, EnrichedPlayer } from '@/types'
 import { fuzzyMatch } from '@/lib/search'
+import { useLanguage } from '@/context/LanguageContext'
 
 const ADMIN_EMAIL = 'marcoscucho99@gmail.com'
 
 // ─── STATUS CONFIG ────────────────────────────────────────────────────────────
 
-const TRACKING_STATUS_CONFIG: Record<TrackingStatus, { label: string; color: string; bg: string; dot: string }> = {
-  en_seguimiento: { label: 'En Seguimiento', color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-500/10 border-blue-500/20', dot: 'bg-blue-500' },
-  contactado:     { label: 'Contactado',     color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-500/10 border-amber-500/20', dot: 'bg-amber-500' },
-  en_negociacion: { label: 'En Negociación', color: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-500/10 border-purple-500/20', dot: 'bg-purple-500' },
-  descartado:     { label: 'Descartado',     color: 'text-apple-gray-500', bg: 'bg-apple-gray-200/50 dark:bg-apple-gray-700/50 border-apple-gray-300/30 dark:border-apple-gray-600/30', dot: 'bg-apple-gray-400' },
+const TRACKING_STATUS_CONFIG: Record<TrackingStatus, { labelKey: string; color: string; bg: string; dot: string }> = {
+  en_seguimiento: { labelKey: 'seguimiento.estadoEnSeguimiento', color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-500/10 border-blue-500/20', dot: 'bg-blue-500' },
+  contactado:     { labelKey: 'seguimiento.estadoContactado',     color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-500/10 border-amber-500/20', dot: 'bg-amber-500' },
+  en_negociacion: { labelKey: 'seguimiento.estadoEnNegociacion', color: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-500/10 border-purple-500/20', dot: 'bg-purple-500' },
+  descartado:     { labelKey: 'seguimiento.estadoDescartado',     color: 'text-apple-gray-500', bg: 'bg-apple-gray-200/50 dark:bg-apple-gray-700/50 border-apple-gray-300/30 dark:border-apple-gray-600/30', dot: 'bg-apple-gray-400' },
 }
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 
-function timeAgo(date: string) {
+function timeAgo(date: string, t: (key: string) => string) {
   const diff = Date.now() - new Date(date).getTime()
   const days = Math.floor(diff / 86400000)
-  if (days === 0) return 'hoy'
-  if (days === 1) return 'ayer'
-  if (days < 30) return `hace ${days}d`
-  if (days < 365) return `hace ${Math.floor(days / 30)}m`
-  return `hace ${Math.floor(days / 365)}a`
+  if (days === 0) return t('seguimiento.hoy')
+  if (days === 1) return t('seguimiento.ayer')
+  if (days < 30) return t('seguimiento.haceDias').replace('{n}', String(days))
+  if (days < 365) return t('seguimiento.haceMeses').replace('{n}', String(Math.floor(days / 30)))
+  return t('seguimiento.haceAnios').replace('{n}', String(Math.floor(days / 365)))
 }
 
 // ─── STATUS BADGE (dropdown) ──────────────────────────────────────────────────
@@ -56,6 +57,7 @@ function StatusDropdown({
   onStatusChange: (id: string, status: TrackingStatus) => Promise<void>
   requiresAuth: boolean
 }) {
+  const { t } = useLanguage()
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [dropdownStyle, setDropdownStyle] = useState<{ top: number; left: number }>({ top: 0, left: 0 })
@@ -94,14 +96,14 @@ function StatusDropdown({
         className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all hover:opacity-80 disabled:opacity-50 ${cfg.bg} ${cfg.color}`}
       >
         <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
-        {cfg.label}
+        {t(cfg.labelKey)}
         <svg className={`w-3 h-3 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
         </svg>
       </button>
 
       {currentRecord?.changed_by_name && currentStatus !== 'en_seguimiento' && (
-        <p className="text-2xs text-apple-gray-400 mt-0.5">por {currentRecord.changed_by_name}</p>
+        <p className="text-2xs text-apple-gray-400 mt-0.5">{t('seguimiento.por')} {currentRecord.changed_by_name}</p>
       )}
 
       {open && (
@@ -118,7 +120,7 @@ function StatusDropdown({
                 className={`w-full px-4 py-2.5 text-left text-xs font-medium hover:bg-apple-gray-50 dark:hover:bg-apple-gray-700 transition-colors flex items-center gap-2 ${c.color} ${key === currentStatus ? 'bg-apple-gray-50 dark:bg-apple-gray-700 font-semibold' : ''}`}
               >
                 <span className={`w-2 h-2 rounded-full flex-shrink-0 ${c.dot}`} />
-                {c.label}
+                {t(c.labelKey)}
                 {key === currentStatus && (
                   <svg className="w-3.5 h-3.5 ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
@@ -139,6 +141,7 @@ export default function ScoutTrackingGGPage() {
   const { user, userDisplayName } = useAuth()
   const { external, internal } = useData()
   const navigate = useNavigate()
+  const { t } = useLanguage()
 
   // Build a map: player_db_id (Jugador) → full EnrichedPlayer, for real data when linked
   const dbPlayerMap = useMemo(() => {
@@ -209,10 +212,10 @@ export default function ScoutTrackingGGPage() {
   }, [user, userDisplayName])
 
   const handleDelete = useCallback(async (id: string) => {
-    if (!confirm('¿Querés quitar este jugador de la lista Scouts GG?')) return
+    if (!confirm(t('seguimiento.confirmarQuitar'))) return
     await removeScoutPlayerFromList(id, 'scouts_gg')
     setPlayers(prev => prev.filter(p => p.id !== id))
-  }, [])
+  }, [t])
 
   const handleFileUpload = useCallback(async (id: string, file: File) => {
     if (!user) return
@@ -284,11 +287,11 @@ export default function ScoutTrackingGGPage() {
               </svg>
             </div>
             <h1 className="text-2xl font-bold text-apple-gray-900 dark:text-white tracking-tight">
-              Seguimiento Scouts GG
+              {t('seguimiento.title')}
             </h1>
           </div>
           <p className="text-sm text-apple-gray-500 dark:text-apple-gray-400">
-            Lista de seguimiento del cuerpo de scouts · {filtered.length} de {players.length} jugadores
+            {t('seguimiento.subtitulo')} · {filtered.length} {t('seguimiento.de')} {players.length} {t('seguimiento.jugadores')}
           </p>
         </div>
 
@@ -299,7 +302,7 @@ export default function ScoutTrackingGGPage() {
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
           </svg>
-          Agregar Jugador
+          {t('seguimiento.agregarJugador')}
         </button>
       </div>
 
@@ -316,7 +319,7 @@ export default function ScoutTrackingGGPage() {
             }`}
           >
             <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
-            {cfg.label}
+            {t(cfg.labelKey)}
             <span className="font-bold opacity-70">{stats[key] || 0}</span>
           </button>
         ))}
@@ -330,7 +333,7 @@ export default function ScoutTrackingGGPage() {
           </svg>
           <input
             type="text"
-            placeholder="Buscar por nombre, club, liga..."
+            placeholder={t('seguimiento.buscarPlaceholder')}
             value={search}
             onChange={e => setSearch(e.target.value)}
             className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-white dark:bg-apple-gray-800 border border-apple-gray-200 dark:border-apple-gray-700 text-sm text-apple-gray-800 dark:text-white placeholder-apple-gray-400 focus:outline-none focus:border-brand-green focus:ring-2 focus:ring-brand-green/20 transition-all"
@@ -349,7 +352,7 @@ export default function ScoutTrackingGGPage() {
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
             </svg>
-            Filtros
+            {t('seguimiento.filtros')}
             {activeFilters > 0 && (
               <span className="w-5 h-5 rounded-full bg-brand-green text-white text-2xs font-bold flex items-center justify-center">{activeFilters}</span>
             )}
@@ -360,7 +363,7 @@ export default function ScoutTrackingGGPage() {
               onClick={() => { setSearch(''); setPosFilter(''); setStatusFilter(''); setScoutFilter('') }}
               className="px-3 py-2.5 rounded-xl text-sm text-apple-gray-500 hover:text-apple-gray-700 dark:hover:text-apple-gray-300 transition-colors"
             >
-              Limpiar
+              {t('seguimiento.limpiar')}
             </button>
           )}
         </div>
@@ -370,16 +373,16 @@ export default function ScoutTrackingGGPage() {
       {showFilters && (
         <div className="mb-5 p-4 bg-white dark:bg-apple-gray-800 rounded-2xl border border-apple-gray-200 dark:border-apple-gray-700 grid grid-cols-2 sm:grid-cols-3 gap-3">
           <div>
-            <label className="block text-xs font-semibold text-apple-gray-500 uppercase tracking-wider mb-1.5">Posición</label>
+            <label className="block text-xs font-semibold text-apple-gray-500 uppercase tracking-wider mb-1.5">{t('seguimiento.posicion')}</label>
             <select value={posFilter} onChange={e => setPosFilter(e.target.value)} className="w-full px-3 py-2 rounded-xl bg-apple-gray-50 dark:bg-apple-gray-700 border border-apple-gray-200 dark:border-apple-gray-600 text-sm text-apple-gray-800 dark:text-white focus:outline-none focus:border-brand-green transition-all">
-              <option value="">Todas</option>
+              <option value="">{t('seguimiento.todasPosiciones')}</option>
               {positions.map(p => <option key={p} value={p}>{p}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-xs font-semibold text-apple-gray-500 uppercase tracking-wider mb-1.5">Scout</label>
+            <label className="block text-xs font-semibold text-apple-gray-500 uppercase tracking-wider mb-1.5">{t('seguimiento.scout')}</label>
             <select value={scoutFilter} onChange={e => setScoutFilter(e.target.value)} className="w-full px-3 py-2 rounded-xl bg-apple-gray-50 dark:bg-apple-gray-700 border border-apple-gray-200 dark:border-apple-gray-600 text-sm text-apple-gray-800 dark:text-white focus:outline-none focus:border-brand-green transition-all">
-              <option value="">Todos</option>
+              <option value="">{t('seguimiento.todosScouts')}</option>
               {scouts.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
@@ -391,7 +394,7 @@ export default function ScoutTrackingGGPage() {
         <div className="flex items-center justify-center py-20">
           <div className="text-center">
             <div className="w-10 h-10 border-3 border-brand-green border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-            <p className="text-sm text-apple-gray-500">Cargando jugadores...</p>
+            <p className="text-sm text-apple-gray-500">{t('seguimiento.cargandoJugadores')}</p>
           </div>
         </div>
       ) : filtered.length === 0 ? (
@@ -402,15 +405,15 @@ export default function ScoutTrackingGGPage() {
             </svg>
           </div>
           <h3 className="text-base font-semibold text-apple-gray-700 dark:text-apple-gray-300 mb-1">
-            {players.length === 0 ? 'La lista está vacía' : 'Sin resultados'}
+            {players.length === 0 ? t('seguimiento.listaVacia') : t('seguimiento.sinResultados')}
           </h3>
           <p className="text-sm text-apple-gray-500 mb-4">
-            {players.length === 0 ? 'Agregá el primer jugador al seguimiento de Scouts GG.' : 'Probá con otros filtros.'}
+            {players.length === 0 ? t('seguimiento.agregaPrimerJugador') : t('seguimiento.probaOtrosFiltros')}
           </p>
           {players.length === 0 && (
             <button onClick={() => setShowAddModal(true)} className="flex items-center gap-2 px-4 py-2.5 bg-brand-green text-white rounded-xl text-sm font-semibold hover:bg-emerald-600 transition-all">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" /></svg>
-              Agregar primer jugador
+              {t('seguimiento.agregarPrimerJugador')}
             </button>
           )}
         </div>
@@ -422,19 +425,19 @@ export default function ScoutTrackingGGPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-apple-gray-200 dark:border-apple-gray-700">
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-apple-gray-500 uppercase tracking-wider">Jugador</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-apple-gray-500 uppercase tracking-wider">Edad</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-apple-gray-500 uppercase tracking-wider">Club</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-apple-gray-500 uppercase tracking-wider">Liga</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-apple-gray-500 uppercase tracking-wider">Agente</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-apple-gray-500 uppercase tracking-wider">Posición</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-apple-gray-500 uppercase tracking-wider">Estado</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-apple-gray-500 uppercase tracking-wider">Score Scouts</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-apple-gray-500 uppercase tracking-wider">Score GG</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-apple-gray-500 uppercase tracking-wider">Agregado</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-apple-gray-500 uppercase tracking-wider">Links</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-apple-gray-500 uppercase tracking-wider">{t('seguimiento.colJugador')}</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-apple-gray-500 uppercase tracking-wider">{t('seguimiento.colEdad')}</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-apple-gray-500 uppercase tracking-wider">{t('seguimiento.colClub')}</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-apple-gray-500 uppercase tracking-wider">{t('seguimiento.colLiga')}</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-apple-gray-500 uppercase tracking-wider">{t('seguimiento.colAgente')}</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-apple-gray-500 uppercase tracking-wider">{t('seguimiento.colPosicion')}</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-apple-gray-500 uppercase tracking-wider">{t('seguimiento.colEstado')}</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-apple-gray-500 uppercase tracking-wider">{t('seguimiento.colScoreScouts')}</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-apple-gray-500 uppercase tracking-wider">{t('seguimiento.colScoreGG')}</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-apple-gray-500 uppercase tracking-wider">{t('seguimiento.colAgregado')}</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-apple-gray-500 uppercase tracking-wider">{t('seguimiento.colLinks')}</th>
                     {!requiresAuth && (
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-apple-gray-500 uppercase tracking-wider">Acciones</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-apple-gray-500 uppercase tracking-wider">{t('seguimiento.colAcciones')}</th>
                     )}
                   </tr>
                 </thead>
@@ -486,7 +489,7 @@ export default function ScoutTrackingGGPage() {
                                     {eff.name}
                                   </p>
                                   {!player.player_db_id && (
-                                    <span title="Sin ficha vinculada" className="flex-shrink-0 text-apple-gray-300 dark:text-apple-gray-600">
+                                    <span title={t('seguimiento.sinFichaVinculada')} className="flex-shrink-0 text-apple-gray-300 dark:text-apple-gray-600">
                                       <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636a9 9 0 010 12.728M5.636 5.636a9 9 0 000 12.728M9 10h.01M15 10h.01M9.172 14.172a4 4 0 015.656 0" />
                                       </svg>
@@ -495,7 +498,7 @@ export default function ScoutTrackingGGPage() {
                                   {isAdmin && (
                                     <button
                                       onClick={e => { e.stopPropagation(); setLinkingPlayer(player) }}
-                                      title={player.player_db_id ? 'Cambiar vínculo' : 'Vincular a base de datos'}
+                                      title={player.player_db_id ? t('seguimiento.cambiarVinculo') : t('seguimiento.vincularBaseDatos')}
                                       className={`flex-shrink-0 p-0.5 rounded transition-colors opacity-0 group-hover:opacity-100 ${player.player_db_id ? 'text-brand-green hover:bg-brand-green/10' : 'text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20'}`}
                                     >
                                       <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -508,7 +511,7 @@ export default function ScoutTrackingGGPage() {
                               <button
                                 onClick={e => { e.stopPropagation(); handleDelete(player.id) }}
                                 className="ml-1 p-1 rounded-lg text-apple-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all opacity-0 group-hover:opacity-100 flex-shrink-0"
-                                title="Quitar de lista"
+                                title={t('seguimiento.quitarDeLista')}
                               >
                                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -520,7 +523,7 @@ export default function ScoutTrackingGGPage() {
                           {/* Edad */}
                           <td className="px-4 py-3 text-sm text-apple-gray-700 dark:text-apple-gray-300 whitespace-nowrap">
                             {eff.edad ? (
-                              <span>{eff.edad}<span className="text-xs text-apple-gray-400 ml-0.5">a</span></span>
+                              <span>{eff.edad}<span className="text-xs text-apple-gray-400 ml-0.5">{t('seguimiento.aniosAbbr')}</span></span>
                             ) : (
                               <span className="text-apple-gray-400">—</span>
                             )}
@@ -597,7 +600,7 @@ export default function ScoutTrackingGGPage() {
                                   />
                                 </div>
                                 <span className="text-2xs text-apple-gray-400 bg-apple-gray-100 dark:bg-apple-gray-700 px-1.5 py-0.5 rounded-md whitespace-nowrap">
-                                  {player.scoutEvalCount} eval{player.scoutEvalCount !== 1 ? 's' : ''}
+                                  {player.scoutEvalCount} {player.scoutEvalCount !== 1 ? t('seguimiento.evalPlural') : t('seguimiento.evalSingular')}
                                 </span>
                               </div>
                             ) : (
@@ -635,9 +638,9 @@ export default function ScoutTrackingGGPage() {
                           {/* Agregado */}
                           <td className="px-4 py-3">
                             <p className="text-xs font-medium text-apple-gray-700 dark:text-apple-gray-300 whitespace-nowrap">
-                              {player.added_by_scouts_name || 'Sistema'}
+                              {player.added_by_scouts_name || t('seguimiento.sistema')}
                             </p>
-                            <p className="text-2xs text-apple-gray-400">{timeAgo(player.created_at)}</p>
+                            <p className="text-2xs text-apple-gray-400">{timeAgo(player.created_at, t)}</p>
                           </td>
 
                           {/* Links */}
@@ -649,7 +652,7 @@ export default function ScoutTrackingGGPage() {
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="p-1.5 rounded-lg text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
-                                  title="Transfermarkt"
+                                  title={t('seguimiento.transfermarkt')}
                                 >
                                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
@@ -662,7 +665,7 @@ export default function ScoutTrackingGGPage() {
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="p-1.5 rounded-lg text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors"
-                                  title="Video"
+                                  title={t('seguimiento.video')}
                                 >
                                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
@@ -687,7 +690,7 @@ export default function ScoutTrackingGGPage() {
                               <button
                                 onClick={() => setFileUploadPlayerId(prev => prev === player.id ? null : player.id)}
                                 className="p-1.5 rounded-lg text-apple-gray-400 hover:text-brand-green hover:bg-brand-green/10 transition-colors"
-                                title="Subir archivo"
+                                title={t('seguimiento.subirArchivo')}
                               >
                                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
@@ -758,10 +761,10 @@ export default function ScoutTrackingGGPage() {
                         {eff.name}
                       </p>
                       <p className="text-xs text-apple-gray-500">
-                        {[eff.club, eff.liga, eff.edad ? `${eff.edad}a` : null].filter(Boolean).join(' · ')}
+                        {[eff.club, eff.liga, eff.edad ? `${eff.edad}${t('seguimiento.aniosAbbr')}` : null].filter(Boolean).join(' · ')}
                       </p>
                       {eff.agente && (
-                        <p className="text-xs text-apple-gray-400 truncate">Agente: {eff.agente}</p>
+                        <p className="text-xs text-apple-gray-400 truncate">{t('seguimiento.agente')}: {eff.agente}</p>
                       )}
                     </div>
                     {player.scoutScore !== null && player.scoutScore !== undefined && (
@@ -786,7 +789,7 @@ export default function ScoutTrackingGGPage() {
                     <div className="flex items-center gap-1.5">
                       {player.transfermarkt_url && (
                         <a href={player.transfermarkt_url} target="_blank" rel="noopener noreferrer"
-                          className="p-1.5 rounded-lg text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors" title="Transfermarkt">
+                          className="p-1.5 rounded-lg text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors" title={t('seguimiento.transfermarkt')}>
                           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                           </svg>
@@ -794,7 +797,7 @@ export default function ScoutTrackingGGPage() {
                       )}
                       {player.video_url && (
                         <a href={player.video_url} target="_blank" rel="noopener noreferrer"
-                          className="p-1.5 rounded-lg text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors" title="Video">
+                          className="p-1.5 rounded-lg text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors" title={t('seguimiento.video')}>
                           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -813,7 +816,7 @@ export default function ScoutTrackingGGPage() {
                         <button
                           onClick={() => setFileUploadPlayerId(prev => prev === player.id ? null : player.id)}
                           className="p-1.5 rounded-lg text-apple-gray-400 hover:text-brand-green hover:bg-brand-green/10 transition-colors"
-                          title="Subir archivo"
+                          title={t('seguimiento.subirArchivo')}
                         >
                           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
