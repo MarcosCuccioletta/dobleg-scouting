@@ -14,6 +14,8 @@ import MobileSheet from '@/components/ui/MobileSheet'
 import MobileFilterPanel, { MobileFilterButton } from '@/components/filters/MobileFilterPanel'
 import Slider from 'rc-slider'
 import 'rc-slider/assets/index.css'
+import { useLanguage } from '@/context/LanguageContext'
+import { LANGUAGE_LOCALES } from '@/constants/translations'
 
 const POSITIONS: { key: Position; label: string }[] = (
   Object.entries(POSITION_DISPLAY) as [Position, string][]
@@ -91,6 +93,7 @@ function AgentMultiSelect({
    *  para que participe del scroll del panel y no quede recortada. */
   inline?: boolean
 }) {
+  const { t } = useLanguage()
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
 
@@ -117,7 +120,7 @@ function AgentMultiSelect({
       <div className="p-2 border-b border-apple-gray-100 dark:border-apple-gray-700">
         <input
           type="text"
-          placeholder="Buscar agente..."
+          placeholder={t('externo.buscarAgente')}
           value={search}
           onChange={e => setSearch(e.target.value)}
           className="w-full text-xs px-2.5 py-1.5 rounded-lg bg-white dark:bg-apple-gray-700 border-0 focus:ring-1 focus:ring-brand-green/50 text-apple-gray-800 dark:text-white placeholder:text-apple-gray-400"
@@ -126,7 +129,7 @@ function AgentMultiSelect({
       </div>
       <div className="overflow-y-auto flex-1 p-1.5">
         {filtered.length === 0 ? (
-          <p className="text-xs text-apple-gray-400 px-2 py-3 text-center">Sin resultados</p>
+          <p className="text-xs text-apple-gray-400 px-2 py-3 text-center">{t('externo.sinResultadosTitulo')}</p>
         ) : (
           filtered.map(agent => (
             <button
@@ -158,7 +161,7 @@ function AgentMultiSelect({
             onClick={() => onChange([])}
             className="w-full text-xs text-apple-gray-500 hover:text-red-500 transition-colors"
           >
-            Limpiar seleccion
+            {t('externo.limpiarSeleccionAgentes')}
           </button>
         </div>
       )}
@@ -174,10 +177,10 @@ function AgentMultiSelect({
       >
         <span className="truncate">
           {selected.length === 0
-            ? 'Todos los agentes'
+            ? t('externo.todosLosAgentes')
             : selected.length === 1
             ? selected[0]
-            : `${selected.length} agentes`}
+            : `${selected.length} ${t('externo.agentesLabel')}`}
         </span>
         <svg className={`w-3 h-3 flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -205,6 +208,7 @@ function BulkTrackingModal({
   onClose: () => void
   onSuccess: () => void
 }) {
+  const { t } = useLanguage()
   const { user, userDisplayName } = useAuth()
   const [list, setList] = useState<'datos' | 'scouts_gg' | 'both'>('datos')
   const [saving, setSaving] = useState(false)
@@ -236,10 +240,10 @@ function BulkTrackingModal({
   }
 
   return (
-    <MobileSheet open onClose={saving ? () => {} : onClose} title="Agregar a seguimiento">
+    <MobileSheet open onClose={saving ? () => {} : onClose} title={t('externo.agregarSeguimiento')}>
       <div>
         <p className="text-sm text-apple-gray-500 -mt-1 mb-4">
-          {players.length} jugador{players.length > 1 ? 'es' : ''} seleccionado{players.length > 1 ? 's' : ''}
+          {players.length} {players.length > 1 ? t('externo.jugadores') : t('externo.jugadorSingular')} {players.length > 1 ? t('externo.seleccionadoPlural') : t('externo.seleccionadoSingular')}
         </p>
 
         <div className="space-y-2 mb-5">
@@ -259,7 +263,7 @@ function BulkTrackingModal({
                 {list === option && <div className="w-2 h-2 rounded-full bg-brand-green" />}
               </div>
               <span className="text-sm font-medium text-apple-gray-800 dark:text-white">
-                {option === 'datos' ? 'Lista de Datos' : option === 'scouts_gg' ? 'Scouts GG' : 'Ambas listas'}
+                {option === 'datos' ? t('externo.listaDatos') : option === 'scouts_gg' ? 'Scouts GG' : t('externo.ambasListas')}
               </span>
             </button>
           ))}
@@ -273,7 +277,7 @@ function BulkTrackingModal({
                 style={{ width: `${(progress / players.length) * 100}%` }}
               />
             </div>
-            <p className="text-xs text-apple-gray-400 mt-1">{progress} de {players.length}</p>
+            <p className="text-xs text-apple-gray-400 mt-1">{progress} {t('externo.de')} {players.length}</p>
           </div>
         )}
 
@@ -283,7 +287,7 @@ function BulkTrackingModal({
             disabled={saving}
             className="flex-1 py-2.5 rounded-xl text-sm text-apple-gray-600 dark:text-apple-gray-400 bg-apple-gray-100 dark:bg-apple-gray-700 hover:bg-apple-gray-200 dark:hover:bg-apple-gray-600 disabled:opacity-50 transition-colors"
           >
-            Cancelar
+            {t('externo.cancelar')}
           </button>
           <button
             onClick={handleSave}
@@ -292,7 +296,7 @@ function BulkTrackingModal({
           >
             {saving ? (
               <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            ) : 'Confirmar'}
+            ) : t('externo.confirmar')}
           </button>
         </div>
       </div>
@@ -326,6 +330,7 @@ function ScoutingFilters({
   onReset: () => void
   agentInline?: boolean
 }) {
+  const { t } = useLanguage()
   const selectCls = 'input-apple text-xs py-2 lg:py-1.5 px-3 w-full lg:w-auto lg:min-w-0'
 
   return (
@@ -361,7 +366,7 @@ function ScoutingFilters({
           onChange={e => setFilters(f => ({ ...f, league_id: e.target.value ? Number(e.target.value) : undefined, team_id: undefined }))}
           className={selectCls}
         >
-          <option value="">Todas las ligas</option>
+          <option value="">{t('externo.todasLasLigas')}</option>
           {leagues.map(l => (
             <option key={l.id} value={l.id}>{l.name} ({l.country})</option>
           ))}
@@ -374,9 +379,9 @@ function ScoutingFilters({
             onChange={e => setFilters(f => ({ ...f, team_id: e.target.value ? Number(e.target.value) : undefined }))}
             className={selectCls}
           >
-            <option value="">Todos los equipos</option>
-            {teams.map(t => (
-              <option key={t.id} value={t.id}>{t.name}</option>
+            <option value="">{t('externo.todosLosEquipos')}</option>
+            {teams.map(team => (
+              <option key={team.id} value={team.id}>{team.name}</option>
             ))}
           </select>
         )}
@@ -387,12 +392,12 @@ function ScoutingFilters({
           onChange={e => setFilters(f => ({ ...f, min_matches: Number(e.target.value) }))}
           className={selectCls}
         >
-          <option value={0}>Sin mín. partidos</option>
-          <option value={3}>3+ partidos</option>
-          <option value={5}>5+ partidos</option>
-          <option value={10}>10+ partidos</option>
-          <option value={15}>15+ partidos</option>
-          <option value={20}>20+ partidos</option>
+          <option value={0}>{t('externo.sinMinPartidos')}</option>
+          <option value={3}>{t('externo.partidosMin3')}</option>
+          <option value={5}>{t('externo.partidosMin5')}</option>
+          <option value={10}>{t('externo.partidosMin10')}</option>
+          <option value={15}>{t('externo.partidosMin15')}</option>
+          <option value={20}>{t('externo.partidosMin20')}</option>
         </select>
 
         {/* Mín. score */}
@@ -401,7 +406,7 @@ function ScoutingFilters({
           onChange={e => setFilters(f => ({ ...f, min_score: Number(e.target.value) }))}
           className={selectCls}
         >
-          <option value={0}>Sin mín. score</option>
+          <option value={0}>{t('externo.sinMinScore')}</option>
           <option value={5}>5.0+</option>
           <option value={6}>6.0+</option>
           <option value={7}>7.0+</option>
@@ -413,7 +418,7 @@ function ScoutingFilters({
             onClick={onReset}
             className="text-xs text-apple-gray-500 hover:text-red-500 transition-colors underline text-left lg:ml-1"
           >
-            Limpiar filtros
+            {t('externo.limpiarFiltros')}
           </button>
         )}
       </div>
@@ -423,7 +428,7 @@ function ScoutingFilters({
         {/* Edad */}
         <div className="w-full lg:w-[200px]">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-medium text-apple-gray-500 dark:text-apple-gray-400">Edad</span>
+            <span className="text-xs font-medium text-apple-gray-500 dark:text-apple-gray-400">{t('externo.edad')}</span>
             <span className="text-xs font-semibold text-apple-gray-700 dark:text-apple-gray-200 tabular-nums">
               {filters.min_age} – {filters.max_age}
             </span>
@@ -441,11 +446,11 @@ function ScoutingFilters({
         {/* Valor de mercado */}
         <div className="w-full lg:w-[220px]">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-medium text-apple-gray-500 dark:text-apple-gray-400">Valor de mercado</span>
+            <span className="text-xs font-medium text-apple-gray-500 dark:text-apple-gray-400">{t('externo.valorMercado')}</span>
             <span className="text-xs font-semibold text-apple-gray-700 dark:text-apple-gray-200 tabular-nums">
               {filters.min_market_value > 0 || filters.max_market_value < 50_000_000
                 ? `€${formatValue(filters.min_market_value)} – €${formatValue(filters.max_market_value)}`
-                : 'Todos'}
+                : t('externo.todos')}
             </span>
           </div>
           <Slider
@@ -464,11 +469,11 @@ function ScoutingFilters({
           onChange={e => setFilters(f => ({ ...f, max_contract_months: Number(e.target.value) }))}
           className={selectCls}
         >
-          <option value={0}>Fin de contrato</option>
-          <option value={6}>Vence en 6 meses</option>
-          <option value={12}>Vence en 1 año</option>
-          <option value={18}>Vence en 18 meses</option>
-          <option value={24}>Vence en 2 años</option>
+          <option value={0}>{t('externo.finDeContrato')}</option>
+          <option value={6}>{t('externo.vence6Meses')}</option>
+          <option value={12}>{t('externo.vence1Anio')}</option>
+          <option value={18}>{t('externo.vence18Meses')}</option>
+          <option value={24}>{t('externo.vence2Anios')}</option>
         </select>
 
         {/* Agentes */}
@@ -484,6 +489,7 @@ function ScoutingFilters({
 }
 
 export default function ExternalScoutingPage() {
+  const { language, t } = useLanguage()
   const navigate = useNavigate()
   const leagues = useLeagues()
   const [filters, setFilters] = useState<Filters>(loadFilters)
@@ -575,7 +581,7 @@ export default function ExternalScoutingPage() {
 
   if (error) return (
     <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 py-8">
-      <EmptyState title="Error al cargar datos" description={error} icon="error" />
+      <EmptyState title={t('externo.errorCargarDatos')} description={error} icon="error" />
     </div>
   )
 
@@ -585,10 +591,10 @@ export default function ExternalScoutingPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-apple-gray-800 dark:text-white tracking-tight">
-            Scouting Externo
+            {t('externo.title')}
           </h1>
           <p className="text-sm text-apple-gray-500 dark:text-apple-gray-400 mt-0.5">
-            {count.toLocaleString('es')} jugadores
+            {count.toLocaleString(LANGUAGE_LOCALES[language])} {t('externo.jugadores')}
             {filters.positions.length > 0 && <span className="ml-1">· {filters.positions.join(', ')}</span>}
           </p>
         </div>
@@ -598,7 +604,7 @@ export default function ExternalScoutingPage() {
           </svg>
           <input
             type="text"
-            placeholder="Buscar jugador..."
+            placeholder={t('externo.buscarJugador')}
             value={filters.search}
             onChange={e => setFilters(f => ({ ...f, search: e.target.value }))}
             className="input-apple pl-9 pr-4 w-full"
@@ -640,7 +646,7 @@ export default function ExternalScoutingPage() {
           onChange={e => setFilters(f => ({ ...f, league_id: e.target.value ? Number(e.target.value) : undefined, team_id: undefined }))}
           className="input-apple text-xs py-1.5 px-3 min-w-0 w-auto"
         >
-          <option value="">Todas las ligas</option>
+          <option value="">{t('externo.todasLasLigas')}</option>
           {leagues.map(l => (
             <option key={l.id} value={l.id}>{l.name} ({l.country})</option>
           ))}
@@ -653,9 +659,9 @@ export default function ExternalScoutingPage() {
             onChange={e => setFilters(f => ({ ...f, team_id: e.target.value ? Number(e.target.value) : undefined }))}
             className="input-apple text-xs py-1.5 px-3 min-w-0 w-auto"
           >
-            <option value="">Todos los equipos</option>
-            {teams.map(t => (
-              <option key={t.id} value={t.id}>{t.name}</option>
+            <option value="">{t('externo.todosLosEquipos')}</option>
+            {teams.map(team => (
+              <option key={team.id} value={team.id}>{team.name}</option>
             ))}
           </select>
         )}
@@ -666,12 +672,12 @@ export default function ExternalScoutingPage() {
           onChange={e => setFilters(f => ({ ...f, min_matches: Number(e.target.value) }))}
           className="input-apple text-xs py-1.5 px-3 min-w-0 w-auto"
         >
-          <option value={0}>Sin mín. partidos</option>
-          <option value={3}>3+ partidos</option>
-          <option value={5}>5+ partidos</option>
-          <option value={10}>10+ partidos</option>
-          <option value={15}>15+ partidos</option>
-          <option value={20}>20+ partidos</option>
+          <option value={0}>{t('externo.sinMinPartidos')}</option>
+          <option value={3}>{t('externo.partidosMin3')}</option>
+          <option value={5}>{t('externo.partidosMin5')}</option>
+          <option value={10}>{t('externo.partidosMin10')}</option>
+          <option value={15}>{t('externo.partidosMin15')}</option>
+          <option value={20}>{t('externo.partidosMin20')}</option>
         </select>
 
         {/* Min score */}
@@ -680,7 +686,7 @@ export default function ExternalScoutingPage() {
           onChange={e => setFilters(f => ({ ...f, min_score: Number(e.target.value) }))}
           className="input-apple text-xs py-1.5 px-3 min-w-0 w-auto"
         >
-          <option value={0}>Sin mín. score</option>
+          <option value={0}>{t('externo.sinMinScore')}</option>
           <option value={5}>5.0+</option>
           <option value={6}>6.0+</option>
           <option value={7}>7.0+</option>
@@ -692,7 +698,7 @@ export default function ExternalScoutingPage() {
             onClick={handleReset}
             className="text-xs text-apple-gray-500 hover:text-red-500 transition-colors underline ml-1"
           >
-            Limpiar filtros
+            {t('externo.limpiarFiltros')}
           </button>
         )}
       </div>
@@ -702,7 +708,7 @@ export default function ExternalScoutingPage() {
         {/* Age range */}
         <div className="w-[200px]">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-medium text-apple-gray-500 dark:text-apple-gray-400">Edad</span>
+            <span className="text-xs font-medium text-apple-gray-500 dark:text-apple-gray-400">{t('externo.edad')}</span>
             <span className="text-xs font-semibold text-apple-gray-700 dark:text-apple-gray-200 tabular-nums">
               {filters.min_age} – {filters.max_age}
             </span>
@@ -720,11 +726,11 @@ export default function ExternalScoutingPage() {
         {/* Market value range */}
         <div className="w-[220px]">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-medium text-apple-gray-500 dark:text-apple-gray-400">Valor de mercado</span>
+            <span className="text-xs font-medium text-apple-gray-500 dark:text-apple-gray-400">{t('externo.valorMercado')}</span>
             <span className="text-xs font-semibold text-apple-gray-700 dark:text-apple-gray-200 tabular-nums">
               {filters.min_market_value > 0 || filters.max_market_value < 50_000_000
                 ? `€${formatValue(filters.min_market_value)} – €${formatValue(filters.max_market_value)}`
-                : 'Todos'}
+                : t('externo.todos')}
             </span>
           </div>
           <Slider
@@ -743,11 +749,11 @@ export default function ExternalScoutingPage() {
           onChange={e => setFilters(f => ({ ...f, max_contract_months: Number(e.target.value) }))}
           className="input-apple text-xs py-1.5 px-3 min-w-0 w-auto"
         >
-          <option value={0}>Fin de contrato</option>
-          <option value={6}>Vence en 6 meses</option>
-          <option value={12}>Vence en 1 año</option>
-          <option value={18}>Vence en 18 meses</option>
-          <option value={24}>Vence en 2 años</option>
+          <option value={0}>{t('externo.finDeContrato')}</option>
+          <option value={6}>{t('externo.vence6Meses')}</option>
+          <option value={12}>{t('externo.vence1Anio')}</option>
+          <option value={18}>{t('externo.vence18Meses')}</option>
+          <option value={24}>{t('externo.vence2Anios')}</option>
         </select>
 
         {/* Agent multi-select */}
@@ -778,15 +784,15 @@ export default function ExternalScoutingPage() {
           onClick={() => setShowFilters(false)}
           className="mt-6 w-full py-3 rounded-xl text-sm font-semibold text-gray-900 bg-brand-green hover:bg-emerald-500 transition-colors"
         >
-          Ver {count.toLocaleString('es')} resultados
+          {t('externo.ver')} {count.toLocaleString(LANGUAGE_LOCALES[language])} {t('externo.resultados')}
         </button>
       </MobileFilterPanel>
 
       {/* Table */}
       {loading && page === 0 ? (
-        <LoadingSpinner message="Cargando jugadores..." />
+        <LoadingSpinner message={t('externo.cargandoJugadores')} />
       ) : players.length === 0 ? (
-        <EmptyState title="Sin resultados" description="No se encontraron jugadores con los filtros aplicados." icon="filter" />
+        <EmptyState title={t('externo.sinResultadosTitulo')} description={t('externo.sinResultadosDescripcion')} icon="filter" />
       ) : (
         <>
           {/* Mobile cards */}
@@ -805,7 +811,7 @@ export default function ExternalScoutingPage() {
                     <p className="text-sm font-semibold text-apple-gray-800 dark:text-white truncate">{player.name}</p>
                     <p className="text-xs text-apple-gray-500 truncate">
                       {player.team?.name ?? '—'} · {displayPosition(player.primary_position) || '—'}
-                      {age !== null && <span> · {age} años</span>}
+                      {age !== null && <span> · {age} {t('externo.anios')}</span>}
                     </p>
                   </div>
                   {score !== null && (
@@ -832,15 +838,15 @@ export default function ExternalScoutingPage() {
                         className="w-4 h-4 rounded border-apple-gray-300 dark:border-apple-gray-600 text-brand-green focus:ring-brand-green/50"
                       />
                     </th>
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider">Jugador</th>
-                    <th className="text-left py-3 px-3 text-xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider">Equipo</th>
-                    <th className="text-center py-3 px-3 text-xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider">Pos</th>
-                    <th className="text-center py-3 px-3 text-xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider">Edad</th>
-                    <th className="text-right py-3 px-3 text-xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider">Valor</th>
-                    <th className="text-center py-3 px-3 text-xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider">PJ</th>
-                    <th className="text-center py-3 px-3 text-xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider">Goles</th>
-                    <th className="text-center py-3 px-3 text-xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider">Asist</th>
-                    <th className="text-center py-3 px-3 text-xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider">Score</th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider">{t('externo.colJugador')}</th>
+                    <th className="text-left py-3 px-3 text-xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider">{t('externo.colEquipo')}</th>
+                    <th className="text-center py-3 px-3 text-xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider">{t('externo.colPos')}</th>
+                    <th className="text-center py-3 px-3 text-xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider">{t('externo.edad')}</th>
+                    <th className="text-right py-3 px-3 text-xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider">{t('externo.colValor')}</th>
+                    <th className="text-center py-3 px-3 text-xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider">{t('externo.colPJ')}</th>
+                    <th className="text-center py-3 px-3 text-xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider">{t('externo.colGoles')}</th>
+                    <th className="text-center py-3 px-3 text-xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider">{t('externo.colAsist')}</th>
+                    <th className="text-center py-3 px-3 text-xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider">{t('externo.colScore')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-apple-gray-100 dark:divide-apple-gray-800">
@@ -921,7 +927,7 @@ export default function ExternalScoutingPage() {
           {totalPages > 1 && (
             <div className="flex items-center justify-between mt-4 px-1">
               <p className="text-xs text-apple-gray-500">
-                Página {page + 1} de {totalPages} · {count.toLocaleString('es')} jugadores
+                {t('externo.pagina')} {page + 1} {t('externo.de')} {totalPages} · {count.toLocaleString(LANGUAGE_LOCALES[language])} {t('externo.jugadores')}
               </p>
               <div className="flex items-center gap-1.5">
                 <button
@@ -929,14 +935,14 @@ export default function ExternalScoutingPage() {
                   disabled={page === 0}
                   className="px-3 py-1.5 rounded-lg text-xs font-medium bg-apple-gray-100 dark:bg-apple-gray-800 text-apple-gray-600 dark:text-apple-gray-300 hover:bg-apple-gray-200 dark:hover:bg-apple-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 >
-                  Anterior
+                  {t('externo.anterior')}
                 </button>
                 <button
                   onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
                   disabled={page >= totalPages - 1}
                   className="px-3 py-1.5 rounded-lg text-xs font-medium bg-apple-gray-100 dark:bg-apple-gray-800 text-apple-gray-600 dark:text-apple-gray-300 hover:bg-apple-gray-200 dark:hover:bg-apple-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 >
-                  Siguiente
+                  {t('externo.siguiente')}
                 </button>
               </div>
             </div>
@@ -951,7 +957,7 @@ export default function ExternalScoutingPage() {
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
             </svg>
-            Cargando...
+            {t('externo.cargando')}
           </div>
         </div>
       )}
@@ -959,7 +965,7 @@ export default function ExternalScoutingPage() {
       {selectedIds.size > 0 && (
         <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+6.25rem)] lg:bottom-6 left-1/2 -translate-x-1/2 z-50 max-w-[calc(100vw-1.5rem)] bg-white dark:bg-apple-gray-800 rounded-2xl shadow-2xl border border-apple-gray-200 dark:border-apple-gray-700 px-4 sm:px-5 py-3 flex flex-wrap items-center justify-center gap-3 sm:gap-4">
           <span className="text-sm font-medium text-apple-gray-600 dark:text-apple-gray-300">
-            {selectedIds.size} seleccionado{selectedIds.size > 1 ? 's' : ''}
+            {selectedIds.size} {selectedIds.size > 1 ? t('externo.seleccionadoPlural') : t('externo.seleccionadoSingular')}
           </span>
           <button
             onClick={() => setShowTrackingModal(true)}
@@ -968,7 +974,7 @@ export default function ExternalScoutingPage() {
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
-            Agregar a seguimiento
+            {t('externo.agregarSeguimiento')}
           </button>
           <button
             onClick={() => setSelectedIds(new Set())}
