@@ -125,14 +125,6 @@ export default function PortfolioValueChart({ data, players, onPlayerClick }: Po
     return Array.from(playerData.keys())
   }, [playerData])
 
-  // Sum of current market values for players WITHOUT history entries (fills gap vs KPI)
-  const playersWithoutHistoryValue = useMemo(() => {
-    const namesWithHistory = new Set(Array.from(playerData.keys()).map(n => n.trim().toLowerCase()))
-    return players
-      .filter(p => !namesWithHistory.has((p.Jugador || '').trim().toLowerCase()))
-      .reduce((sum, p) => sum + (p.marketValueRaw || 0), 0)
-  }, [playerData, players])
-
   // Calculate portfolio total over time
   const portfolioTimeline = useMemo(() => {
     // Get all unique dates
@@ -152,26 +144,29 @@ export default function PortfolioValueChart({ data, players, onPlayerClick }: Po
         total: 0
       }
 
-      // For each player, get their value at or before this date
-      for (const [playerName, entries] of playerData) {
-        const relevantEntries = entries.filter(e => e.fecha <= date)
-        if (relevantEntries.length > 0) {
-          const latestValue = relevantEntries[relevantEntries.length - 1].valor
-          point[playerName] = latestValue
-          point.total += latestValue
-        }
-      }
-
-      // On the last point, add players without history so total matches the KPI
+      // El último punto (hoy) usa el valor vivo de cada jugador, no su último
+      // snapshot histórico del Sheet — ver mismo fix/comentario en DashboardPage.tsx.
       if (isLastPoint) {
-        point.total += playersWithoutHistoryValue
+        for (const p of players) {
+          point[p.Jugador] = p.marketValueRaw || 0
+          point.total += p.marketValueRaw || 0
+        }
+      } else {
+        for (const [playerName, entries] of playerData) {
+          const relevantEntries = entries.filter(e => e.fecha <= date)
+          if (relevantEntries.length > 0) {
+            const latestValue = relevantEntries[relevantEntries.length - 1].valor
+            point[playerName] = latestValue
+            point.total += latestValue
+          }
+        }
       }
 
       timeline.push(point)
     }
 
     return timeline
-  }, [data, playerData, playersWithoutHistoryValue])
+  }, [data, playerData, players])
 
   // Calculate player trends and stats
   const playerStats = useMemo(() => {

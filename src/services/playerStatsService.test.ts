@@ -4,7 +4,7 @@ import type { PlayerSeasonScore } from '@/types/scoring'
 
 const row = (over: Partial<ScoreLookupRow> & Pick<ScoreLookupRow, 'player_id' | 'name'>): ScoreLookupRow => ({
   current_team_id: null, transfermarkt_id: null, birth_date: null,
-  score: 5, position: 'VC', percentile: 50, matches_played: 1,
+  score: 5, position: 'VC', percentile: 50, matches_played: 1, season: 2026,
   ...over,
 })
 
@@ -151,6 +151,36 @@ describe('buildScoreLookup', () => {
     const map = buildScoreLookup(rows, agencyPlayers)
 
     expect(map.get('mauricio vera')?.player_id).toBe(133613)
+  })
+
+  it('mismo jugador, mismo equipo, dos temporadas: gana la más nueva aunque tenga menos partidos (caso real Julián López)', () => {
+    // Caso real: Julián López (Defensa y Justicia, sin traspaso de por medio) tiene
+    // 9 partidos/score 5.0 en la temporada 2025 y sólo 6 partidos/score 4.8 en 2026.
+    // La ficha individual (dedupeSeasonScoresByPosition) ya prioriza la temporada más
+    // nueva; antes de este fix, el paso 1 de acá elegía por partidos jugados nomás,
+    // así que la lista mostraba el 5.0 de 2025 mientras la ficha mostraba el 4.8 de
+    // 2026 — mismo jugador, dos scores distintos según dónde lo mires.
+    const rows = [
+      row({ player_id: 5917, name: 'Julián López', current_team_id: 442, matches_played: 9, score: 5.0, season: 2025 }),
+      row({ player_id: 5917, name: 'Julián López', current_team_id: 442, matches_played: 6, score: 4.8, season: 2026 }),
+    ]
+    const agencyPlayers = [{ fullName: 'Julián López', shortName: 'J. López', apiTeamId: 442 }]
+
+    const map = buildScoreLookup(rows, agencyPlayers)
+
+    expect(map.get('julian lopez')?.score).toBe(4.8)
+    expect(map.get('julian lopez')?.matches_played).toBe(6)
+  })
+
+  it('mismo caso sin equipo de agencia conocido: la temporada más nueva sigue ganando', () => {
+    const rows = [
+      row({ player_id: 5917, name: 'Julián López', current_team_id: 442, matches_played: 9, score: 5.0, season: 2025 }),
+      row({ player_id: 5917, name: 'Julián López', current_team_id: 442, matches_played: 6, score: 4.8, season: 2026 }),
+    ]
+
+    const map = buildScoreLookup(rows, [])
+
+    expect(map.get('julian lopez')?.score).toBe(4.8)
   })
 })
 

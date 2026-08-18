@@ -400,21 +400,26 @@ export default function DashboardPage() {
       if (!playerData.has(entry.Jugador)) playerData.set(entry.Jugador, [])
       playerData.get(entry.Jugador)!.push(entry)
     }
-    // Players without history – add their value on the last point (matching chart)
-    const namesWithHistory = new Set(Array.from(playerData.keys()).map(n => n.trim().toLowerCase()))
-    const withoutHistoryValue = internal
-      .filter(p => !namesWithHistory.has((p.Jugador || '').trim().toLowerCase()))
-      .reduce((sum, p) => sum + (p.marketValueRaw || 0), 0)
-
+    // El último punto (hoy) usa el valor vivo de cada jugador, no su último snapshot
+    // histórico — un jugador puede tener una fila vieja en el Sheet de historial
+    // (cargada la última vez que alguien la actualizó a mano) mientras su valor
+    // actual ya se refrescó vía Transfermarkt/Supabase. Sin esto, el total de Panel
+    // Interno mostraba el snapshot viejo de cada jugador con historial, aunque
+    // marketValueRaw ya tuviera el dato correcto (caso real: Prestianni con
+    // snapshot de €12M del 18/12/2025 tapando su valor vivo de €20M).
     const totals: number[] = []
     for (let i = 0; i < allDates.length; i++) {
+      const isLastPoint = i === allDates.length - 1
+      if (isLastPoint) {
+        totals.push(internal.reduce((sum, p) => sum + (p.marketValueRaw || 0), 0))
+        continue
+      }
       const date = new Date(allDates[i])
       let total = 0
       for (const [, entries] of playerData) {
         const relevant = entries.filter(e => e.fecha <= date)
         if (relevant.length > 0) total += relevant[relevant.length - 1].valor
       }
-      if (i === allDates.length - 1) total += withoutHistoryValue
       totals.push(total)
     }
     const last12 = totals.slice(-12)

@@ -177,6 +177,32 @@ export async function fetchPositionAverages(
   }));
 }
 
+export interface AgencyMarketValueRow {
+  name: string;
+  market_value_eur: number;
+}
+
+/**
+ * Valor de mercado vivo de todo el roster Doble G, tal cual lo tiene `players`
+ * (refrescado semanalmente desde Transfermarkt por el cron de `enrich-player`).
+ * Se filtra por `agent = 'Doble G Sports Group'` — mismo campo, seteado por ese
+ * mismo enrich, que ya se usa en la auditoría de roster para cruzar altas. Sirve
+ * para pisar el valor de mercado cargado a mano en el Sheet/`agencyPlayers.ts`
+ * de Scouting Interno, que nadie vuelve a actualizar una vez tiene un valor.
+ */
+export async function fetchAgencyMarketValues(): Promise<AgencyMarketValueRow[]> {
+  const { data, error } = await supabase
+    .from('players')
+    .select('name, market_value_eur')
+    .eq('agent', 'Doble G Sports Group')
+    .not('market_value_eur', 'is', null);
+
+  if (error) throw error;
+  return (data ?? [])
+    .filter((r: any) => typeof r.market_value_eur === 'number' && r.market_value_eur > 0)
+    .map((r: any) => ({ name: r.name as string, market_value_eur: r.market_value_eur as number }));
+}
+
 export async function fetchDistinctAgents(): Promise<string[]> {
   const { data, error } = await supabase
     .from('players')
@@ -237,6 +263,7 @@ export interface ScoreLookupRow {
   position: Position;
   percentile: number | null;
   matches_played: number;
+  season: number;
 }
 
 /**
@@ -294,15 +321,28 @@ export function buildScoreLookup(
     if (ap.apiTeamId) apiTeamIdByName.set(norm(ap.fullName), ap.apiTeamId);
   }
 
-  // Paso 1: una fila representante por identidad real. Por defecto gana la de más
-  // partidos jugados, salvo que el jugador sea de agencia con equipo actual conocido:
-  // ahí gana la fila de ESE equipo aunque tenga menos partidos. Sin esto, un jugador
-  // recién transferido queda tapado por su equipo viejo indefinidamente: el equipo
-  // nuevo casi siempre tiene menos partidos acumulados que el viejo apenas después de
-  // un traspaso (caso real: Mauricio Vera a Bhayangkara FC — 2 partidos/score 6.8 —
-  // tapado por Nacional en Sofascore — 4 partidos/score 3.9 — porque el paso 1
-  // descartaba la fila de Bhayangkara antes de que el desempate por equipo del paso 2
-  // llegara a verla).
+  // Paso 1: una fila representante por identidad real. Por defecto gana la temporada
+  // más nueva (mismo criterio que `dedupeSeasonScoresByPosition` para la ficha
+  // individual) y, dentro de la misma temporada, la de más partidos jugados — salvo
+  // que el jugador sea de agencia con equipo actual conocido: ahí gana la fila de ESE
+  // equipo aunque tenga menos partidos o sea de una temporada más vieja. Sin el
+  // desempate por equipo, un jugador recién transferido queda tapado por su equipo
+  // viejo indefinidamente: el equipo nuevo casi siempre tiene menos partidos
+  // acumulados que el viejo apenas después de un traspaso (caso real: Mauricio Vera a
+  // Bhayangkara FC — 2 partidos/score 6.8 — tapado por Nacional en Sofascore — 4
+  // partidos/score 3.9 — porque el paso 1 descartaba la fila de Bhayangkara antes de
+  // que el desempate por equipo del paso 2 llegara a verla).
+  //
+  // Sin el desempate por temporada, dos filas del MISMO jugador/equipo en años
+  // distintos (nada que ver con un traspaso) se resolvían por partidos jugados nomás
+  // — y la ficha individual (`dedupeSeasonScoresByPosition`) sí prioriza la temporada
+  // más nueva, así que la lista y la ficha podían mostrar scores distintos para la
+  // misma persona (caso real: Julián López con 9 partidos/score 5.0 en 2025 pero sólo
+  // 6 partidos/score 4.8 en 2026 — la lista mostraba el 5.0 viejo, la ficha el 4.8
+  // correcto).
+  const isNewerRepresentative = (row: ScoreLookupRow, existing: ScoreLookupRow): boolean =>
+    row.season !== existing.season ? row.season > existing.season : row.matches_played > existing.matches_played;
+
   const byIdentity = new Map<string, ScoreLookupRow>();
   for (const row of rows) {
     if (!row.name) continue;
@@ -317,7 +357,7 @@ export function buildScoreLookup(
     const existingMatchesTeam = knownTeamId != null && existing.current_team_id === knownTeamId;
     if (rowMatchesTeam && !existingMatchesTeam) {
       byIdentity.set(key, row);
-    } else if (!(existingMatchesTeam && !rowMatchesTeam) && row.matches_played > existing.matches_played) {
+    } else if (!(existingMatchesTeam && !rowMatchesTeam) && isNewerRepresentative(row, existing)) {
       byIdentity.set(key, row);
     }
   }
@@ -377,7 +417,7 @@ export async function fetchScoreLookup(
     const { data, error } = await supabase
       .from('player_season_scores')
       .select(`
-        player_id, position, avg_score, percentile, matches_played,
+        player_id, position, avg_score, percentile, matches_played, season,
         player:players!inner(name, current_team_id, transfermarkt_id, birth_date)
       `)
       .in('season', seasons)
@@ -401,6 +441,7 @@ export async function fetchScoreLookup(
     position: row.position as Position,
     percentile: row.percentile,
     matches_played: row.matches_played,
+    season: row.season,
   }));
 
   const { AGENCY_PLAYERS } = await import('@/constants/agencyPlayers');
