@@ -4,6 +4,7 @@ import { AGENCY_PLAYERS } from '@/constants/agencyPlayers'
 import { fetchAllAgencyFixtures, getFixturesForDate, groupFixturesByDate, toArDateKey } from '@/services/footballApiService'
 import { fetchManualFixtures, manualToAgencyFixtures } from '@/services/agencyManualFixturesService'
 import { useAuth } from '@/context/AuthContext'
+import { useLanguage } from '@/context/LanguageContext'
 import type { AgencyFixture } from '@/types/footballApi'
 import OpportunityHero from '@/components/dashboard/OpportunityHero'
 
@@ -23,14 +24,14 @@ function dateKey(date: Date): string {
   return new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/Argentina/Buenos_Aires' }).format(date)
 }
 
-function getGreeting(): string {
+function getGreetingKey(): string {
   const h = parseInt(new Intl.DateTimeFormat('es-AR', {
     hour: 'numeric', hour12: false,
     timeZone: 'America/Argentina/Buenos_Aires',
   }).format(new Date()), 10)
-  if (h < 12) return 'Buenos días'
-  if (h < 19) return 'Buenas tardes'
-  return 'Buenas noches'
+  if (h < 12) return 'greeting.morning'
+  if (h < 19) return 'greeting.afternoon'
+  return 'greeting.evening'
 }
 
 function formatMatchTime(dateStr: string): string {
@@ -210,6 +211,7 @@ function MatchSkeleton() {
 
 export default function HomePage() {
   const { userDisplayName } = useAuth()
+  const { t } = useLanguage()
   const [fixtures, setFixtures] = useState<AgencyFixture[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -309,7 +311,7 @@ export default function HomePage() {
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-apple-gray-800 dark:text-white tracking-tight">
-            {getGreeting()}{userDisplayName ? `, ${userDisplayName}` : ''}
+            {t(getGreetingKey())}{userDisplayName ? `, ${userDisplayName}` : ''}
           </h1>
           <p className="text-sm text-apple-gray-400 dark:text-apple-gray-500 mt-0.5">
             {formatDateLong(today)}
@@ -323,7 +325,7 @@ export default function HomePage() {
           <svg className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
           </svg>
-          Actualizar
+          {t('home.actualizar')}
         </button>
       </div>
 
@@ -334,7 +336,7 @@ export default function HomePage() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
           </svg>
           <span className="flex-1">{error}</span>
-          <button onClick={handleRefresh} className="text-xs font-medium text-red-600 dark:text-red-400 hover:underline">Reintentar</button>
+          <button onClick={handleRefresh} className="text-xs font-medium text-red-600 dark:text-red-400 hover:underline">{t('home.reintentar')}</button>
         </div>
       )}
 
@@ -342,7 +344,7 @@ export default function HomePage() {
       <section>
         <div className="flex items-center gap-3 mb-4">
           <h2 className="text-lg font-semibold text-apple-gray-800 dark:text-white">
-            Partidos de hoy
+            {t('home.partidosDeHoy')}
           </h2>
           {todayFixtures.length > 0 && (
             <span className="inline-flex items-center justify-center min-w-[24px] h-6 px-1.5 rounded-md bg-brand-green/15 text-brand-green text-xs font-bold">
@@ -358,10 +360,10 @@ export default function HomePage() {
           </div>
         ) : todayFixtures.length === 0 ? (
           <div className="text-center py-10 bg-white dark:bg-apple-gray-800/30 rounded-apple-lg border border-apple-gray-200/40 dark:border-apple-gray-700/30">
-            <p className="text-sm text-apple-gray-400 dark:text-apple-gray-500">No hay partidos hoy</p>
+            <p className="text-sm text-apple-gray-400 dark:text-apple-gray-500">{t('home.noHayPartidosHoy')}</p>
             {nextMatchDate && (
               <p className="text-xs text-apple-gray-300 dark:text-apple-gray-600 mt-1">
-                Próximo: {formatDateLong(nextMatchDate)}
+                {t('home.proximo')}: {formatDateLong(nextMatchDate)}
               </p>
             )}
           </div>
@@ -378,13 +380,13 @@ export default function HomePage() {
       <section>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-apple-gray-800 dark:text-white">
-            Próximos 14 días
+            {t('home.proximos14Dias')}
           </h2>
           <Link
             to="/calendario"
             className="inline-flex items-center gap-1 text-sm font-medium text-brand-green hover:text-emerald-600 transition-colors"
           >
-            Ver calendario
+            {t('home.verCalendario')}
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
@@ -483,7 +485,7 @@ export default function HomePage() {
       {recentResults.length > 0 && (
         <section className="bg-white dark:bg-apple-gray-800/40 rounded-apple-lg border border-apple-gray-200/50 dark:border-apple-gray-700/30 p-5">
           <h3 className="text-sm font-semibold text-apple-gray-800 dark:text-white mb-2">
-            Resultados recientes
+            {t('home.resultadosRecientes')}
           </h3>
           <div className="divide-y divide-apple-gray-100 dark:divide-apple-gray-700/30">
             {recentResults.slice(0, 8).map(f => (
