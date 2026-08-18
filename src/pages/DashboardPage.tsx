@@ -7,7 +7,7 @@ import { getRelativeScoreColorClass, getRelativeScoreBgClass } from '@/component
 import type { ScoreScale } from '@/components/ui/ScoreBar'
 import { FILTER_POSITION_MAP } from '@/constants/scoring'
 import { displayPosition } from '@/types/scoring'
-import { normalizeName } from '@/utils/scoring'
+import { normalizeName, formatMarketValueInCurrency } from '@/utils/scoring'
 import { useScoreLookup } from '@/hooks/usePlayerStats'
 import PortfolioValueChart from '@/components/charts/PortfolioValueChart'
 import LeagueAnalysis from '@/components/dashboard/LeagueAnalysis'
@@ -15,14 +15,8 @@ import AgencyTransferHistory from '@/components/dashboard/AgencyTransferHistory'
 import ClubsAndCupsSection from '@/components/dashboard/ClubsAndCupsSection'
 import AchievementsSection from '@/components/dashboard/AchievementsSection'
 import { useAgencyTransfers } from '@/hooks/usePlayerApiData'
+import { useCurrency } from '@/context/CurrencyContext'
 import type { EnrichedPlayer, MonitoringPlayer } from '@/types'
-
-// Helper to format currency
-function formatValue(value: number): string {
-  if (value >= 1_000_000) return `€${(value / 1_000_000).toFixed(1)}M`
-  if (value >= 1_000) return `€${Math.round(value / 1_000)}K`
-  return `€${value}`
-}
 
 // Helper to format large numbers
 function formatNumber(num: number): string {
@@ -171,6 +165,7 @@ export default function DashboardPage() {
   const { internal, monitoring, marketValueHistory, positionAverages, loading } = useData()
   const { lookup: scoreLookup } = useScoreLookup()
   const { transfers: agencyTransfers, loading: transfersLoading, progress: transfersProgress } = useAgencyTransfers()
+  const { currency, rate } = useCurrency()
 
   function getPlayerScore(player: EnrichedPlayer): { score: number | null; scale: ScoreScale } {
     const entry = scoreLookup.get(normalizeName(player.Jugador))
@@ -482,9 +477,9 @@ export default function DashboardPage() {
             return (
               <>
                 <div className="mt-1">
-                  <p className="text-2xl font-bold text-apple-gray-800 dark:text-white tabular-nums">{formatValue(displayTotal)}</p>
+                  <p className="text-2xl font-bold text-apple-gray-800 dark:text-white tabular-nums">{formatMarketValueInCurrency(displayTotal, currency, rate)}</p>
                   <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-xs text-apple-gray-500 dark:text-apple-gray-400">Prom: {formatValue(kpis.totalPlayers > 0 ? displayTotal / kpis.totalPlayers : 0)}</span>
+                    <span className="text-xs text-apple-gray-500 dark:text-apple-gray-400">Prom: {formatMarketValueInCurrency(kpis.totalPlayers > 0 ? displayTotal / kpis.totalPlayers : 0, currency, rate)}</span>
                     {portfolioSparkline.growth !== 0 && (
                       <span className={`text-xs font-semibold ${portfolioSparkline.growth >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
                         {portfolioSparkline.growth >= 0 ? '+' : ''}{portfolioSparkline.growth.toFixed(1)}%
@@ -829,7 +824,7 @@ export default function DashboardPage() {
                 key={i}
                 player={p}
                 metric="valor"
-                metricValue={p.marketValueFormatted}
+                metricValue={formatMarketValueInCurrency(p.marketValueRaw, currency, rate)}
                 onClick={() => navigateToPlayer(p)}
               />
             ))}
@@ -901,7 +896,7 @@ export default function DashboardPage() {
                           </span>
                         )
                       })()}
-                      <span className="text-xs text-apple-gray-500">{p.marketValueFormatted}</span>
+                      <span className="text-xs text-apple-gray-500">{formatMarketValueInCurrency(p.marketValueRaw, currency, rate)}</span>
                     </div>
                   </div>
                 </button>
