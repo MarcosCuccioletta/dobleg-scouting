@@ -238,6 +238,31 @@ export interface TeamInfo {
   league_id: number;
 }
 
+/**
+ * Normaliza un nombre de club para detectar el mismo club duplicado dos veces
+ * en `teams` — una fila de API-Football (id < 20000000) y otra de Sofascore
+ * (id >= 20000000, a veces con un prefijo tipo "CA "/"CD " que la otra fuente
+ * no usa, ej. "Independiente" vs "CA Independiente"). Saca acentos, mayúsculas
+ * y prefijos de tipo de club común en Sudamérica.
+ */
+function normalizeTeamName(name: string): string {
+  const noAccents = name.normalize('NFD').replace(/[̀-ͯ]/g, '');
+  return noAccents
+    .toLowerCase()
+    .replace(/^(ca|cd|cf|ac|sd|csd|cs)\s+/i, '')
+    .trim();
+}
+
+/**
+ * Un mismo club real puede tener dos filas en `teams` (API-Football y
+ * Sofascore, mismo problema que los jugadores duplicados — ver
+ * dedup por transfermarkt_id en fetch_players_list). Sin deduplicar, el
+ * selector de club en Scout Externo dejaba elegir la copia de Sofascore, que
+ * trae menos partidos sincronizados (jugadores recién debutados ausentes) y
+ * puede traer un score distinto al de la ficha (identidad de jugador
+ * distinta). Se agrupa por nombre normalizado dentro de la misma liga y gana
+ * el id de API-Football (< 20000000) cuando hay un empate real.
+ */
 export async function fetchTeamsByLeague(leagueId: number): Promise<TeamInfo[]> {
   const { data, error } = await supabase
     .from('teams')
@@ -246,7 +271,18 @@ export async function fetchTeamsByLeague(leagueId: number): Promise<TeamInfo[]> 
     .order('name');
 
   if (error) throw error;
-  return data ?? [];
+  const teams = data ?? [];
+
+  const byKey = new Map<string, TeamInfo>();
+  for (const team of teams) {
+    const key = normalizeTeamName(team.name);
+    const existing = byKey.get(key);
+    if (!existing || (existing.id >= 20000000 && team.id < 20000000)) {
+      byKey.set(key, team);
+    }
+  }
+
+  return Array.from(byKey.values()).sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export interface ScoreLookupEntry {
