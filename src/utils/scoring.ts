@@ -1,5 +1,6 @@
 import { POSITION_MAP } from '@/constants/scoring'
 import type { RawExternalPlayer, RawInternalPlayer, EnrichedPlayer } from '@/types'
+import type { Currency } from '@/context/CurrencyContext'
 
 
 
@@ -43,6 +44,17 @@ export function formatMarketValue(value: number): string {
   if (value >= 1_000_000) return `€${(value / 1_000_000).toFixed(1)}M`
   if (value >= 1_000) return `€${Math.round(value / 1_000)}K`
   return `€${value}`
+}
+
+const CURRENCY_SYMBOL: Record<Currency, string> = { USD: '$', EUR: '€' }
+
+export function formatMarketValueInCurrency(valueEUR: number, currency: Currency, rate: number): string {
+  if (!valueEUR || valueEUR === 0) return '-'
+  const value = currency === 'USD' ? valueEUR * rate : valueEUR
+  const symbol = CURRENCY_SYMBOL[currency]
+  if (value >= 1_000_000) return `${symbol}${(value / 1_000_000).toFixed(1)}M`
+  if (value >= 1_000) return `${symbol}${Math.round(value / 1_000)}K`
+  return `${symbol}${Math.round(value)}`
 }
 
 export function parseContractDate(raw: string): Date | null {
