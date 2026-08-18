@@ -6,6 +6,8 @@
 
 import type { EnrichedPlayer } from '@/types'
 import type { BarDataRow } from './AnalisisCompletoPDF'
+import type { Currency } from '@/context/CurrencyContext'
+import { formatMarketValueInCurrency } from '@/utils/scoring'
 
 export interface InformeCanvaCardProps {
   player: EnrichedPlayer
@@ -15,6 +17,10 @@ export interface InformeCanvaCardProps {
   leagueContext: { liga: string; rank: number | null; total: number; avg: number } | null
   videoUrl?: string
   logoDataUrl?: string   // base64 del logo-white.png, si el usuario lo eligió
+  // Esta card se monta en un React root separado (fuera del árbol de CurrencyProvider)
+  // para exportarla como imagen, así que currency/rate llegan por props en vez de useCurrency().
+  currency: Currency
+  rate: number
 }
 
 // ─── Color helpers (escala 1-10) ──────────────────────────────────────────────
@@ -318,7 +324,7 @@ function BarRow({ label, playerRaw, avgRaw, avg2Raw, playerPct, avgPct, avg2Pct,
 
 // ─── Main card ────────────────────────────────────────────────────────────────
 
-export default function InformeCanvaCard({ player, barData, poolLabel, pool2Label, leagueContext, videoUrl, logoDataUrl }: InformeCanvaCardProps) {
+export default function InformeCanvaCard({ player, barData, poolLabel, pool2Label, leagueContext, videoUrl, logoDataUrl, currency, rate }: InformeCanvaCardProps) {
   const score = player.ggScore
   const color = score != null ? scoreColor(score) : '#6B7280'
   const verdict = score != null ? scoreLabel(score, leagueContext?.avg) : '—'
@@ -332,7 +338,8 @@ export default function InformeCanvaCard({ player, barData, poolLabel, pool2Labe
   const year = new Date().getFullYear()
 
   // Valor de mercado y contrato
-  const mv = player.marketValueFormatted && player.marketValueFormatted !== '—' && player.marketValueFormatted !== '' ? player.marketValueFormatted : null
+  const mvFormatted = formatMarketValueInCurrency(player.marketValueRaw, currency, rate)
+  const mv = mvFormatted !== '-' ? mvFormatted : null
   const contractRaw = player['Vencimiento contrato'] ?? ''
   const contract = formatContract(contractRaw)
   const cColor = contractColor(player.contractStatus)

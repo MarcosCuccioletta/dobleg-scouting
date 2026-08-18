@@ -19,6 +19,7 @@ import {
 import { getScoreColorClass, getScoreBgClass } from '@/components/ui/ScoreBar'
 import CanvaExportModal, { type CanvaExportOptions } from '@/components/pdf/CanvaExportModal'
 import { formatMarketValue } from '@/utils/scoring'
+import { useCurrency } from '@/context/CurrencyContext'
 import type { EnrichedPlayer } from '@/types'
 
 // ─── Helper: adapt PlayerWithScore → EnrichedPlayer (for PDF/Canva export) ────
@@ -240,6 +241,7 @@ export default function BusquedaPage() {
   // mundo" y daban un "prom. liga" / "5° de 30" estadísticamente engañoso.
   const { players: allPlayers, loading } = usePlayersList({ pageSize: 500 })
   const { metricAverages } = usePositionMetricAverages()
+  const { currency, rate } = useCurrency()
 
   const [query, setQuery] = useState('')
   const [showDropdown, setShowDropdown] = useState(false)
@@ -826,6 +828,8 @@ export default function BusquedaPage() {
           leagueContext: leagueScoreContext,
           videoUrl: opts.videoUrl || undefined,
           logoDataUrl,
+          currency,
+          rate,
         }))
 
         await new Promise(r => setTimeout(r, 800))
