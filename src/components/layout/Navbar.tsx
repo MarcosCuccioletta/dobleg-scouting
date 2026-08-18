@@ -3,6 +3,7 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useTheme } from '@/context/ThemeContext'
 import { useAuth } from '@/context/AuthContext'
 import ThemeToggle from './ThemeToggle'
+import CurrencyToggle from './CurrencyToggle'
 import AuthModal from '@/components/auth/AuthModal'
 import { PDFBuilderFloatingButton } from '@/components/pdf/AddToReportButton'
 import { useSwipeToClose } from '@/hooks/useSwipeToClose'
@@ -312,6 +313,7 @@ export default function Navbar() {
           {/* Right side */}
           <div className="flex items-center gap-2">
             <PDFBuilderFloatingButton />
+            <CurrencyToggle />
             <ThemeToggle />
 
             {/* User menu */}
