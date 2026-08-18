@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
 import { ThemeProvider } from './context/ThemeContext.tsx'
+import { CurrencyProvider } from './context/CurrencyContext.tsx'
 import { DataProvider } from './context/DataContext.tsx'
 import { AuthProvider } from './context/AuthContext.tsx'
 import { ErrorBoundary } from './components/ErrorBoundary.tsx'
@@ -16,6 +17,7 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>
       <ThemeProvider>
+        <CurrencyProvider>
         <AuthProvider>
           <DataProvider>
             <ScoutsGGProvider>
@@ -23,6 +25,7 @@ createRoot(document.getElementById('root')!).render(
             </ScoutsGGProvider>
           </DataProvider>
         </AuthProvider>
+        </CurrencyProvider>
       </ThemeProvider>
     </ErrorBoundary>
   </StrictMode>

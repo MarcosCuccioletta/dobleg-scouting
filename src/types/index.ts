@@ -63,7 +63,6 @@ export interface MonitoringPlayer {
   // Computed fields
   opportunityScore?: number | null  // ggScore / marketValue ratio
   marketValueRaw?: number
-  marketValueFormatted?: string
   monthsRemaining?: number | null
   contractStatus?: 'ok' | 'warning' | 'critical'
   // Comparison with internal players
@@ -195,7 +194,6 @@ export interface EnrichedPlayer {
   source: 'externo' | 'interno'
   contractStatus: 'ok' | 'warning' | 'critical'
   monthsRemaining: number | null
-  marketValueFormatted: string
   marketValueRaw: number
   minutesPlayed: number
   ageNum: number
