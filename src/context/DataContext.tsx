@@ -5,7 +5,7 @@ import { POSITION_MAP, SCORING_CONFIG, FILTER_POSITION_MAP } from '@/constants/s
 import { loadAgencyPlayers } from '@/services/agencyPlayersService'
 import { getAgencyPlayersList, AGENCY_OVERRIDES, type AgencyPlayer } from '@/constants/agencyPlayers'
 import { fetchAllPlayerVideos, computePlayerFreshness } from '@/services/playerVideosService'
-import { fetchScoreLookup, type ScoreLookupEntry } from '@/services/playerStatsService'
+import { fetchScoreLookup, fetchAgencyMarketValues, type ScoreLookupEntry, type AgencyMarketValueRow } from '@/services/playerStatsService'
 import { fetchGpsEntries, fetchGpsCatalog, toLegacyGpsEntry } from '@/services/gpsService'
 import { listManualExternalPlayers, createManualExternalPlayer, type ManualExternalPlayerRow } from '@/services/manualExternalPlayersService'
 import { manualExternalToEnriched } from '@/features/coaches/manualExternalPlayer'
@@ -161,6 +161,28 @@ function applyAgencyOverrides(players: EnrichedPlayer[], agencyPlayers: AgencyPl
       }
     }
     return patched
+  })
+}
+
+/**
+ * Pisa marketValueRaw/marketValueFormatted con el valor vivo de Supabase
+ * (`fetchAgencyMarketValues`, refrescado semanalmente desde Transfermarkt) cuando
+ * existe. Sin esto, un valor cargado una vez en el Sheet o en `agencyPlayers.ts`
+ * queda pisando al dato real para siempre — mismo problema que `applyAgencyOverrides`
+ * ya resuelve para Equipo/Vencimiento contrato, acá aplicado a valor de mercado.
+ */
+export function applyLiveMarketValues(
+  players: EnrichedPlayer[],
+  liveRows: AgencyMarketValueRow[],
+): EnrichedPlayer[] {
+  if (liveRows.length === 0) return players
+  const byKey = new Map<string, number>()
+  for (const r of liveRows) byKey.set(identityKey(r.name), r.market_value_eur)
+
+  return players.map(p => {
+    const live = byKey.get(identityKey(p.Jugador))
+    if (live == null || live === p.marketValueRaw) return p
+    return { ...p, marketValueRaw: live, marketValueFormatted: formatMarketValue(live) }
   })
 }
 
@@ -1144,6 +1166,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const baseInternalRef = useRef<EnrichedPlayer[]>([])
   const externalRef = useRef<EnrichedPlayer[]>([])
   const scoreLookupRef = useRef<Map<string, ScoreLookupEntry>>(new Map())
+  const agencyMarketValuesRef = useRef<AgencyMarketValueRow[]>([])
 
   const refreshAgencyPlayers = useCallback(async () => {
     await loadAgencyPlayers()
@@ -1151,7 +1174,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setData(prev => ({
       ...prev,
       agencyPlayers,
-      internal: mergeAgencyIntoInternal(baseInternalRef.current, externalRef.current, agencyPlayers),
+      internal: applyLiveMarketValues(
+        mergeAgencyIntoInternal(baseInternalRef.current, externalRef.current, agencyPlayers),
+        agencyMarketValuesRef.current,
+      ),
     }))
   }, [])
 
@@ -1168,7 +1194,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setData(prev => ({
       ...prev,
       external: [...prev.external, enriched],
-      internal: mergeAgencyIntoInternal(baseInternalRef.current, externalRef.current, prev.agencyPlayers),
+      internal: applyLiveMarketValues(
+        mergeAgencyIntoInternal(baseInternalRef.current, externalRef.current, prev.agencyPlayers),
+        agencyMarketValuesRef.current,
+      ),
     }))
     return enriched
   }, [])
@@ -1214,6 +1243,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (cancelled) return
 
         scoreLookupRef.current = scoreLookup
+
+        // Valor de mercado vivo del roster Doble G (Supabase, refrescado semanal
+        // desde Transfermarkt) — pisa el valor stale del Sheet/agencyPlayers.ts.
+        const agencyMarketValues = await fetchAgencyMarketValues().catch(() => [] as AgencyMarketValueRow[])
+        if (cancelled) return
+        agencyMarketValuesRef.current = agencyMarketValues
 
         // Score and enrich external players with Transfermarkt data + Más Datos + Estimated values
         const externalScored = applyScoreGG(raw.external, 'externo', scoreLookup)
@@ -1284,7 +1319,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
         baseInternalRef.current = internal
         externalRef.current = external
         const agencyPlayers = getAgencyPlayersList()
-        const internalMerged = mergeAgencyIntoInternal(internal, external, agencyPlayers)
+        const internalMerged = applyLiveMarketValues(
+          mergeAgencyIntoInternal(internal, external, agencyPlayers),
+          agencyMarketValues,
+        )
 
         setData({
           external,

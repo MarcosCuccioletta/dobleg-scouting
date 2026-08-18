@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { mergeAgencyIntoInternal } from './DataContext'
+import { mergeAgencyIntoInternal, applyLiveMarketValues } from './DataContext'
 import type { AgencyPlayer } from '@/constants/agencyPlayers'
 import type { EnrichedPlayer } from '@/types'
+import type { AgencyMarketValueRow } from '@/services/playerStatsService'
 
 function player(over: Partial<EnrichedPlayer> & Pick<EnrichedPlayer, 'Jugador'>): EnrichedPlayer {
   return {
@@ -85,5 +86,53 @@ describe('mergeAgencyIntoInternal', () => {
 
     expect(merged[0]['Posición']).toBe('Volante central')
     expect(merged[0]['Posición específica']).toBe('Volante central')
+  })
+})
+
+describe('applyLiveMarketValues', () => {
+  it('pisa el valor de mercado stale del Sheet con el vivo de Supabase (caso real: Prestianni €12.00m en el Sheet, €20M en Transfermarkt/Supabase)', () => {
+    const players = [player({ Jugador: 'G. Prestianni', marketValueRaw: 12_000_000, marketValueFormatted: '€12.00m' })]
+    const live: AgencyMarketValueRow[] = [{ name: 'Gianluca Prestianni', market_value_eur: 20_000_000 }]
+
+    const result = applyLiveMarketValues(players, live)
+
+    expect(result[0].marketValueRaw).toBe(20_000_000)
+    expect(result[0].marketValueFormatted).toBe('€20.0M')
+  })
+
+  it('matchea por formato corto vs nombre completo, igual que applyAgencyOverrides', () => {
+    const players = [player({ Jugador: 'A. Steimbach', marketValueRaw: 500_000 })]
+    const live: AgencyMarketValueRow[] = [{ name: 'Alexis Steimbach', market_value_eur: 1_000_000 }]
+
+    const result = applyLiveMarketValues(players, live)
+
+    expect(result[0].marketValueRaw).toBe(1_000_000)
+  })
+
+  it('no toca jugadores sin dato vivo correspondiente', () => {
+    const players = [player({ Jugador: 'Ajeno Cualquiera', marketValueRaw: 500_000, marketValueFormatted: '€500K' })]
+    const live: AgencyMarketValueRow[] = [{ name: 'Gianluca Prestianni', market_value_eur: 20_000_000 }]
+
+    const result = applyLiveMarketValues(players, live)
+
+    expect(result[0].marketValueRaw).toBe(500_000)
+    expect(result[0].marketValueFormatted).toBe('€500K')
+  })
+
+  it('no crea una nueva referencia de objeto cuando el valor vivo coincide con el ya cargado', () => {
+    const p = player({ Jugador: 'G. Prestianni', marketValueRaw: 20_000_000 })
+    const live: AgencyMarketValueRow[] = [{ name: 'Gianluca Prestianni', market_value_eur: 20_000_000 }]
+
+    const result = applyLiveMarketValues([p], live)
+
+    expect(result[0]).toBe(p)
+  })
+
+  it('devuelve la misma lista sin recorrer nada si no hay filas vivas (fetch falló)', () => {
+    const players = [player({ Jugador: 'G. Prestianni', marketValueRaw: 12_000_000 })]
+
+    const result = applyLiveMarketValues(players, [])
+
+    expect(result).toBe(players)
   })
 })

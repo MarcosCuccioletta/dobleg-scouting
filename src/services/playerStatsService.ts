@@ -177,6 +177,32 @@ export async function fetchPositionAverages(
   }));
 }
 
+export interface AgencyMarketValueRow {
+  name: string;
+  market_value_eur: number;
+}
+
+/**
+ * Valor de mercado vivo de todo el roster Doble G, tal cual lo tiene `players`
+ * (refrescado semanalmente desde Transfermarkt por el cron de `enrich-player`).
+ * Se filtra por `agent = 'Doble G Sports Group'` — mismo campo, seteado por ese
+ * mismo enrich, que ya se usa en la auditoría de roster para cruzar altas. Sirve
+ * para pisar el valor de mercado cargado a mano en el Sheet/`agencyPlayers.ts`
+ * de Scouting Interno, que nadie vuelve a actualizar una vez tiene un valor.
+ */
+export async function fetchAgencyMarketValues(): Promise<AgencyMarketValueRow[]> {
+  const { data, error } = await supabase
+    .from('players')
+    .select('name, market_value_eur')
+    .eq('agent', 'Doble G Sports Group')
+    .not('market_value_eur', 'is', null);
+
+  if (error) throw error;
+  return (data ?? [])
+    .filter((r: any) => typeof r.market_value_eur === 'number' && r.market_value_eur > 0)
+    .map((r: any) => ({ name: r.name as string, market_value_eur: r.market_value_eur as number }));
+}
+
 export async function fetchDistinctAgents(): Promise<string[]> {
   const { data, error } = await supabase
     .from('players')
