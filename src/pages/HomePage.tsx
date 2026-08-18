@@ -5,19 +5,30 @@ import { fetchAllAgencyFixtures, getFixturesForDate, groupFixturesByDate, toArDa
 import { fetchManualFixtures, manualToAgencyFixtures } from '@/services/agencyManualFixturesService'
 import { useAuth } from '@/context/AuthContext'
 import { useLanguage } from '@/context/LanguageContext'
+import { LANGUAGE_LOCALES, type Language } from '@/constants/translations'
 import type { AgencyFixture } from '@/types/footballApi'
 import OpportunityHero from '@/components/dashboard/OpportunityHero'
 
-const DAYS_ES = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
-const DAYS_SHORT = ['DOM', 'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB']
-const MONTHS_ES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
+const AR_TZ = 'America/Argentina/Buenos_Aires'
 
-function formatDateLong(date: Date): string {
-  return `${DAYS_ES[date.getDay()]} ${date.getDate()} de ${MONTHS_ES[date.getMonth()]}`
+// Nombres de día/mes vía Intl según el idioma activo, no arrays fijos en
+// español — evita mantener 9 listas de días/meses a mano por idioma.
+function formatDateLong(date: Date, language: Language): string {
+  return new Intl.DateTimeFormat(LANGUAGE_LOCALES[language], {
+    weekday: 'long', day: 'numeric', month: 'long', timeZone: AR_TZ,
+  }).format(date)
 }
 
-function formatDateShort(date: Date): string {
-  return `${date.getDate()} ${MONTHS_ES[date.getMonth()].slice(0, 3)}`
+function formatDateShort(date: Date, language: Language): string {
+  return new Intl.DateTimeFormat(LANGUAGE_LOCALES[language], {
+    day: 'numeric', month: 'short', timeZone: AR_TZ,
+  }).format(date)
+}
+
+function formatDayShort(date: Date, language: Language): string {
+  return new Intl.DateTimeFormat(LANGUAGE_LOCALES[language], {
+    weekday: 'short', timeZone: AR_TZ,
+  }).format(date).toUpperCase()
 }
 
 function dateKey(date: Date): string {
@@ -138,6 +149,7 @@ function MatchCard({ fixture }: { fixture: AgencyFixture }) {
 // ─── Result Row (compact) ───────────────────────────────────────────────────
 
 function ResultRow({ fixture }: { fixture: AgencyFixture }) {
+  const { language } = useLanguage()
   const fixtureDate = new Date(fixture.date)
   const abroad = isAbroad(fixture)
 
@@ -155,7 +167,7 @@ function ResultRow({ fixture }: { fixture: AgencyFixture }) {
         drew ? 'bg-apple-gray-400' : won ? 'bg-brand-green' : 'bg-red-400'
       }`} />
       <span className="text-xs text-apple-gray-400 w-14 flex-shrink-0">
-        {formatDateShort(fixtureDate)}
+        {formatDateShort(fixtureDate, language)}
       </span>
       <div className="flex items-center gap-2 flex-1 min-w-0">
         <img src={fixture.homeTeam.logo} alt="" className="w-5 h-5 object-contain flex-shrink-0" />
@@ -211,7 +223,7 @@ function MatchSkeleton() {
 
 export default function HomePage() {
   const { userDisplayName } = useAuth()
-  const { t } = useLanguage()
+  const { t, language } = useLanguage()
   const [fixtures, setFixtures] = useState<AgencyFixture[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -314,7 +326,7 @@ export default function HomePage() {
             {t(getGreetingKey())}{userDisplayName ? `, ${userDisplayName}` : ''}
           </h1>
           <p className="text-sm text-apple-gray-400 dark:text-apple-gray-500 mt-0.5">
-            {formatDateLong(today)}
+            {formatDateLong(today, language)}
           </p>
         </div>
         <button
@@ -363,7 +375,7 @@ export default function HomePage() {
             <p className="text-sm text-apple-gray-400 dark:text-apple-gray-500">{t('home.noHayPartidosHoy')}</p>
             {nextMatchDate && (
               <p className="text-xs text-apple-gray-300 dark:text-apple-gray-600 mt-1">
-                {t('home.proximo')}: {formatDateLong(nextMatchDate)}
+                {t('home.proximo')}: {formatDateLong(nextMatchDate, language)}
               </p>
             )}
           </div>
@@ -412,7 +424,7 @@ export default function HomePage() {
                   }`}
                 >
                   <span className="text-2xs font-medium text-apple-gray-400 dark:text-apple-gray-500 uppercase">
-                    {DAYS_SHORT[day.getDay()]}
+                    {formatDayShort(day, language)}
                   </span>
                   <span className={`text-sm font-semibold mt-0.5 w-7 h-7 flex items-center justify-center rounded-full ${
                     isToday
@@ -441,7 +453,7 @@ export default function HomePage() {
               {selectedDayFixtures.length === 0 ? (
                 <div className="py-6 text-center">
                   <p className="text-sm text-apple-gray-400 dark:text-apple-gray-500">
-                    Sin partidos el {formatDateLong(selectedDate)}
+                    {t('home.sinPartidosEl')} {formatDateLong(selectedDate, language)}
                   </p>
                 </div>
               ) : (

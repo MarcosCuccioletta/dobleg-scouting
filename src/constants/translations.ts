@@ -1,5 +1,18 @@
 export type Language = 'es' | 'en' | 'tr' | 'it' | 'fr' | 'de' | 'ar' | 'zh' | 'ja'
 
+/** Locale BCP-47 para Intl.DateTimeFormat — nombres de día/mes vía Intl, no arrays a mano por idioma. */
+export const LANGUAGE_LOCALES: Record<Language, string> = {
+  es: 'es-AR',
+  en: 'en-US',
+  tr: 'tr-TR',
+  it: 'it-IT',
+  fr: 'fr-FR',
+  de: 'de-DE',
+  ar: 'ar-SA',
+  zh: 'zh-CN',
+  ja: 'ja-JP',
+}
+
 export const LANGUAGES: { code: Language; nativeName: string; flag: string; rtl?: boolean }[] = [
   { code: 'es', nativeName: 'Español', flag: '🇪🇸' },
   { code: 'en', nativeName: 'English', flag: '🇬🇧' },
@@ -56,6 +69,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'home.proximos14Dias': 'Próximos 14 días',
     'home.verCalendario': 'Ver calendario',
     'home.resultadosRecientes': 'Resultados recientes',
+    'home.sinPartidosEl': 'Sin partidos el',
   },
   en: {
     'nav.inicio': 'Home',
@@ -94,6 +108,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'home.proximos14Dias': 'Next 14 Days',
     'home.verCalendario': 'View Calendar',
     'home.resultadosRecientes': 'Recent Results',
+    'home.sinPartidosEl': 'No matches on',
   },
   tr: {
     'nav.inicio': 'Ana Sayfa',
@@ -132,6 +147,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'home.proximos14Dias': 'Sonraki 14 Gün',
     'home.verCalendario': 'Takvimi Görüntüle',
     'home.resultadosRecientes': 'Son Sonuçlar',
+    'home.sinPartidosEl': 'Maç yok:',
   },
   it: {
     'nav.inicio': 'Home',
@@ -170,6 +186,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'home.proximos14Dias': 'Prossimi 14 Giorni',
     'home.verCalendario': 'Vedi Calendario',
     'home.resultadosRecientes': 'Risultati Recenti',
+    'home.sinPartidosEl': 'Nessuna partita il',
   },
   fr: {
     'nav.inicio': 'Accueil',
@@ -208,6 +225,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'home.proximos14Dias': '14 Prochains Jours',
     'home.verCalendario': 'Voir le Calendrier',
     'home.resultadosRecientes': 'Résultats Récents',
+    'home.sinPartidosEl': 'Aucun match le',
   },
   de: {
     'nav.inicio': 'Start',
@@ -246,6 +264,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'home.proximos14Dias': 'Nächste 14 Tage',
     'home.verCalendario': 'Kalender Anzeigen',
     'home.resultadosRecientes': 'Letzte Ergebnisse',
+    'home.sinPartidosEl': 'Keine Spiele am',
   },
   ar: {
     'nav.inicio': 'الرئيسية',
@@ -284,6 +303,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'home.proximos14Dias': 'الأيام الـ 14 القادمة',
     'home.verCalendario': 'عرض التقويم',
     'home.resultadosRecientes': 'النتائج الأخيرة',
+    'home.sinPartidosEl': 'لا مباريات في',
   },
   zh: {
     'nav.inicio': '首页',
@@ -322,6 +342,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'home.proximos14Dias': '未来14天',
     'home.verCalendario': '查看日历',
     'home.resultadosRecientes': '最近战绩',
+    'home.sinPartidosEl': '没有比赛：',
   },
   ja: {
     'nav.inicio': 'ホーム',
@@ -360,5 +381,6 @@ export const translations: Record<Language, Record<string, string>> = {
     'home.proximos14Dias': '今後14日間',
     'home.verCalendario': 'カレンダーを見る',
     'home.resultadosRecientes': '最近の結果',
+    'home.sinPartidosEl': '試合なし：',
   },
 }
