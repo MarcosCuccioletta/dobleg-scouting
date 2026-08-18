@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
+import { useLanguage } from '@/context/LanguageContext'
 
 interface AuthModalProps {
   isOpen: boolean
@@ -9,6 +10,7 @@ interface AuthModalProps {
 }
 
 export default function AuthModal({ isOpen, onClose, initialMode = 'login', forceOpen = false }: AuthModalProps) {
+  const { t } = useLanguage()
   const [mode, setMode] = useState<'login' | 'signup'>(initialMode)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -26,7 +28,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', forc
     setError('')
     const { error } = await signInWithApple()
     if (error) {
-      setError('Error al conectar con Apple')
+      setError(t('auth.errorApple'))
       setAppleLoading(false)
     }
   }
@@ -44,14 +46,14 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', forc
         const { error } = await signIn(email, password)
         if (error) {
           setError(error.message === 'Invalid login credentials'
-            ? 'Email o contraseña incorrectos'
+            ? t('auth.emailOContrasenaIncorrectos')
             : error.message)
         } else {
           onClose()
         }
       } else {
         if (!fullName.trim()) {
-          setError('Ingresá tu nombre')
+          setError(t('auth.ingresaTuNombre'))
           setLoading(false)
           return
         }
@@ -59,11 +61,11 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', forc
         if (error) {
           setError(error.message)
         } else {
-          setSuccess('Cuenta creada. Revisá tu email para confirmar.')
+          setSuccess(t('auth.cuentaCreada'))
         }
       }
     } catch (err) {
-      setError('Error de conexión')
+      setError(t('auth.errorConexion'))
     } finally {
       setLoading(false)
     }
@@ -84,7 +86,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', forc
                 : 'text-apple-gray-500 hover:text-apple-gray-700 dark:hover:text-apple-gray-300'
             }`}
           >
-            Iniciar sesion
+            {t('auth.iniciarSesion')}
           </button>
           <button
             type="button"
@@ -95,7 +97,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', forc
                 : 'text-apple-gray-500 hover:text-apple-gray-700 dark:hover:text-apple-gray-300'
             }`}
           >
-            Crear cuenta
+            {t('auth.crearCuenta')}
           </button>
         </div>
 
@@ -104,7 +106,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', forc
           {mode === 'signup' && (
             <div>
               <label className="block text-sm font-medium text-apple-gray-700 dark:text-apple-gray-300 mb-2">
-                Nombre completo
+                {t('auth.nombreCompleto')}
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -116,7 +118,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', forc
                   type="text"
                   value={fullName}
                   onChange={e => setFullName(e.target.value)}
-                  placeholder="Tu nombre"
+                  placeholder={t('auth.tuNombre')}
                   className="w-full pl-12 pr-4 py-3 rounded-xl bg-apple-gray-50 dark:bg-apple-gray-800 border-2 border-apple-gray-200 dark:border-apple-gray-700 text-apple-gray-800 dark:text-white placeholder-apple-gray-400 focus:outline-none focus:border-brand-green dark:focus:border-brand-green transition-colors"
                   required
                 />
@@ -126,7 +128,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', forc
 
           <div>
             <label className="block text-sm font-medium text-apple-gray-700 dark:text-apple-gray-300 mb-2">
-              Email
+              {t('auth.email')}
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -147,7 +149,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', forc
 
           <div>
             <label className="block text-sm font-medium text-apple-gray-700 dark:text-apple-gray-300 mb-2">
-              Contrasena
+              {t('auth.contrasena')}
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -159,7 +161,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', forc
                 type="password"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
-                placeholder="Minimo 6 caracteres"
+                placeholder={t('auth.minimo6Caracteres')}
                 minLength={6}
                 className="w-full pl-12 pr-4 py-3 rounded-xl bg-apple-gray-50 dark:bg-apple-gray-800 border-2 border-apple-gray-200 dark:border-apple-gray-700 text-apple-gray-800 dark:text-white placeholder-apple-gray-400 focus:outline-none focus:border-brand-green dark:focus:border-brand-green transition-colors"
                 required
@@ -196,9 +198,9 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', forc
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                 </svg>
-                Procesando...
+                {t('auth.procesando')}
               </span>
-            ) : mode === 'login' ? 'Ingresar' : 'Crear cuenta'}
+            ) : mode === 'login' ? t('nav.ingresar') : t('auth.crearCuenta')}
           </button>
 
           {/* Divider */}
@@ -207,7 +209,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', forc
               <div className="w-full border-t border-apple-gray-200 dark:border-apple-gray-700" />
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-4 bg-white dark:bg-apple-gray-900 text-apple-gray-500">o continua con</span>
+              <span className="px-4 bg-white dark:bg-apple-gray-900 text-apple-gray-500">{t('auth.oContinuaCon')}</span>
             </div>
           </div>
 
@@ -219,7 +221,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', forc
               setError('')
               const { error } = await signInWithGoogle()
               if (error) {
-                setError('Error al conectar con Google')
+                setError(t('auth.errorGoogle'))
                 setGoogleLoading(false)
               }
             }}
@@ -239,7 +241,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', forc
                   <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
                   <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
                 </svg>
-                Google
+                {t('auth.google')}
               </>
             )}
           </button>
@@ -261,7 +263,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', forc
                 <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                   <path d="M16.365 1.43c0 1.14-.417 2.2-1.11 2.98-.84.95-2.2 1.68-3.34 1.6-.14-1.13.42-2.32 1.06-3.06.72-.84 2.05-1.5 3.13-1.55.06.02.16.5.16.03zM20.9 17.02c-.53 1.22-.79 1.77-1.47 2.85-.95 1.5-2.29 3.37-3.95 3.38-1.48.01-1.86-.96-3.87-.95-2.01.01-2.43.97-3.91.96-1.66-.02-2.93-1.7-3.88-3.2-2.65-4.2-2.93-9.12-1.29-11.73 1.16-1.86 3-2.95 4.72-2.95 1.76 0 2.86 1 4.31 1 1.4 0 2.26-1 4.3-1 1.53 0 3.16.83 4.32 2.27-3.8 2.08-3.18 7.5.59 9.42z" />
                 </svg>
-                Apple
+                {t('auth.apple')}
               </>
             )}
           </button>
@@ -298,12 +300,12 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', forc
             </svg>
           </div>
           <h2 className="text-xl font-semibold text-apple-gray-800 dark:text-white">
-            {mode === 'login' ? 'Iniciar sesión' : 'Crear cuenta'}
+            {mode === 'login' ? t('auth.iniciarSesion') : t('auth.crearCuenta')}
           </h2>
           <p className="text-sm text-apple-gray-500 dark:text-apple-gray-400 mt-1">
             {mode === 'login'
-              ? 'Ingresá con tu cuenta de Scout Platform'
-              : 'Registrate para guardar tus formaciones'}
+              ? t('auth.ingresaConTuCuenta')
+              : t('auth.registrateParaGuardar')}
           </p>
         </div>
 
@@ -312,13 +314,13 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', forc
           {mode === 'signup' && (
             <div>
               <label className="block text-sm font-medium text-apple-gray-700 dark:text-apple-gray-300 mb-1.5">
-                Nombre completo
+                {t('auth.nombreCompleto')}
               </label>
               <input
                 type="text"
                 value={fullName}
                 onChange={e => setFullName(e.target.value)}
-                placeholder="Tu nombre"
+                placeholder={t('auth.tuNombre')}
                 className="w-full px-4 py-2.5 rounded-apple bg-apple-gray-50 dark:bg-apple-gray-700 border border-apple-gray-200 dark:border-apple-gray-600 text-apple-gray-800 dark:text-white placeholder-apple-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-green/50 focus:border-brand-green transition-colors"
                 required
               />
@@ -327,7 +329,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', forc
 
           <div>
             <label className="block text-sm font-medium text-apple-gray-700 dark:text-apple-gray-300 mb-1.5">
-              Email
+              {t('auth.email')}
             </label>
             <input
               type="email"
@@ -341,7 +343,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', forc
 
           <div>
             <label className="block text-sm font-medium text-apple-gray-700 dark:text-apple-gray-300 mb-1.5">
-              Contraseña
+              {t('auth.contrasena')}
             </label>
             <input
               type="password"
@@ -377,9 +379,9 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', forc
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                 </svg>
-                Cargando...
+                {t('auth.cargando')}
               </span>
-            ) : mode === 'login' ? 'Iniciar sesión' : 'Crear cuenta'}
+            ) : mode === 'login' ? t('auth.iniciarSesion') : t('auth.crearCuenta')}
           </button>
 
           {/* Divider */}
@@ -388,7 +390,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', forc
               <div className="w-full border-t border-apple-gray-200 dark:border-apple-gray-700" />
             </div>
             <div className="relative flex justify-center text-xs">
-              <span className="px-3 bg-white dark:bg-apple-gray-800 text-apple-gray-500">o</span>
+              <span className="px-3 bg-white dark:bg-apple-gray-800 text-apple-gray-500">{t('auth.o')}</span>
             </div>
           </div>
 
@@ -400,7 +402,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', forc
               setError('')
               const { error } = await signInWithGoogle()
               if (error) {
-                setError('Error al conectar con Google')
+                setError(t('auth.errorGoogle'))
                 setGoogleLoading(false)
               }
             }}
@@ -420,7 +422,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', forc
                   <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
                   <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
                 </svg>
-                Continuar con Google
+                {t('auth.continuarConGoogle')}
               </>
             )}
           </button>
@@ -442,7 +444,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', forc
                 <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                   <path d="M16.365 1.43c0 1.14-.417 2.2-1.11 2.98-.84.95-2.2 1.68-3.34 1.6-.14-1.13.42-2.32 1.06-3.06.72-.84 2.05-1.5 3.13-1.55.06.02.16.5.16.03zM20.9 17.02c-.53 1.22-.79 1.77-1.47 2.85-.95 1.5-2.29 3.37-3.95 3.38-1.48.01-1.86-.96-3.87-.95-2.01.01-2.43.97-3.91.96-1.66-.02-2.93-1.7-3.88-3.2-2.65-4.2-2.93-9.12-1.29-11.73 1.16-1.86 3-2.95 4.72-2.95 1.76 0 2.86 1 4.31 1 1.4 0 2.26-1 4.3-1 1.53 0 3.16.83 4.32 2.27-3.8 2.08-3.18 7.5.59 9.42z" />
                 </svg>
-                Continuar con Apple
+                {t('auth.continuarConApple')}
               </>
             )}
           </button>
@@ -451,7 +453,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', forc
         {/* Toggle mode */}
         <div className="mt-5 text-center">
           <p className="text-sm text-apple-gray-500 dark:text-apple-gray-400">
-            {mode === 'login' ? '¿No tenés cuenta?' : '¿Ya tenés cuenta?'}
+            {mode === 'login' ? t('auth.noTenesCuenta') : t('auth.yaTenesCuenta')}
             <button
               type="button"
               onClick={() => {
@@ -461,7 +463,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', forc
               }}
               className="ml-1.5 text-brand-green hover:text-emerald-600 font-medium transition-colors"
             >
-              {mode === 'login' ? 'Registrate' : 'Iniciá sesión'}
+              {mode === 'login' ? t('auth.registrate') : t('auth.iniciaSesion')}
             </button>
           </p>
         </div>
