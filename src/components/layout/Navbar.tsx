@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useTheme } from '@/context/ThemeContext'
+import { useLanguage } from '@/context/LanguageContext'
 import { useAuth } from '@/context/AuthContext'
 import ThemeToggle from './ThemeToggle'
+import LanguageToggle from './LanguageToggle'
 import AuthModal from '@/components/auth/AuthModal'
 import { PDFBuilderFloatingButton } from '@/components/pdf/AddToReportButton'
 import { useSwipeToClose } from '@/hooks/useSwipeToClose'
@@ -11,61 +13,61 @@ import { useSwipeToClose } from '@/hooks/useSwipeToClose'
 
 interface NavItem {
   to: string
-  label: string
+  labelKey: string
   icon: string
   exact?: boolean
 }
 
 interface NavGroup {
-  label: string
+  labelKey: string
   icon: string
   to?: string // if clicking the label should navigate somewhere
   items: NavItem[]
 }
 
 const inicioGroup: NavGroup = {
-  label: 'Inicio',
+  labelKey: 'nav.inicio',
   icon: 'home',
   to: '/',
   items: [
-    { to: '/panel-interno', label: 'Panel Interno', icon: 'chart' },
-    { to: '/calendario', label: 'Calendario', icon: 'calendar' },
-    { to: '/carga-gps', label: 'Carga de GPS', icon: 'chart' },
+    { to: '/panel-interno', labelKey: 'nav.panelInterno', icon: 'chart' },
+    { to: '/calendario', labelKey: 'nav.calendario', icon: 'calendar' },
+    { to: '/carga-gps', labelKey: 'nav.cargaGps', icon: 'chart' },
   ],
 }
 
 const directLinks: NavItem[] = [
-  { to: '/scouting', label: 'Scout Externo', icon: 'globe' },
-  { to: '/interno', label: 'Scout Interno', icon: 'users' },
-  { to: '/entrenadores', label: 'Entrenadores', icon: 'whistle' },
+  { to: '/scouting', labelKey: 'nav.scoutExterno', icon: 'globe' },
+  { to: '/interno', labelKey: 'nav.scoutInterno', icon: 'users' },
+  { to: '/entrenadores', labelKey: 'nav.entrenadores', icon: 'whistle' },
 ]
 
 const seguimientoGroup: NavGroup = {
-  label: 'Seguimiento',
+  labelKey: 'nav.seguimiento',
   icon: 'eye',
   items: [
-    { to: '/seguimiento-gg', label: 'Seguimiento GG', icon: 'shield' },
-    { to: '/seguimiento-datos', label: 'Seguimiento Datos', icon: 'eye' },
+    { to: '/seguimiento-gg', labelKey: 'nav.seguimientoGG', icon: 'shield' },
+    { to: '/seguimiento-datos', labelKey: 'nav.seguimientoDatos', icon: 'eye' },
   ],
 }
 
 const talentGroup: NavGroup = {
-  label: 'Búsqueda de Talento',
+  labelKey: 'nav.busquedaTalento',
   icon: 'search',
   items: [
-    { to: '/informes', label: 'Informes', icon: 'clipboard' },
-    { to: '/analisis-completo', label: 'Análisis Completo', icon: 'search' },
-    { to: '/oportunidades', label: 'Oportunidades', icon: 'star' },
-    { to: '/similares', label: 'Similares', icon: 'search' },
-    { to: '/comparacion', label: 'Comparaciones', icon: 'compare' },
-    { to: '/formacion', label: 'Formaciones', icon: 'layout' },
-    { to: '/dispersion', label: 'Dispersión', icon: 'scatter' },
-    { to: '/trabajos-scouting', label: 'Trabajos', icon: 'folder' },
-    { to: '/radar', label: 'Detector', icon: 'radar' },
+    { to: '/informes', labelKey: 'nav.informes', icon: 'clipboard' },
+    { to: '/analisis-completo', labelKey: 'nav.analisisCompleto', icon: 'search' },
+    { to: '/oportunidades', labelKey: 'nav.oportunidades', icon: 'star' },
+    { to: '/similares', labelKey: 'nav.similares', icon: 'search' },
+    { to: '/comparacion', labelKey: 'nav.comparaciones', icon: 'compare' },
+    { to: '/formacion', labelKey: 'nav.formaciones', icon: 'layout' },
+    { to: '/dispersion', labelKey: 'nav.dispersion', icon: 'scatter' },
+    { to: '/trabajos-scouting', labelKey: 'nav.trabajos', icon: 'folder' },
+    { to: '/radar', labelKey: 'nav.detector', icon: 'radar' },
   ],
 }
 
-const reportLink: NavItem = { to: '/evaluar', label: 'Reporte', icon: 'clipboard' }
+const reportLink: NavItem = { to: '/evaluar', labelKey: 'nav.reporte', icon: 'clipboard' }
 
 // ─── Icon component ──────────────────────────────────────────────────────────
 
@@ -103,12 +105,14 @@ function DesktopDropdown({
   onToggle,
   dropdownRef,
   location,
+  t,
 }: {
   group: NavGroup
   isOpen: boolean
   onToggle: () => void
   dropdownRef: React.RefObject<HTMLDivElement>
   location: ReturnType<typeof useLocation>
+  t: (key: string) => string
 }) {
   const navigate = useNavigate()
   const isGroupActive = group.items.some(l => location.pathname === l.to)
@@ -130,7 +134,7 @@ function DesktopDropdown({
             : 'text-apple-gray-600 dark:text-apple-gray-300 hover:text-apple-gray-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-apple-gray-700/50'
         }`}
       >
-        {group.label}
+        {t(group.labelKey)}
         <svg className={`w-3.5 h-3.5 transition-transform ${isOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
@@ -152,7 +156,7 @@ function DesktopDropdown({
               }
             >
               <NavIcon icon={link.icon} className="w-4 h-4" />
-              {link.label}
+              {t(link.labelKey)}
             </NavLink>
           ))}
         </div>
@@ -165,6 +169,7 @@ function DesktopDropdown({
 
 export default function Navbar() {
   const { theme } = useTheme()
+  const { t } = useLanguage()
   const { user, userDisplayName, signOut, loading: authLoading } = useAuth()
   const location = useLocation()
   const [isOpen, setIsOpen] = useState(false)
@@ -257,6 +262,7 @@ export default function Navbar() {
               onToggle={() => toggleDropdown('inicio')}
               dropdownRef={inicioRef}
               location={location}
+              t={t}
             />
 
             {/* Direct links */}
@@ -272,7 +278,7 @@ export default function Navbar() {
                   }`
                 }
               >
-                {link.label}
+                {t(link.labelKey)}
               </NavLink>
             ))}
 
@@ -283,6 +289,7 @@ export default function Navbar() {
               onToggle={() => toggleDropdown('seguimiento')}
               dropdownRef={seguimientoRef}
               location={location}
+              t={t}
             />
 
             {/* Búsqueda de Talento dropdown */}
@@ -292,6 +299,7 @@ export default function Navbar() {
               onToggle={() => toggleDropdown('talent')}
               dropdownRef={talentRef}
               location={location}
+              t={t}
             />
 
             {/* Reporte */}
@@ -305,13 +313,14 @@ export default function Navbar() {
                 }`
               }
             >
-              {reportLink.label}
+              {t(reportLink.labelKey)}
             </NavLink>
           </nav>
 
           {/* Right side */}
           <div className="flex items-center gap-2">
             <PDFBuilderFloatingButton />
+            <LanguageToggle />
             <ThemeToggle />
 
             {/* User menu */}
@@ -347,7 +356,7 @@ export default function Navbar() {
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                         </svg>
-                        Perfil
+                        {t('nav.perfil')}
                       </NavLink>
                       <NavLink
                         to="/evaluaciones"
@@ -357,7 +366,7 @@ export default function Navbar() {
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                         </svg>
-                        Gestionar evaluaciones
+                        {t('nav.gestionarEvaluaciones')}
                       </NavLink>
                       <button
                         onClick={() => {
@@ -366,7 +375,7 @@ export default function Navbar() {
                         }}
                         className="w-full px-4 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-apple-gray-50 dark:hover:bg-apple-gray-700 transition-colors"
                       >
-                        Cerrar sesion
+                        {t('nav.cerrarSesion')}
                       </button>
                     </div>
                   )}
@@ -379,7 +388,7 @@ export default function Navbar() {
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                   </svg>
-                  <span className="hidden sm:inline">Ingresar</span>
+                  <span className="hidden sm:inline">{t('nav.ingresar')}</span>
                 </button>
               )
             )}
@@ -435,7 +444,7 @@ export default function Navbar() {
               }
             >
               <NavIcon icon="home" className="w-5 h-5" />
-              Inicio
+              {t('nav.inicio')}
             </NavLink>
 
             {/* Inicio sub-items */}
@@ -453,7 +462,7 @@ export default function Navbar() {
                   }
                 >
                   <NavIcon icon={link.icon} className="w-4 h-4" />
-                  {link.label}
+                  {t(link.labelKey)}
                 </NavLink>
               ))}
             </div>
@@ -472,7 +481,7 @@ export default function Navbar() {
                 }
               >
                 <NavIcon icon={link.icon} className="w-5 h-5" />
-                {link.label}
+                {t(link.labelKey)}
               </NavLink>
             ))}
           </div>
@@ -489,7 +498,7 @@ export default function Navbar() {
             >
               <div className="flex items-center gap-3">
                 <NavIcon icon="eye" className="w-5 h-5" />
-                Seguimiento
+                {t('nav.seguimiento')}
               </div>
               <svg className={`w-4 h-4 transition-transform ${mobileExpanded === 'seguimiento' ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -510,7 +519,7 @@ export default function Navbar() {
                     }
                   >
                     <NavIcon icon={link.icon} className="w-4 h-4" />
-                    {link.label}
+                    {t(link.labelKey)}
                   </NavLink>
                 ))}
               </div>
@@ -529,7 +538,7 @@ export default function Navbar() {
             >
               <div className="flex items-center gap-3">
                 <NavIcon icon="search" className="w-5 h-5" />
-                Búsqueda de Talento
+                {t('nav.busquedaTalento')}
               </div>
               <svg className={`w-4 h-4 transition-transform ${mobileExpanded === 'talent' ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -550,7 +559,7 @@ export default function Navbar() {
                     }
                   >
                     <NavIcon icon={link.icon} className="w-4 h-4" />
-                    {link.label}
+                    {t(link.labelKey)}
                   </NavLink>
                 ))}
               </div>
@@ -570,7 +579,7 @@ export default function Navbar() {
               }
             >
               <NavIcon icon={reportLink.icon} className="w-5 h-5" />
-              {reportLink.label}
+              {t(reportLink.labelKey)}
             </NavLink>
           </div>
 
