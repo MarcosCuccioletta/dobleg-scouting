@@ -8,6 +8,7 @@ import { normalizeName } from '@/utils/scoring'
 import { groupSquadByPosition, POSITION_LABEL } from '@/features/coaches/squadGrouping'
 import { mapSquadPositionToSpanish } from '@/features/coaches/manualExternalPlayer'
 import type { EnrichedPlayer } from '@/types'
+import { PlayerPhoto } from '@/components/ui/PlayerPhoto'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 
 // Nombres completos en español para la posición específica de Supabase (players.primary_position),
@@ -32,16 +33,6 @@ function formatContractBadge(contractEndDate: string): { label: string; colorCla
       : 'text-red-500 bg-red-500/10'
   const label = months <= 0 ? 'Contrato vencido' : `Contrato ${months} mes${months !== 1 ? 'es' : ''}`
   return { label, colorClass }
-}
-
-function initialsOf(name: string): string {
-  return name
-    .split(' ')
-    .filter(Boolean)
-    .map(n => n[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase()
 }
 
 function EmptyState({ message }: { message: string }) {
@@ -94,17 +85,13 @@ function RosterPlayerRow({
   const content = (
     <>
       <div className="relative w-10 h-10 flex-shrink-0">
-        {player.photo ? (
-          <img
-            src={player.photo}
-            alt=""
-            className="w-full h-full rounded-full object-cover ring-1 ring-apple-gray-200/60 dark:ring-apple-gray-700/40"
-          />
-        ) : (
-          <div className="w-full h-full rounded-full flex items-center justify-center font-bold text-2xs bg-apple-gray-100 dark:bg-apple-gray-700 text-apple-gray-500 dark:text-apple-gray-400 ring-1 ring-apple-gray-200/60 dark:ring-apple-gray-700/40">
-            {initialsOf(player.name)}
-          </div>
-        )}
+        <PlayerPhoto
+          src={player.photo}
+          name={player.name}
+          size="md"
+          rounded="full"
+          className="ring-1 ring-apple-gray-200/60 dark:ring-apple-gray-700/40"
+        />
         {creating && (
           <div className="absolute inset-0 rounded-full bg-white/70 dark:bg-apple-gray-900/70 flex items-center justify-center">
             <span className="w-3.5 h-3.5 border-2 border-brand-green border-t-transparent rounded-full animate-spin" />
