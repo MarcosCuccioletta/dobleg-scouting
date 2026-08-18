@@ -79,9 +79,15 @@ export default function SupabasePlayerDetail() {
 
   const { data: mvHistory } = useMarketValueHistory(playerId)
 
+  // `market_value_history` es un snapshot que se sincroniza cada tanto desde
+  // Transfermarkt (ver contract_end_date_stale_transfermarkt) — su última fila puede
+  // quedar atrás de un fix manual del valor en vivo (players.market_value_eur), igual
+  // que le pasaba al total de cartera en PortfolioValueChart.tsx antes de ese fix. Se
+  // agrega un punto "hoy" con el valor vivo para que el gráfico nunca muestre un
+  // valor viejo mientras la ficha ya muestra el correcto.
   const marketValueData = useMemo<MarketValueHistoryEntry[]>(() => {
-    if (!data || mvHistory.length === 0) return []
-    return mvHistory.map(row => ({
+    if (!data) return []
+    const history = mvHistory.map(row => ({
       Jugador: data.player.name,
       idTM: String(data.player.transfermarkt_id ?? ''),
       fecha: new Date(row.recorded_at),
@@ -89,6 +95,17 @@ export default function SupabasePlayerDetail() {
       equipo: row.club_name ?? '',
       edad: 0,
     }))
+    if (data.player.market_value_eur != null) {
+      history.push({
+        Jugador: data.player.name,
+        idTM: String(data.player.transfermarkt_id ?? ''),
+        fecha: new Date(),
+        valor: data.player.market_value_eur,
+        equipo: data.player.team?.name ?? '',
+        edad: 0,
+      })
+    }
+    return history
   }, [data, mvHistory])
 
   const activeScore = useMemo(() => {

@@ -987,13 +987,29 @@ export default function PlayerDetailPage() {
     }
   }, [player?.Jugador, player?.Liga, availableLeagues])
 
+  // marketValueHistory viene del snapshot histórico del Sheet y puede quedar atrás de
+  // un fix del valor en vivo (player.marketValueRaw, ya actualizado por
+  // applyLiveAgencyData en DataContext.tsx) -- mismo patrón que se arregló para el
+  // total de cartera en PortfolioValueChart.tsx. Se agrega un punto "hoy" con el
+  // valor vivo para que el gráfico nunca muestre un valor viejo.
   const playerMarketValueHistory = useMemo(() => {
     if (!player || source !== 'interno') return []
     const playerNameNorm = normalizeName(player.Jugador)
-    return marketValueHistory.filter(entry => {
+    const history = marketValueHistory.filter(entry => {
       const entryNameNorm = normalizeName(entry.Jugador)
       return entryNameNorm === playerNameNorm
     })
+    if (player.marketValueRaw) {
+      history.push({
+        Jugador: player.Jugador,
+        idTM: history[history.length - 1]?.idTM ?? '',
+        fecha: new Date(),
+        valor: player.marketValueRaw,
+        equipo: player.Equipo || '',
+        edad: player.ageNum || 0,
+      })
+    }
+    return history
   }, [player, source, marketValueHistory])
 
   // Tab configuration with icons
