@@ -4,31 +4,32 @@ import {
   ReferenceLine, ReferenceDot
 } from 'recharts'
 import type { MarketValueHistoryEntry } from '@/types'
+import type { Currency } from '@/context/CurrencyContext'
+import { useCurrency } from '@/context/CurrencyContext'
 
 interface MarketValueChartProps {
   data: MarketValueHistoryEntry[]
   playerName: string
 }
 
-function formatValue(value: number): string {
-  if (value >= 1_000_000) {
-    return `${(value / 1_000_000).toFixed(1)}M`
-  }
-  if (value >= 1_000) {
-    return `${Math.round(value / 1_000)}K`
-  }
-  return `${value}`
+function formatValue(value: number, currency: Currency, rate: number): string {
+  const converted = currency === 'USD' ? value * rate : value
+  if (converted >= 1_000_000) return `${(converted / 1_000_000).toFixed(1)}M`
+  if (converted >= 1_000) return `${Math.round(converted / 1_000)}K`
+  return `${Math.round(converted)}`
 }
 
-function formatFullValue(value: number): string {
-  if (value >= 1_000_000) {
-    const millions = value / 1_000_000
-    return `€${millions.toFixed(millions >= 10 ? 0 : 1)} millones`
+function formatFullValue(value: number, currency: Currency, rate: number): string {
+  const converted = currency === 'USD' ? value * rate : value
+  const symbol = currency === 'USD' ? '$' : '€'
+  if (converted >= 1_000_000) {
+    const millions = converted / 1_000_000
+    return `${symbol}${millions.toFixed(millions >= 10 ? 0 : 1)} millones`
   }
-  if (value >= 1_000) {
-    return `€${Math.round(value / 1_000).toLocaleString('es-AR')} mil`
+  if (converted >= 1_000) {
+    return `${symbol}${Math.round(converted / 1_000).toLocaleString('es-AR')} mil`
   }
-  return `€${value.toLocaleString('es-AR')}`
+  return `${symbol}${converted.toLocaleString('es-AR')}`
 }
 
 function formatDate(date: Date): string {
@@ -64,6 +65,7 @@ interface CustomTooltipProps {
 }
 
 function CustomTooltip({ active, payload }: CustomTooltipProps) {
+  const { currency, rate } = useCurrency()
   if (!active || !payload?.length) return null
 
   const data = payload[0].payload
@@ -73,7 +75,7 @@ function CustomTooltip({ active, payload }: CustomTooltipProps) {
     <div className="bg-white dark:bg-apple-gray-800 rounded-xl shadow-lg border border-apple-gray-200 dark:border-apple-gray-700 p-4 min-w-[200px]">
       <p className="text-xs text-apple-gray-400 mb-1">{formatFullDate(date)}</p>
       <p className="text-lg font-bold text-apple-gray-800 dark:text-white">
-        {formatFullValue(data.valor)}
+        {formatFullValue(data.valor, currency, rate)}
       </p>
       <div className="mt-2 pt-2 border-t border-apple-gray-100 dark:border-apple-gray-700">
         <p className="text-xs text-apple-gray-500 dark:text-apple-gray-400">
@@ -88,6 +90,8 @@ function CustomTooltip({ active, payload }: CustomTooltipProps) {
 }
 
 export default function MarketValueChart({ data, playerName }: MarketValueChartProps) {
+  const { currency, rate } = useCurrency()
+  const symbol = currency === 'USD' ? '$' : '€'
   const chartData = useMemo<ChartDataPoint[]>(() => {
     return data.map(entry => ({
       date: entry.fecha.getTime(),
@@ -165,7 +169,7 @@ export default function MarketValueChart({ data, playerName }: MarketValueChartP
         <div className="bg-gradient-to-br from-brand-green/10 to-emerald-500/5 dark:from-brand-green/20 dark:to-emerald-500/10 rounded-xl p-4 border border-brand-green/20">
           <p className="text-xs text-apple-gray-500 dark:text-apple-gray-400 mb-1">Valor actual</p>
           <p className="text-xl font-bold text-brand-green">
-            €{formatValue(stats.current.valor)}
+            {symbol}{formatValue(stats.current.valor, currency, rate)}
           </p>
           <p className="text-2xs text-apple-gray-400 mt-1">{stats.current.equipo}</p>
         </div>
@@ -174,7 +178,7 @@ export default function MarketValueChart({ data, playerName }: MarketValueChartP
         <div className="bg-apple-gray-50 dark:bg-apple-gray-800/50 rounded-xl p-4 border border-apple-gray-200 dark:border-apple-gray-700">
           <p className="text-xs text-apple-gray-500 dark:text-apple-gray-400 mb-1">Valor máximo</p>
           <p className="text-xl font-bold text-apple-gray-800 dark:text-white">
-            €{formatValue(stats.peak)}
+            {symbol}{formatValue(stats.peak, currency, rate)}
           </p>
           <p className="text-2xs text-apple-gray-400 mt-1">
             {formatDate(stats.peakEntry.fecha)} · {stats.peakEntry.equipo}
@@ -237,7 +241,7 @@ export default function MarketValueChart({ data, playerName }: MarketValueChartP
                 minTickGap={50}
               />
               <YAxis
-                tickFormatter={(val) => `€${formatValue(val)}`}
+                tickFormatter={(val) => `${symbol}${formatValue(val, currency, rate)}`}
                 tick={{ fontSize: 11 }}
                 tickLine={false}
                 axisLine={false}
@@ -280,7 +284,7 @@ export default function MarketValueChart({ data, playerName }: MarketValueChartP
       <div className="flex items-center justify-between text-xs text-apple-gray-400">
         <div className="flex items-center gap-1">
           <span className="w-2 h-2 rounded-full bg-brand-green" />
-          <span>Primera valuación: €{formatValue(stats.initial.valor)} ({stats.initial.edad} años)</span>
+          <span>Primera valuación: {symbol}{formatValue(stats.initial.valor, currency, rate)} ({stats.initial.edad} años)</span>
         </div>
         <div>
           {stats.numEntries} valuaciones registradas
