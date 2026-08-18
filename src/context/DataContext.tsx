@@ -55,7 +55,6 @@ function agencyToEnriched(a: AgencyPlayer): EnrichedPlayer {
     source: 'interno',
     contractStatus: 'ok',
     monthsRemaining: null,
-    marketValueFormatted: formatMarketValue(marketValueRaw),
     marketValueRaw,
     minutesPlayed: 0,
     ageNum,
@@ -233,7 +232,6 @@ function enrichInternalWithTransfermarktLink(
     if (marketValueRaw > 0) {
       enriched['Valor de mercado (Transfermarkt)'] = tm['Valor de mercado']
       enriched.marketValueRaw = marketValueRaw
-      enriched.marketValueFormatted = formatMarketValue(marketValueRaw)
     }
   }
 
@@ -293,7 +291,6 @@ function enrichWithMasDatos(
     if (marketValueRaw > 0) {
       enriched['Valor de mercado (Transfermarkt)'] = entry['Valor de mercado']
       enriched.marketValueRaw = marketValueRaw
-      enriched.marketValueFormatted = formatMarketValue(marketValueRaw)
     }
   }
 
@@ -478,7 +475,6 @@ function enrichWithEstimatedValue(player: EnrichedPlayer): EnrichedPlayer {
       Liga: needsLigaFix ? detectedLiga : player.Liga,
       'Valor de mercado (Transfermarkt)': formatMarketValue(estimatedValue),
       marketValueRaw: estimatedValue,
-      marketValueFormatted: formatMarketValue(estimatedValue),
     }
   }
 
@@ -505,7 +501,6 @@ function enrichWithTransfermarkt(
 
   // Recalculate derived values
   const marketValueRaw = parseMarketValue(newMarketValueStr)
-  const marketValueFormatted = formatMarketValue(marketValueRaw)
 
   const contractDate = parseContractDate(newContractStr)
   const now = new Date()
@@ -526,7 +521,6 @@ function enrichWithTransfermarkt(
     Imagen: tm.Imagen || '',
     // Recalculated derived values
     marketValueRaw,
-    marketValueFormatted,
     monthsRemaining,
     contractStatus,
   }
@@ -793,7 +787,6 @@ function linkMonitoringToMetrics(
         metricsPlayer: existingPlayer,
         opportunityScore: calculateOpportunityScore(existingPlayer.ggScore, existingPlayer.marketValueRaw),
         marketValueRaw: existingPlayer.marketValueRaw,
-        marketValueFormatted: existingPlayer.marketValueFormatted,
         monthsRemaining: existingPlayer.monthsRemaining,
         contractStatus: existingPlayer.contractStatus,
         avgInternalScore,
@@ -810,7 +803,6 @@ function linkMonitoringToMetrics(
 
     // Get market value from metrics or Transfermarkt
     let marketValueRaw = parseMarketValue(metricsPlayer['Valor de mercado'] ?? '')
-    let marketValueFormatted = formatMarketValue(marketValueRaw)
     let monthsRemaining: number | null = null
     let contractStatus: 'ok' | 'warning' | 'critical' = 'ok'
 
@@ -839,7 +831,6 @@ function linkMonitoringToMetrics(
           const tmValue = parseMarketValue(tm['Valor de mercado'] || '')
           if (tmValue > 0) {
             marketValueRaw = tmValue
-            marketValueFormatted = formatMarketValue(tmValue)
           }
           const contractDate = parseContractDate(tm['Fin de contrato'] || '')
           if (contractDate) {
@@ -867,7 +858,6 @@ function linkMonitoringToMetrics(
       metricsPlayer: enrichedPlayer,
       opportunityScore,
       marketValueRaw,
-      marketValueFormatted,
       monthsRemaining,
       contractStatus,
       avgInternalScore,
@@ -1040,7 +1030,6 @@ function scoreSeguimientoPlayer(
     source: 'externo',
     contractStatus: monthsRemaining === null ? 'ok' : monthsRemaining < 7 ? 'critical' : monthsRemaining < 13 ? 'warning' : 'ok',
     monthsRemaining,
-    marketValueFormatted: formatMarketValue(marketValueRaw),
     marketValueRaw,
     minutesPlayed: parseInt(player['Minutos jugados'] ?? '0', 10),
     ageNum: parseInt(player.Edad ?? '0', 10) || 0,

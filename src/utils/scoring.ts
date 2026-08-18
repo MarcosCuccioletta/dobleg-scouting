@@ -144,7 +144,6 @@ function enrichPlayer(
       : monthsRemaining < 13  ? 'warning'
       : 'ok',
     monthsRemaining,
-    marketValueFormatted: formatMarketValue(marketValueRaw),
     marketValueRaw,
     minutesPlayed: getNumericValue(player, 'Minutos jugados'),
     ageNum: parseInt(player['Edad'] ?? '0', 10) || 0,
