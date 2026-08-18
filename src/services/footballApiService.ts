@@ -301,22 +301,42 @@ export interface PlayerTransfer {
   fee: string | null
 }
 
-const TRANSFER_CACHE_KEY = 'dg-transfers-cache-v2'
+const TRANSFER_CACHE_KEY = 'dg-transfers-cache-v3'
 const TRANSFER_CACHE_TTL = 24 * 60 * 60 * 1000
 
+const DUPLICATE_WINDOW_MS = 3 * 24 * 60 * 60 * 1000
+
 /**
- * La API-Football devuelve cada movimiento duplicado (mismo response[0].transfers
- * repite la fila) — se dedupea por fecha+tipo+clubes, la identidad real de un
- * traspaso, no por posición en el array.
+ * La API-Football devuelve cada movimiento duplicado, pero no con la fecha
+ * idéntica — el mismo traspaso puede aparecer dos veces con un día de
+ * diferencia (caso real: N. Leguizamón Deportivo Cuenca→Juan Pablo II College
+ * el 13 y el 14 de julio). Un dedupe por igualdad exacta de fecha no lo agarra;
+ * se agrupa por tipo+clubes y, dentro de cada grupo, se colapsan las fechas que
+ * caen a pocos días una de otra — quedándose con la más antigua — sin tocar
+ * traspasos legítimos y distintos entre el mismo par de clubes en fechas
+ * realmente separadas (un préstamo y después una compra, por ejemplo).
  */
 export function dedupeTransfers(transfers: PlayerTransfer[]): PlayerTransfer[] {
-  const seen = new Set<string>()
-  return transfers.filter(t => {
-    const key = `${t.date}|${t.type}|${t.teams.out.id}|${t.teams.in.id}`
-    if (seen.has(key)) return false
-    seen.add(key)
-    return true
-  })
+  const groups = new Map<string, PlayerTransfer[]>()
+  for (const t of transfers) {
+    const key = `${t.type}|${t.teams.out.id}|${t.teams.in.id}`
+    if (!groups.has(key)) groups.set(key, [])
+    groups.get(key)!.push(t)
+  }
+
+  const result: PlayerTransfer[] = []
+  for (const group of groups.values()) {
+    const sorted = [...group].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    let lastKept: PlayerTransfer | null = null
+    for (const t of sorted) {
+      if (lastKept && new Date(t.date).getTime() - new Date(lastKept.date).getTime() <= DUPLICATE_WINDOW_MS) {
+        continue
+      }
+      result.push(t)
+      lastKept = t
+    }
+  }
+  return result
 }
 
 export async function fetchPlayerTransfers(playerId: number): Promise<PlayerTransfer[]> {
@@ -353,7 +373,7 @@ export interface AgencyTransfer extends PlayerTransfer {
   playerImage: string | null
 }
 
-const AGENCY_TRANSFERS_CACHE_KEY = 'dg-agency-transfers-v2'
+const AGENCY_TRANSFERS_CACHE_KEY = 'dg-agency-transfers-v3'
 const AGENCY_TRANSFERS_CACHE_TTL = 24 * 60 * 60 * 1000
 
 const SQUAD_CACHE_KEY = 'dg-squad-cache'

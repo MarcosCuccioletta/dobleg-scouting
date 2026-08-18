@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   fetchTeamCompetitions,
   fetchTeamCompetitionFixtures,
@@ -8,31 +8,26 @@ import {
   type StandingRow,
 } from '@/services/footballApiService'
 import type { AgencyFixture } from '@/types/footballApi'
-import { getUniqueTeamIds, type AgencyPlayer } from '@/constants/agencyPlayers'
+import type { AgencyPlayer } from '@/constants/agencyPlayers'
 import { isMatchFinished } from '@/utils/coachCalendar'
 import { useData } from '@/context/DataContext'
+import { fuzzyMatch } from '@/lib/search'
 import StandingsTable from '@/components/shared/StandingsTable'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 
-interface TeamOption {
-  teamId: number
-  teamName: string
-  playerNames: string[]
+interface PlayerOption {
+  fullName: string
+  shortName: string
+  image: string | null
+  team: string
+  apiTeamId: number
 }
 
-function buildTeamOptions(agencyPlayers: AgencyPlayer[]): TeamOption[] {
-  return getUniqueTeamIds()
-    .map(teamId => {
-      // Sólo jugadores no-reserva: el dropdown de equipos ya sale de
-      // getUniqueTeamIds (que también filtra isReserve) — mantener la leyenda
-      // de "quién juega acá" consistente con eso, no getPlayersByTeamId crudo
-      // (que sí incluye reservas, necesarias en otros consumidores como
-      // footballApiService.mapFixture).
-      const players = agencyPlayers.filter(p => p.apiTeamId === teamId && !p.isReserve)
-      return { teamId, teamName: players[0]?.team ?? '', playerNames: players.map(p => p.shortName) }
-    })
-    .filter(t => t.teamName)
-    .sort((a, b) => a.teamName.localeCompare(b.teamName))
+function buildPlayerOptions(agencyPlayers: AgencyPlayer[]): PlayerOption[] {
+  return agencyPlayers
+    .filter((p): p is AgencyPlayer & { apiTeamId: number } => !p.isReserve && p.apiTeamId != null && !!p.team)
+    .map(p => ({ fullName: p.fullName, shortName: p.shortName, image: p.image, team: p.team, apiTeamId: p.apiTeamId }))
+    .sort((a, b) => a.fullName.localeCompare(b.fullName))
 }
 
 /** Formatea una fecha de fixture en hora de Argentina (dd/mm/yyyy), evitando
@@ -128,17 +123,35 @@ function CompetitionFixtures({ teamId, leagueId, season }: { teamId: number; lea
 
 export default function ClubsAndCupsSection() {
   const { agencyPlayers } = useData()
-  const options = useMemo(() => buildTeamOptions(agencyPlayers), [agencyPlayers])
-  const [selectedTeamId, setSelectedTeamId] = useState<number | null>(options[0]?.teamId ?? null)
+  const options = useMemo(() => buildPlayerOptions(agencyPlayers), [agencyPlayers])
+  const [selectedPlayer, setSelectedPlayer] = useState<PlayerOption | null>(null)
+  const [query, setQuery] = useState('')
+  const [open, setOpen] = useState(false)
   const [competitions, setCompetitions] = useState<TeamCompetition[] | null>(null)
   const [activeCompetitionIdx, setActiveCompetitionIdx] = useState(0)
+  const searchRef = useRef<HTMLDivElement>(null)
 
-  // Si `options` cambia (roster recién cargado o refrescado a mitad de sesión)
-  // y la selección actual ya no es válida, recaer en el primer equipo.
+  // Primer jugador de la lista por defecto; si el roster cambia (alta/baja a
+  // mitad de sesión) y el elegido ya no está, recae en el primero también.
   useEffect(() => {
-    if (selectedTeamId != null && options.some(o => o.teamId === selectedTeamId)) return
-    setSelectedTeamId(options[0]?.teamId ?? null)
-  }, [options, selectedTeamId])
+    if (selectedPlayer && options.some(o => o.fullName === selectedPlayer.fullName)) return
+    setSelectedPlayer(options[0] ?? null)
+  }, [options, selectedPlayer])
+
+  useEffect(() => {
+    function onClickOutside(e: MouseEvent) {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) setOpen(false)
+    }
+    if (open) document.addEventListener('mousedown', onClickOutside)
+    return () => document.removeEventListener('mousedown', onClickOutside)
+  }, [open])
+
+  const filteredOptions = useMemo(() => {
+    if (!query.trim()) return options
+    return options.filter(o => fuzzyMatch(query, o.fullName) || fuzzyMatch(query, o.team))
+  }, [options, query])
+
+  const selectedTeamId = selectedPlayer?.apiTeamId ?? null
 
   useEffect(() => {
     if (selectedTeamId == null) return
@@ -159,7 +172,6 @@ export default function ClubsAndCupsSection() {
 
   if (options.length === 0) return null
 
-  const selected = options.find(o => o.teamId === selectedTeamId)
   const activeCompetition = competitions?.[activeCompetitionIdx] ?? null
 
   return (
@@ -173,31 +185,50 @@ export default function ClubsAndCupsSection() {
         <div>
           <h2 className="text-xl font-bold text-apple-gray-800 dark:text-white">Clubes y Copas</h2>
           <p className="text-sm text-apple-gray-500">
-            Posición en la liga y progreso en copas de los clubes del roster
+            Buscá un jugador para ver la posición en la liga y el progreso en copas de su club
           </p>
         </div>
       </div>
 
       <div className="bg-white dark:bg-apple-gray-800 rounded-xl border border-apple-gray-200 dark:border-apple-gray-700 p-5">
-        <div className="flex items-center gap-3 mb-4 flex-wrap">
-          <select
-            value={selectedTeamId ?? ''}
-            onChange={e => setSelectedTeamId(Number(e.target.value))}
-            className="min-h-[40px] text-sm font-medium rounded-lg border border-apple-gray-200 dark:border-apple-gray-700 bg-white dark:bg-apple-gray-800 px-3 py-2 text-apple-gray-700 dark:text-apple-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-green/40 focus:border-brand-green"
-          >
-            {options.map(o => (
-              <option key={o.teamId} value={o.teamId}>
-                {o.teamName}
-              </option>
-            ))}
-          </select>
-          {selected && (
-            <span
-              className="text-xs text-apple-gray-500 truncate"
-              title={selected.playerNames.join(', ')}
-            >
-              {selected.playerNames.join(', ')}
-            </span>
+        <div className="relative mb-4 max-w-sm" ref={searchRef}>
+          <div className="relative">
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-apple-gray-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text"
+              value={open ? query : (selectedPlayer?.fullName ?? '')}
+              onChange={e => { setQuery(e.target.value); setOpen(true) }}
+              onFocus={() => { setQuery(''); setOpen(true) }}
+              placeholder="Buscar jugador..."
+              className="w-full min-h-[40px] text-sm font-medium rounded-lg border border-apple-gray-200 dark:border-apple-gray-700 bg-white dark:bg-apple-gray-800 pl-9 pr-3 py-2 text-apple-gray-700 dark:text-apple-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-green/40 focus:border-brand-green"
+            />
+          </div>
+          {open && (
+            <div className="absolute z-10 mt-1 w-full max-h-72 overflow-y-auto rounded-lg border border-apple-gray-200 dark:border-apple-gray-700 bg-white dark:bg-apple-gray-800 shadow-lg">
+              {filteredOptions.length === 0 ? (
+                <p className="px-3 py-3 text-sm text-apple-gray-400">Sin resultados</p>
+              ) : (
+                filteredOptions.map(o => (
+                  <button
+                    key={o.fullName}
+                    onClick={() => { setSelectedPlayer(o); setQuery(''); setOpen(false) }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-apple-gray-50 dark:hover:bg-apple-gray-700/50 transition-colors"
+                  >
+                    {o.image ? (
+                      <img src={o.image} alt="" className="w-7 h-7 rounded-full object-cover flex-shrink-0" />
+                    ) : (
+                      <div className="w-7 h-7 rounded-full bg-apple-gray-200 dark:bg-apple-gray-700 flex-shrink-0" />
+                    )}
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-apple-gray-800 dark:text-white truncate">{o.fullName}</p>
+                      <p className="text-xs text-apple-gray-500 truncate">{o.team}</p>
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
           )}
         </div>
 

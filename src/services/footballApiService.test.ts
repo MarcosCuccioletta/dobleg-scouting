@@ -200,6 +200,25 @@ describe('dedupeTransfers', () => {
     expect(result).toHaveLength(1)
   })
 
+  it('saca el duplicado aunque la fecha difiera un dia (caso real: N. Leguizamon Deportivo Cuenca -> Juan Pablo II College el 13 y el 14 de julio)', () => {
+    const transfers = [
+      transfer({ date: '2026-07-13' }),
+      transfer({ date: '2026-07-14' }),
+    ]
+    const result = dedupeTransfers(transfers)
+    expect(result).toHaveLength(1)
+    expect(result[0].date).toBe('2026-07-13')
+  })
+
+  it('no fusiona dos movimientos legitimos entre los mismos clubes separados por meses (prestamo y despues compra)', () => {
+    const transfers = [
+      transfer({ date: '2025-08-01', type: 'Loan' }),
+      transfer({ date: '2026-06-01', type: 'Loan' }),
+    ]
+    const result = dedupeTransfers(transfers)
+    expect(result).toHaveLength(2)
+  })
+
   it('deja pasar dos movimientos legitimos distintos (mismo dia, clubes distintos)', () => {
     const transfers = [
       transfer({ teams: { in: { id: 1, name: 'Club A', logo: '' }, out: { id: 2, name: 'Club B', logo: '' } } }),

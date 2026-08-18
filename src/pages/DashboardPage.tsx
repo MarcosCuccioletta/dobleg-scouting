@@ -10,6 +10,7 @@ import { displayPosition } from '@/types/scoring'
 import { normalizeName } from '@/utils/scoring'
 import { useScoreLookup } from '@/hooks/usePlayerStats'
 import PortfolioValueChart from '@/components/charts/PortfolioValueChart'
+import PortfolioInsights from '@/components/dashboard/PortfolioInsights'
 import LeagueAnalysis from '@/components/dashboard/LeagueAnalysis'
 import AgencyTransferHistory from '@/components/dashboard/AgencyTransferHistory'
 import ClubsAndCupsSection from '@/components/dashboard/ClubsAndCupsSection'
@@ -581,6 +582,7 @@ export default function DashboardPage() {
       {marketValueHistory.length > 0 && (
         <div className="mb-8">
           <Section title="Evolución del Valor del Portfolio">
+            <PortfolioInsights players={internal} history={marketValueHistory} />
             <PortfolioValueChart
               data={marketValueHistory}
               players={internal}
