@@ -25,7 +25,7 @@ import ExportPDFModal, { type PDFTheme } from '@/components/ui/ExportPDFModal'
 import { exportPlayerToPdfFull } from '@/utils/pdfExport'
 import AddToReportButton from '@/components/pdf/AddToReportButton'
 import { normalizeName } from '@/utils/scoring'
-import { currentClubFromMatches } from '@/utils/currentClub'
+import { currentClubFromMatches, resolveDisplayClub } from '@/utils/currentClub'
 import { fuzzyMatch } from '@/lib/search'
 import { POSITION_MAP, DISPLAY_POSITION_MAP, DISPLAY_METRICS, RADAR_METRICS, METRIC_ABBREVIATIONS } from '@/constants/scoring'
 import { fetchPlayerEvaluations, fetchEvaluationsByName, type ScoutEvaluation } from '@/services/scoutEvaluationService'
@@ -690,9 +690,17 @@ export default function PlayerDetailPage() {
     ) ?? null
   }, [id, source, monitoring])
 
-  // Jugador Doble G sin equipo resoluble → ofrecer carga manual de próximos partidos
+  // Jugador Doble G sin equipo resoluble → ofrecer carga manual de próximos partidos.
+  // `player.Jugador` puede venir en formato corto ("M. Vera") o completo
+  // ("Mauricio Vera") según la fuente (CSV interno vs alta directa de agencia) — sin
+  // comparar también contra `shortName`, esto no encontraba nada para ningún jugador
+  // cuyo `Jugador` quedó en formato corto, y dependía de esto tanto el aviso de
+  // partidos manuales como el club a mostrar en la ficha (ver `resolveDisplayClub`).
   const dgEntry = useMemo(
-    () => agencyPlayers.find(a => normalizeName(a.fullName) === normalizeName(player?.Jugador ?? '')),
+    () => agencyPlayers.find(a =>
+      normalizeName(a.fullName) === normalizeName(player?.Jugador ?? '') ||
+      normalizeName(a.shortName) === normalizeName(player?.Jugador ?? '')
+    ),
     [agencyPlayers, player]
   )
   const needsManualFixtures = !!player && !!dgEntry && !dgEntry.apiTeamId
@@ -784,7 +792,10 @@ export default function PlayerDetailPage() {
     () => currentClubFromMatches(supabaseDetail?.matches ?? []),
     [supabaseDetail],
   )
-  const currentClubName = currentClub?.teamName ?? player?.Equipo ?? null
+  const currentClubName =
+    resolveDisplayClub(currentClub, dgEntry ? { team: dgEntry.team, apiTeamId: dgEntry.apiTeamId } : null)
+    ?? player?.Equipo
+    ?? null
   const currentLeagueName = currentClub?.leagueId
     ? leagues.find(l => l.id === currentClub.leagueId)?.name ?? null
     : null

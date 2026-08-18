@@ -7,7 +7,9 @@ import GaugeScore from '@/components/charts/GaugeScore'
 import PositionBar from '@/components/ui/PositionBar'
 import ScoreEvolutionChart from '@/components/charts/ScoreEvolutionChart'
 import { getScoreColorClass, getScoreBgClass } from '@/components/ui/ScoreBar'
-import { currentClubFromMatches } from '@/utils/currentClub'
+import { currentClubFromMatches, resolveDisplayClub } from '@/utils/currentClub'
+import { getAgencyPlayersList } from '@/constants/agencyPlayers'
+import { normalizeName } from '@/utils/scoring'
 import { PlayerPhoto, TeamLogo } from '@/components/ui/PlayerPhoto'
 import MetricsRadarChart from '@/components/charts/MetricsRadarChart'
 import MetricsBarComparison from '@/components/charts/MetricsBarComparison'
@@ -60,7 +62,17 @@ export default function SupabasePlayerDetail() {
    * sincronizar, y el último partido siempre trae club y liga del mismo hecho.
    */
   const currentClub = useMemo(() => currentClubFromMatches(data?.matches ?? []), [data])
-  const currentClubName = currentClub?.teamName ?? data?.player?.team?.name ?? null
+  const dgEntry = useMemo(() => {
+    const name = data?.player?.name
+    if (!name) return null
+    return getAgencyPlayersList().find(a =>
+      normalizeName(a.fullName) === normalizeName(name) || normalizeName(a.shortName) === normalizeName(name)
+    ) ?? null
+  }, [data])
+  const currentClubName =
+    resolveDisplayClub(currentClub, dgEntry ? { team: dgEntry.team, apiTeamId: dgEntry.apiTeamId } : null)
+    ?? data?.player?.team?.name
+    ?? null
   const currentLeagueName = currentClub?.leagueId
     ? leagues.find(l => l.id === currentClub.leagueId)?.name ?? null
     : null

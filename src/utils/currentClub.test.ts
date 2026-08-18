@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { currentClubFromMatches } from './currentClub'
+import { currentClubFromMatches, resolveDisplayClub } from './currentClub'
 import type { PlayerMatchStat } from '@/types/scoring'
 
 function match(opts: {
@@ -85,5 +85,43 @@ describe('currentClubFromMatches', () => {
     expect(currentClubFromMatches([
       match({ teamId: 1, date: null, homeId: 1, awayId: 2, homeName: 'X', awayName: 'Y' }),
     ])).toBeNull()
+  })
+})
+
+describe('resolveDisplayClub', () => {
+  it('sin dato de agencia, usa el club del último partido tal cual', () => {
+    const matchClub = { teamId: 2424, teamName: 'Estudiantes de Rio Cuarto', leagueId: 128 }
+    expect(resolveDisplayClub(matchClub, null)).toBe('Estudiantes de Rio Cuarto')
+  })
+
+  it('si el equipo de la agencia coincide con el del último partido, no cambia nada', () => {
+    const matchClub = { teamId: 2443, teamName: 'Bhayangkara FC', leagueId: 274 }
+    const agencyTeam = { team: 'Bhayangkara FC', apiTeamId: 2443 }
+    expect(resolveDisplayClub(matchClub, agencyTeam)).toBe('Bhayangkara FC')
+  })
+
+  it('si el equipo de la agencia difiere del último partido, gana la agencia (caso real Mauricio Vera)', () => {
+    // El último partido sincronizado de Vera sigue siendo con Nacional (Uruguay) porque
+    // la Indonesia Super League, donde jugará con Bhayangkara FC, todavía no sincronizó
+    // ningún partido — puede tardar meses. Mientras tanto, el dato de la agencia
+    // (agencyPlayers.ts, actualizado a mano + sync de Transfermarkt) es más confiable.
+    const matchClub = { teamId: 9, teamName: 'Club Nacional', leagueId: 268 }
+    const agencyTeam = { team: 'Bhayangkara FC', apiTeamId: 2443 }
+    expect(resolveDisplayClub(matchClub, agencyTeam)).toBe('Bhayangkara FC')
+  })
+
+  it('sin partidos (matchClub null), usa el equipo de la agencia si lo hay', () => {
+    const agencyTeam = { team: 'Bhayangkara FC', apiTeamId: 2443 }
+    expect(resolveDisplayClub(null, agencyTeam)).toBe('Bhayangkara FC')
+  })
+
+  it('sin partidos y sin dato de agencia, devuelve null', () => {
+    expect(resolveDisplayClub(null, null)).toBeNull()
+  })
+
+  it('jugador de agencia sin apiTeamId conocido: no puede comparar, usa el último partido', () => {
+    const matchClub = { teamId: 9, teamName: 'Club Nacional', leagueId: 268 }
+    const agencyTeam = { team: 'Bhayangkara FC', apiTeamId: null }
+    expect(resolveDisplayClub(matchClub, agencyTeam)).toBe('Club Nacional')
   })
 })

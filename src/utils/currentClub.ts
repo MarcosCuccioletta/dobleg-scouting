@@ -41,3 +41,27 @@ export function currentClubFromMatches(matches: PlayerMatchStat[]): CurrentClub 
     leagueId: f.league_id ?? null,
   }
 }
+
+/**
+ * Nombre de club a mostrar, combinando el último partido con el dato curado de
+ * la agencia (`agencyPlayers.ts`, actualizado a mano + sync de Transfermarkt).
+ *
+ * Para los ~40 jugadores de Doble G, ese roster es más confiable que el último
+ * partido sincronizado cuando ambos discrepan: un traspaso recién cargado no
+ * tiene partidos todavía en la liga nueva, así que "el último partido" sigue
+ * apuntando al club anterior hasta que esa liga sincronice — lo que puede
+ * tardar meses (caso real: Mauricio Vera a Bhayangkara FC, Indonesia Super
+ * League sin sincronizar). Fuera de la agencia (sin `apiTeamId` conocido) no
+ * hay con qué comparar, así que se sigue confiando en el último partido —
+ * ver el comentario de `currentClubFromMatches` para por qué esa sigue siendo
+ * la fuente por defecto.
+ */
+export function resolveDisplayClub(
+  matchClub: CurrentClub | null,
+  agencyTeam: { team: string; apiTeamId: number | null } | null,
+): string | null {
+  if (agencyTeam?.apiTeamId && agencyTeam.apiTeamId !== matchClub?.teamId) {
+    return agencyTeam.team
+  }
+  return matchClub?.teamName ?? agencyTeam?.team ?? null
+}
