@@ -120,6 +120,38 @@ describe('buildScoreLookup', () => {
     expect(map.get('julian lopez')?.player_id).toBe(22036647)
     expect(map.get('julian lopez')?.matches_played).toBe(15)
   })
+
+  it('jugador de agencia recién transferido: el equipo nuevo con MENOS partidos gana al equipo viejo con MÁS (caso real Mauricio Vera)', () => {
+    // Caso real: Mauricio Vera se transfirió a Bhayangkara FC (apiTeamId 2443). Su
+    // fila vieja (Nacional, Sofascore) tiene 4 partidos y score 3.9; su fila nueva
+    // (Bhayangkara, API-Football) recién tiene 2 partidos y score 6.8. Antes de este
+    // fix, el paso 1 (identidad por transfermarkt_id) se quedaba con la fila de más
+    // partidos — la vieja — y la descartaba de `representatives`, así que el
+    // desempate por equipo del paso 2 nunca llegaba a verla: la lista mostraba 3.9
+    // mientras la ficha individual (que resuelve distinto) mostraba el 6.8 correcto.
+    const rows = [
+      row({ player_id: 21022801, name: 'Mauricio Vera', current_team_id: 20003230, transfermarkt_id: 697408, matches_played: 4, score: 3.9 }),
+      row({ player_id: 133613, name: 'Mauricio Vera', current_team_id: 2443, transfermarkt_id: 697408, matches_played: 2, score: 6.8 }),
+    ]
+    const agencyPlayers = [{ fullName: 'Mauricio Vera', shortName: 'M. Vera', apiTeamId: 2443 }]
+
+    const map = buildScoreLookup(rows, agencyPlayers)
+
+    expect(map.get('mauricio vera')?.player_id).toBe(133613)
+    expect(map.get('mauricio vera')?.score).toBe(6.8)
+  })
+
+  it('mismo caso, orden de filas invertido: el resultado no depende de qué fila aparece primero', () => {
+    const rows = [
+      row({ player_id: 133613, name: 'Mauricio Vera', current_team_id: 2443, transfermarkt_id: 697408, matches_played: 2, score: 6.8 }),
+      row({ player_id: 21022801, name: 'Mauricio Vera', current_team_id: 20003230, transfermarkt_id: 697408, matches_played: 4, score: 3.9 }),
+    ]
+    const agencyPlayers = [{ fullName: 'Mauricio Vera', shortName: 'M. Vera', apiTeamId: 2443 }]
+
+    const map = buildScoreLookup(rows, agencyPlayers)
+
+    expect(map.get('mauricio vera')?.player_id).toBe(133613)
+  })
 })
 
 describe('currentSeasons', () => {

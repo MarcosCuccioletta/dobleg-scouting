@@ -288,13 +288,36 @@ export function buildScoreLookup(
     matches_played: row.matches_played,
   });
 
-  // Paso 1: una fila representante por identidad real (la de más partidos jugados).
+  // Equipo actual conocido por jugador de agencia (usado en el paso 1 de abajo).
+  const apiTeamIdByName = new Map<string, number>();
+  for (const ap of agencyPlayers) {
+    if (ap.apiTeamId) apiTeamIdByName.set(norm(ap.fullName), ap.apiTeamId);
+  }
+
+  // Paso 1: una fila representante por identidad real. Por defecto gana la de más
+  // partidos jugados, salvo que el jugador sea de agencia con equipo actual conocido:
+  // ahí gana la fila de ESE equipo aunque tenga menos partidos. Sin esto, un jugador
+  // recién transferido queda tapado por su equipo viejo indefinidamente: el equipo
+  // nuevo casi siempre tiene menos partidos acumulados que el viejo apenas después de
+  // un traspaso (caso real: Mauricio Vera a Bhayangkara FC — 2 partidos/score 6.8 —
+  // tapado por Nacional en Sofascore — 4 partidos/score 3.9 — porque el paso 1
+  // descartaba la fila de Bhayangkara antes de que el desempate por equipo del paso 2
+  // llegara a verla).
   const byIdentity = new Map<string, ScoreLookupRow>();
   for (const row of rows) {
     if (!row.name) continue;
     const key = identityKey(row);
     const existing = byIdentity.get(key);
-    if (!existing || row.matches_played > existing.matches_played) {
+    if (!existing) {
+      byIdentity.set(key, row);
+      continue;
+    }
+    const knownTeamId = apiTeamIdByName.get(norm(row.name));
+    const rowMatchesTeam = knownTeamId != null && row.current_team_id === knownTeamId;
+    const existingMatchesTeam = knownTeamId != null && existing.current_team_id === knownTeamId;
+    if (rowMatchesTeam && !existingMatchesTeam) {
+      byIdentity.set(key, row);
+    } else if (!(existingMatchesTeam && !rowMatchesTeam) && row.matches_played > existing.matches_played) {
       byIdentity.set(key, row);
     }
   }
