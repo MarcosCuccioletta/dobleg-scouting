@@ -17,10 +17,9 @@ import {
   type ApiMetricKey,
 } from '@/constants/apiMetrics'
 import { getScoreColorClass, getScoreBgClass } from '@/components/ui/ScoreBar'
-import CanvaExportModal, { type CanvaExportOptions } from '@/components/pdf/CanvaExportModal'
 import type { EnrichedPlayer } from '@/types'
 
-// ─── Helper: adapt PlayerWithScore → EnrichedPlayer (for PDF/Canva export) ────
+// ─── Helper: adapt PlayerWithScore → EnrichedPlayer (for PDF export) ─────────
 
 function playerToEnriched(p: PlayerWithScore): EnrichedPlayer {
   const score = p.season_scores[0]
@@ -252,9 +251,6 @@ export default function BusquedaPage() {
   const dropdownRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
   const [exporting, setExporting] = useState(false)
-  const [exportingCanva, setExportingCanva] = useState(false)
-  const [showCanvaModal, setShowCanvaModal] = useState(false)
-  const [canvaModalData, setCanvaModalData] = useState<{ allMetrics: import('@/components/pdf/CanvaExportModal').CanvaMetricPreview[]; positionKeys: string[] } | null>(null)
 
   // Cascading search filters
   const [searchLeagueFilter, setSearchLeagueFilter] = useState('')
@@ -711,168 +707,6 @@ export default function BusquedaPage() {
     finally { setExporting(false) }
   }
 
-  // ─── Canva card export ────────────────────────────────────────────────────
-
-  function openCanvaModal() {
-    if (!selectedPlayer) return
-
-    // Position metrics for "auto" mode
-    const pos = selectedPlayer.primary_position
-    const positionKeys: string[] = pos
-      ? (METRICS_BY_POSITION[pos] ?? API_METRICS.map(m => m.key)).slice(0, 10)
-      : activeMetrics.slice(0, 10)
-
-    const allMetrics = API_METRICS
-      .map(meta => {
-        const playerVal = getPlayerMetricValue(selectedPlayer, meta.key)
-        if (playerVal === null) return null
-        const poolVals = pool.map(p => getPlayerMetricValue(p, meta.key)).filter((v): v is number => v !== null)
-        const avg = poolVals.length ? poolVals.reduce((a, b) => a + b, 0) / poolVals.length : null
-        const allVals = [...poolVals, playerVal]
-        const minV = Math.min(...allVals)
-        const maxV = Math.max(...allVals)
-        const range = maxV - minV || 1
-        const norm = (v: number) => Math.max(0, Math.min(100, ((v - minV) / range) * 100))
-        return {
-          key: meta.key,
-          label: meta.label,
-          jugador: norm(playerVal),
-          promedio: avg !== null ? norm(avg) : 50,
-          jugadorRaw: parseFloat(playerVal.toFixed(2)),
-          promedioRaw: avg !== null ? parseFloat(avg.toFixed(2)) : null,
-        }
-      })
-      .filter((m): m is NonNullable<typeof m> => m !== null)
-
-    setCanvaModalData({ allMetrics, positionKeys })
-    setShowCanvaModal(true)
-  }
-
-  async function exportInformeCanva(opts: CanvaExportOptions) {
-    if (!selectedPlayer) return
-    setShowCanvaModal(false)
-    setExportingCanva(true)
-    try {
-      const [{ toPng }, { createRoot }, { createElement }, { default: CanvaCard }] = await Promise.all([
-        import('html-to-image'),
-        import('react-dom/client'),
-        import('react'),
-        import('@/components/pdf/InformeCanvaCard'),
-      ])
-
-      let logoDataUrl: string | undefined
-      if (opts.showLogo) {
-        try {
-          const res = await fetch('/brand/logo-white.png')
-          const blob = await res.blob()
-          logoDataUrl = await new Promise<string>(resolve => {
-            const fr = new FileReader()
-            fr.onload = () => resolve(fr.result as string)
-            fr.readAsDataURL(blob)
-          })
-        } catch { /* logo no disponible */ }
-      }
-
-      const enriched = playerToEnriched(selectedPlayer)
-
-      const container = document.createElement('div')
-      container.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;overflow:hidden;z-index:-1;pointer-events:none;'
-      document.body.appendChild(container)
-
-      let mountedRoot: { unmount: () => void } | null = null
-      function cleanup() {
-        try { mountedRoot?.unmount() } catch { /* ignore */ }
-        if (container.parentNode) document.body.removeChild(container)
-      }
-
-      try {
-        const canvaMetricKeys = opts.metricKeys
-        const canvaBarData = canvaMetricKeys
-          .map(key => {
-            const meta = METRIC_BY_KEY.get(key as ApiMetricKey)
-            const playerVal = getPlayerMetricValue(selectedPlayer, key as ApiMetricKey)
-            const poolVals = pool.map(p => getPlayerMetricValue(p, key as ApiMetricKey)).filter((v): v is number => v !== null)
-            const pool2Vals = pool2.map(p => getPlayerMetricValue(p, key as ApiMetricKey)).filter((v): v is number => v !== null)
-            const avg = poolVals.length ? poolVals.reduce((a, b) => a + b, 0) / poolVals.length : null
-            const avg2 = pool2Vals.length ? pool2Vals.reduce((a, b) => a + b, 0) / pool2Vals.length : null
-            const allVals = [...poolVals, ...pool2Vals, ...(playerVal !== null ? [playerVal] : [])]
-            const minV = allVals.length ? Math.min(...allVals) : 0
-            const maxV = allVals.length ? Math.max(...allVals) : 1
-            const range = maxV - minV || 1
-            const norm = (v: number | null) => v === null ? 0 : Math.max(0, Math.min(100, ((v - minV) / range) * 100))
-            const poolLabelStr = leagueIdFilter != null
-              ? (allLeagues.find(l => l.id === leagueIdFilter)?.name ?? 'Pool general')
-              : 'Pool general'
-            return {
-              name: meta?.label ?? key,
-              jugador: norm(playerVal),
-              promedio: avg !== null ? norm(avg) : 0,
-              ...(compareLeagueId2 != null && avg2 !== null ? { promedio2: norm(avg2) } : {}),
-              jugadorRaw: playerVal !== null ? parseFloat(playerVal.toFixed(2)) : null,
-              promedioRaw: avg !== null ? parseFloat(avg.toFixed(2)) : null,
-              promedio2Raw: avg2 !== null ? parseFloat(avg2.toFixed(2)) : null,
-              _poolLabel: poolLabelStr,
-            }
-          })
-          .filter(d => d.jugadorRaw !== null)
-
-        const poolLabelStr = leagueIdFilter != null
-          ? (allLeagues.find(l => l.id === leagueIdFilter)?.name ?? 'Pool general')
-          : 'Pool general'
-
-        const root = createRoot(container)
-        mountedRoot = root
-        root.render(createElement(CanvaCard, {
-          player: enriched,
-          barData: canvaBarData,
-          poolLabel: poolLabelStr,
-          pool2Label: pool2Label || undefined,
-          leagueContext: leagueScoreContext,
-          videoUrl: opts.videoUrl || undefined,
-          logoDataUrl,
-        }))
-
-        await new Promise(r => setTimeout(r, 800))
-
-        const baseName = `Informe_Canva_${selectedPlayer.name.replace(/[^a-zA-ZáéíóúñÁÉÍÓÚÑ\s]/g, '').replace(/\s+/g, '_')}`
-
-        const cardEl = (container.firstElementChild as HTMLElement) ?? container
-        const dataUrl = await toPng(cardEl, {
-          width: 1120,
-          height: 630,
-          pixelRatio: 2,
-          backgroundColor: '#0f0f11',
-          skipFonts: true,
-          filter: (node) => {
-            if (node instanceof HTMLImageElement) {
-              const src = node.getAttribute('src') || ''
-              if (src.startsWith('http') && !src.startsWith(window.location.origin)) return false
-            }
-            return true
-          },
-        })
-
-        cleanup()
-
-        const { jsPDF } = await import('jspdf')
-        const pdfDoc = new jsPDF({ orientation: 'landscape', unit: 'px', format: [1120, 630], hotfixes: ['px_scaling'] })
-        pdfDoc.addImage(dataUrl, 'PNG', 0, 0, 1120, 630)
-        if (opts.videoUrl) {
-          pdfDoc.link(958, 520, 142, 30, { url: opts.videoUrl })
-        }
-        pdfDoc.save(`${baseName}.pdf`)
-        setExportingCanva(false)
-      } catch (e) {
-        console.error('Canva export error:', e)
-        cleanup()
-        setExportingCanva(false)
-      }
-    } catch (e) {
-      console.error('Canva export error:', e)
-      setExportingCanva(false)
-    }
-  }
-
   // ─── Click outside ────────────────────────────────────────────────────────
 
   useEffect(() => {
@@ -911,16 +745,6 @@ export default function BusquedaPage() {
   return (
     <div className="max-w-6xl mx-auto px-4 py-6 space-y-6">
 
-      {/* Modal de configuración del informe Canva */}
-      {showCanvaModal && canvaModalData && (
-        <CanvaExportModal
-          onConfirm={exportInformeCanva}
-          onClose={() => setShowCanvaModal(false)}
-          allMetrics={canvaModalData.allMetrics}
-          positionKeys={canvaModalData.positionKeys}
-        />
-      )}
-
       {/* Header row */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
@@ -931,22 +755,6 @@ export default function BusquedaPage() {
         </div>
         {selectedPlayer && (
           <div className="flex items-center gap-2 flex-shrink-0">
-            {/* Canva card export */}
-            <button
-              onClick={openCanvaModal}
-              disabled={exportingCanva}
-              title="Configura y genera un informe estilo Canva (PNG + PDF)"
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-green/10 border border-brand-green/30 text-brand-green text-sm font-medium hover:bg-brand-green/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {exportingCanva ? (
-                <div className="w-4 h-4 border-2 border-brand-green border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-              )}
-              {exportingCanva ? 'Generando...' : 'Informe Canva'}
-            </button>
             {/* PDF export */}
             <button
               onClick={exportToPDF}
