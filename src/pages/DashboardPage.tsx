@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useData } from '@/context/DataContext'
+import { useLanguage } from '@/context/LanguageContext'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import Section from '@/components/dashboard/Section'
 import { getRelativeScoreColorClass, getRelativeScoreBgClass } from '@/components/ui/ScoreBar'
@@ -169,6 +170,7 @@ function MonitoringRow({ player, metric, metricValue, onClick, highlight, posAvg
 
 export default function DashboardPage() {
   const navigate = useNavigate()
+  const { t } = useLanguage()
   const { internal, monitoring, marketValueHistory, positionAverages, loading } = useData()
   const { lookup: scoreLookup } = useScoreLookup()
   const { transfers: agencyTransfers, loading: transfersLoading, progress: transfersProgress } = useAgencyTransfers()
@@ -459,29 +461,29 @@ export default function DashboardPage() {
     navigate(`/jugador/${encodeURIComponent(player.Jugador)}?source=seguimiento&pos=${pos}`)
   }
 
-  if (loading) return <LoadingSpinner fullScreen message="Cargando dashboard..." />
+  if (loading) return <LoadingSpinner fullScreen message={t('dashboard.loading')} />
 
   return (
     <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 py-6">
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-apple-gray-800 dark:text-white tracking-tight">
-          Panel Interno
+          {t('dashboard.title')}
         </h1>
         <p className="text-sm text-apple-gray-500 dark:text-apple-gray-400 mt-0.5">
-          Jugadores Doble G Sports Group
+          {t('dashboard.subtitle')}
         </p>
       </div>
 
       {/* Main KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8 max-w-3xl mx-auto w-full">
         <StatCard
-          label="Jugadores Representados"
+          label={t('dashboard.jugadoresRepresentados')}
           value={kpis.totalPlayers}
           large
         />
         <div className="bg-white dark:bg-apple-gray-800 rounded-xl border border-apple-gray-200 dark:border-apple-gray-700 p-4 flex flex-col justify-between">
-          <p className="text-xs font-medium text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider">Valor Total Portfolio</p>
+          <p className="text-xs font-medium text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider">{t('dashboard.valorTotalPortfolio')}</p>
           {(() => {
             const displayTotal = portfolioSparkline.chartTotal > 0 ? portfolioSparkline.chartTotal : kpis.totalValue
             const pts = portfolioSparkline.points
@@ -490,7 +492,7 @@ export default function DashboardPage() {
                 <div className="mt-1">
                   <p className="text-2xl font-bold text-apple-gray-800 dark:text-white tabular-nums">{formatValue(displayTotal)}</p>
                   <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-xs text-apple-gray-500 dark:text-apple-gray-400">Prom: {formatValue(kpis.totalPlayers > 0 ? displayTotal / kpis.totalPlayers : 0)}</span>
+                    <span className="text-xs text-apple-gray-500 dark:text-apple-gray-400">{t('dashboard.prom')}: {formatValue(kpis.totalPlayers > 0 ? displayTotal / kpis.totalPlayers : 0)}</span>
                     {portfolioSparkline.growth !== 0 && (
                       <span className={`text-xs font-semibold ${portfolioSparkline.growth >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
                         {portfolioSparkline.growth >= 0 ? '+' : ''}{portfolioSparkline.growth.toFixed(1)}%
@@ -518,9 +520,9 @@ export default function DashboardPage() {
           })()}
         </div>
         <StatCard
-          label="Edad Promedio"
+          label={t('dashboard.edadPromedio')}
           value={kpis.avgAge.toFixed(1)}
-          subtitle="años"
+          subtitle={t('dashboard.anios')}
           large
         />
       </div>
@@ -529,7 +531,7 @@ export default function DashboardPage() {
       {positionScores.length > 0 && (
         <div className="bg-white dark:bg-apple-gray-800 rounded-xl border border-apple-gray-200 dark:border-apple-gray-700 p-5 mb-8">
           <p className="text-xs font-medium text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider mb-4">
-            Score GG por Posición · Interno
+            {t('dashboard.scoreGGPorPosicion')} · {t('dashboard.interno')}
           </p>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
             {positionScores.map(({ label, avg, count, globalAvg }) => {
@@ -581,7 +583,7 @@ export default function DashboardPage() {
       {/* Portfolio Value Evolution Section */}
       {marketValueHistory.length > 0 && (
         <div className="mb-8">
-          <Section title="Evolución del Valor del Portfolio">
+          <Section title={t('dashboard.evolucionValorPortfolio')}>
             <PortfolioInsights players={internal} history={marketValueHistory} />
             <PortfolioValueChart
               data={marketValueHistory}
@@ -647,7 +649,7 @@ export default function DashboardPage() {
       {/* Three Column Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
         {/* Distribution Cards */}
-        <Section title="Composición del Portfolio">
+        <Section title={t('dashboard.composicionPortfolio')}>
           <div className="space-y-4">
             {/* Age Distribution */}
             <div>
@@ -813,10 +815,10 @@ export default function DashboardPage() {
           </div>
           <div>
             <h2 className="text-xl font-bold text-apple-gray-800 dark:text-white">
-              Análisis de Ligas y Oportunidades
+              {t('dashboard.analisisLigasOportunidades')}
             </h2>
             <p className="text-sm text-apple-gray-500">
-              Evaluación de posiciones en el mercado y potencial de crecimiento
+              {t('dashboard.evaluacionPosicionesMercado')}
             </p>
           </div>
         </div>
@@ -930,7 +932,7 @@ export default function DashboardPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
-                Recomendaciones de Fichaje
+                {t('dashboard.recomendacionesFichaje')}
               </h2>
               <p className="text-sm text-apple-gray-500 dark:text-apple-gray-400 mt-1 ml-13">
                 Oportunidades del mercado basadas en análisis de seguimiento
