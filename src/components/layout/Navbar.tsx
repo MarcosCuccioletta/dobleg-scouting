@@ -36,10 +36,20 @@ const inicioGroup: NavGroup = {
   ],
 }
 
+const mercadoLink: NavItem = { to: '/mercado', labelKey: 'nav.mercado', icon: 'briefcase' }
+
+const scoutInternoGroup: NavGroup = {
+  labelKey: 'nav.scoutInterno',
+  icon: 'users',
+  to: '/interno',
+  items: [
+    { to: '/interno', labelKey: 'nav.scoutInterno', icon: 'users' },
+    { to: '/entrenadores', labelKey: 'nav.entrenadores', icon: 'whistle' },
+  ],
+}
+
 const directLinks: NavItem[] = [
   { to: '/scouting', labelKey: 'nav.scoutExterno', icon: 'globe' },
-  { to: '/interno', labelKey: 'nav.scoutInterno', icon: 'users' },
-  { to: '/entrenadores', labelKey: 'nav.entrenadores', icon: 'whistle' },
 ]
 
 const seguimientoGroup: NavGroup = {
@@ -89,6 +99,7 @@ function NavIcon({ icon, className = "w-5 h-5" }: { icon: string; className?: st
     shield: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />,
     calendar: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />,
     whistle: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h3m6-13H9a4 4 0 00-4 4v2a7 7 0 007 7h1a7 7 0 007-7v-1a5 5 0 00-5-5zM6 8a2 2 0 11-4 0 2 2 0 014 0z" />,
+    briefcase: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7h-3V5a2 2 0 00-2-2H9a2 2 0 00-2 2v2H4a1 1 0 00-1 1v11a2 2 0 002 2h14a2 2 0 002-2V8a1 1 0 00-1-1zM9 5h6v2H9V5z" />,
   }
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -179,6 +190,7 @@ export default function Navbar() {
 
   const userMenuRef = useRef<HTMLDivElement>(null)
   const inicioRef = useRef<HTMLDivElement>(null)
+  const scoutInternoRef = useRef<HTMLDivElement>(null)
   const seguimientoRef = useRef<HTMLDivElement>(null)
   const talentRef = useRef<HTMLDivElement>(null)
 
@@ -195,6 +207,7 @@ export default function Navbar() {
       if (userMenuRef.current && !userMenuRef.current.contains(target)) setShowUserMenu(false)
       if (
         inicioRef.current && !inicioRef.current.contains(target) &&
+        scoutInternoRef.current && !scoutInternoRef.current.contains(target) &&
         seguimientoRef.current && !seguimientoRef.current.contains(target) &&
         talentRef.current && !talentRef.current.contains(target)
       ) {
@@ -224,6 +237,7 @@ export default function Navbar() {
   const toggleMobile = (name: string) => setMobileExpanded(prev => prev === name ? null : name)
 
   // Check active routes for groups
+  const isScoutInternoRoute = scoutInternoGroup.items.some(l => location.pathname === l.to)
   const isSeguimientoRoute = seguimientoGroup.items.some(l => location.pathname === l.to)
   const isTalentRoute = talentGroup.items.some(l => location.pathname === l.to)
 
@@ -265,6 +279,19 @@ export default function Navbar() {
               t={t}
             />
 
+            <NavLink
+              to={mercadoLink.to}
+              className={({ isActive }) =>
+                `px-3.5 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
+                  isActive
+                    ? 'bg-brand-green text-gray-900 shadow-sm'
+                    : 'text-apple-gray-600 dark:text-apple-gray-300 hover:text-apple-gray-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-apple-gray-700/50'
+                }`
+              }
+            >
+              {t(mercadoLink.labelKey)}
+            </NavLink>
+
             {/* Direct links */}
             {directLinks.map(link => (
               <NavLink
@@ -281,6 +308,15 @@ export default function Navbar() {
                 {t(link.labelKey)}
               </NavLink>
             ))}
+
+            <DesktopDropdown
+              group={scoutInternoGroup}
+              isOpen={openDropdown === 'scoutInterno'}
+              onToggle={() => toggleDropdown('scoutInterno')}
+              dropdownRef={scoutInternoRef}
+              location={location}
+              t={t}
+            />
 
             {/* Seguimiento dropdown */}
             <DesktopDropdown
@@ -484,6 +520,63 @@ export default function Navbar() {
                 {t(link.labelKey)}
               </NavLink>
             ))}
+          </div>
+
+          {/* Scout Interno Section */}
+          <div className="mt-4 pt-4 border-t border-apple-gray-200 dark:border-apple-gray-800">
+            <button
+              onClick={() => toggleMobile('scoutInterno')}
+              className={`flex items-center justify-between w-full px-4 py-3 rounded-xl font-medium transition-all duration-200 ${
+                isScoutInternoRoute
+                  ? 'bg-brand-green/10 text-brand-green'
+                  : 'text-apple-gray-700 dark:text-apple-gray-300 hover:bg-apple-gray-100 dark:hover:bg-apple-gray-800'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <NavIcon icon="users" className="w-5 h-5" />
+                {t('nav.scoutInterno')}
+              </div>
+              <svg className={`w-4 h-4 transition-transform ${mobileExpanded === 'scoutInterno' ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {(mobileExpanded === 'scoutInterno' || isScoutInternoRoute) && (
+              <div className="ml-4 mt-1 space-y-1">
+                {scoutInternoGroup.items.map(link => (
+                  <NavLink
+                    key={link.to}
+                    to={link.to}
+                    className={({ isActive }) =>
+                      `flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
+                        isActive
+                          ? 'bg-brand-green text-gray-900'
+                          : 'text-apple-gray-500 dark:text-apple-gray-400 hover:bg-apple-gray-100 dark:hover:bg-apple-gray-800'
+                      }`
+                    }
+                  >
+                    <NavIcon icon={link.icon} className="w-4 h-4" />
+                    {t(link.labelKey)}
+                  </NavLink>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Mercado */}
+          <div className="mt-4 pt-4 border-t border-apple-gray-200 dark:border-apple-gray-800">
+            <NavLink
+              to={mercadoLink.to}
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all duration-200 ${
+                  isActive
+                    ? 'bg-brand-green text-gray-900'
+                    : 'text-apple-gray-700 dark:text-apple-gray-300 hover:bg-apple-gray-100 dark:hover:bg-apple-gray-800'
+                }`
+              }
+            >
+              <NavIcon icon={mercadoLink.icon} className="w-5 h-5" />
+              {t(mercadoLink.labelKey)}
+            </NavLink>
           </div>
 
           {/* Seguimiento Section */}
