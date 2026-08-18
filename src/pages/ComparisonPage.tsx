@@ -1,4 +1,6 @@
 import { useState, useMemo } from 'react'
+import { useCurrency } from '@/context/CurrencyContext'
+import { formatMarketValueInCurrency } from '@/utils/scoring'
 import {
   RadarChart, PolarGrid, PolarAngleAxis, Radar,
   Tooltip, Legend, ResponsiveContainer,
@@ -31,13 +33,6 @@ function getPlayerMetricValue(player: PlayerWithScore, key: ApiMetricKey): numbe
 function getAge(birthDate: string | null | undefined): number | null {
   if (!birthDate) return null
   return Math.floor((Date.now() - new Date(birthDate).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
-}
-
-function formatMarketValue(mv: number | null): string {
-  if (mv == null) return '—'
-  if (mv >= 1_000_000) return `€${(mv / 1_000_000).toFixed(mv % 1_000_000 === 0 ? 0 : 1)}M`
-  if (mv >= 1_000) return `€${(mv / 1_000).toFixed(0)}K`
-  return `€${mv}`
 }
 
 function scoreColor(s: number | null | undefined) {
@@ -236,6 +231,7 @@ function QuickSummaryCard({
 // ─── ComparisonContent (replaces ComparisonView) ──────────────────────────────
 
 function ComparisonContent({ players }: { players: PlayerWithScore[] }) {
+  const { currency, rate } = useCurrency()
   // Derive position from first player (for defaults)
   const pos = players[0]?.primary_position ?? null
 
@@ -344,7 +340,7 @@ function ComparisonContent({ players }: { players: PlayerWithScore[] }) {
           label="Valor de Mercado"
           players={players}
           getValue={p => p.market_value_eur ?? null}
-          formatValue={v => formatMarketValue(v)}
+          formatValue={v => v == null ? '—' : formatMarketValueInCurrency(v, currency, rate)}
           higherIsBetter={false}
           winnerLabel="Más económico"
           icon={

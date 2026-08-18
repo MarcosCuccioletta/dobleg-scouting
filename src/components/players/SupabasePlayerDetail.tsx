@@ -20,6 +20,8 @@ import SimilarPlayersCard from '@/components/players/SimilarPlayersCard'
 import type { Position, PlayerMatchStat } from '@/types/scoring'
 import { displayPosition } from '@/types/scoring'
 import type { MarketValueHistoryEntry, EnrichedPlayer } from '@/types'
+import { useCurrency } from '@/context/CurrencyContext'
+import { formatMarketValueInCurrency } from '@/utils/scoring'
 
 function getAge(birthDate: string | null): number | null {
   if (!birthDate) return null
@@ -27,16 +29,8 @@ function getAge(birthDate: string | null): number | null {
   return Math.floor(diff / (365.25 * 24 * 60 * 60 * 1000))
 }
 
-function formatMarketValue(value: number): string {
-  if (value >= 1_000_000) {
-    const m = value / 1_000_000
-    return `${m >= 10 ? m.toFixed(0) : m.toFixed(1)}M`
-  }
-  if (value >= 1_000) return `${Math.round(value / 1_000)}K`
-  return String(value)
-}
-
 export default function SupabasePlayerDetail() {
+  const { currency, rate } = useCurrency()
   const { id } = useParams<{ id: string }>()
   const [searchParams] = useSearchParams()
   const apiId = searchParams.get('apiId')
@@ -187,11 +181,11 @@ export default function SupabasePlayerDetail() {
                           rel="noopener noreferrer"
                           className="text-sm font-bold text-brand-green hover:underline"
                         >
-                          €{formatMarketValue(player.market_value_eur)}
+                          {formatMarketValueInCurrency(player.market_value_eur, currency, rate)}
                         </a>
                       ) : (
                         <span className="text-sm font-bold text-brand-green">
-                          €{formatMarketValue(player.market_value_eur)}
+                          {formatMarketValueInCurrency(player.market_value_eur, currency, rate)}
                         </span>
                       )}
                     </div>
