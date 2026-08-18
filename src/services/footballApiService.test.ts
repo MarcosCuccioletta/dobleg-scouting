@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'fs'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
-import { mapStandingsResponse, mapCoachProfileResponse, surnameOf, mapCompetitionsResponse } from './footballApiService'
+import { mapStandingsResponse, mapCoachProfileResponse, surnameOf, mapCompetitionsResponse, dedupeTransfers, type PlayerTransfer } from './footballApiService'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const fixture = JSON.parse(
@@ -182,5 +182,34 @@ describe('mapCompetitionsResponse', () => {
     }
     const result = mapCompetitionsResponse(raw)
     expect(result[0].type).toBe('Cup')
+  })
+})
+
+describe('dedupeTransfers', () => {
+  const transfer = (over: Partial<PlayerTransfer> = {}): PlayerTransfer => ({
+    date: '2026-01-15',
+    type: 'Free',
+    teams: { in: { id: 1, name: 'Club A', logo: '' }, out: { id: 2, name: 'Club B', logo: '' } },
+    fee: null,
+    ...over,
+  })
+
+  it('saca la fila repetida (caso real: la API-Football devuelve cada traspaso dos veces)', () => {
+    const transfers = [transfer(), transfer()]
+    const result = dedupeTransfers(transfers)
+    expect(result).toHaveLength(1)
+  })
+
+  it('deja pasar dos movimientos legitimos distintos (mismo dia, clubes distintos)', () => {
+    const transfers = [
+      transfer({ teams: { in: { id: 1, name: 'Club A', logo: '' }, out: { id: 2, name: 'Club B', logo: '' } } }),
+      transfer({ teams: { in: { id: 3, name: 'Club C', logo: '' }, out: { id: 1, name: 'Club A', logo: '' } } }),
+    ]
+    const result = dedupeTransfers(transfers)
+    expect(result).toHaveLength(2)
+  })
+
+  it('con la lista vacia, devuelve vacio', () => {
+    expect(dedupeTransfers([])).toEqual([])
   })
 })

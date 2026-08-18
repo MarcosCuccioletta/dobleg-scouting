@@ -301,8 +301,23 @@ export interface PlayerTransfer {
   fee: string | null
 }
 
-const TRANSFER_CACHE_KEY = 'dg-transfers-cache'
+const TRANSFER_CACHE_KEY = 'dg-transfers-cache-v2'
 const TRANSFER_CACHE_TTL = 24 * 60 * 60 * 1000
+
+/**
+ * La API-Football devuelve cada movimiento duplicado (mismo response[0].transfers
+ * repite la fila) — se dedupea por fecha+tipo+clubes, la identidad real de un
+ * traspaso, no por posición en el array.
+ */
+export function dedupeTransfers(transfers: PlayerTransfer[]): PlayerTransfer[] {
+  const seen = new Set<string>()
+  return transfers.filter(t => {
+    const key = `${t.date}|${t.type}|${t.teams.out.id}|${t.teams.in.id}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
 
 export async function fetchPlayerTransfers(playerId: number): Promise<PlayerTransfer[]> {
   const cacheKey = `${TRANSFER_CACHE_KEY}:${playerId}`
@@ -317,12 +332,13 @@ export async function fetchPlayerTransfers(playerId: number): Promise<PlayerTran
   try {
     const res = await apiFetch<Array<{ player: any; update: string; transfers: Array<{ date: string; type: string; teams: PlayerTransfer['teams'] }> }>>('/transfers', { player: String(playerId) })
     const raw = res.response?.[0]?.transfers ?? []
-    const transfers: PlayerTransfer[] = raw.map(t => ({
+    const mapped: PlayerTransfer[] = raw.map(t => ({
       date: t.date,
       type: t.type,
       teams: t.teams,
       fee: (t as any).fee ?? null,
     }))
+    const transfers = dedupeTransfers(mapped)
     try {
       localStorage.setItem(cacheKey, JSON.stringify({ data: transfers, timestamp: Date.now() }))
     } catch { /* quota */ }
@@ -337,7 +353,7 @@ export interface AgencyTransfer extends PlayerTransfer {
   playerImage: string | null
 }
 
-const AGENCY_TRANSFERS_CACHE_KEY = 'dg-agency-transfers'
+const AGENCY_TRANSFERS_CACHE_KEY = 'dg-agency-transfers-v2'
 const AGENCY_TRANSFERS_CACHE_TTL = 24 * 60 * 60 * 1000
 
 const SQUAD_CACHE_KEY = 'dg-squad-cache'

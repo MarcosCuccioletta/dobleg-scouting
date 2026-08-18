@@ -177,30 +177,35 @@ export async function fetchPositionAverages(
   }));
 }
 
-export interface AgencyMarketValueRow {
+export interface AgencyLiveDataRow {
   name: string;
-  market_value_eur: number;
+  market_value_eur: number | null;
+  transfermarkt_url: string | null;
 }
 
 /**
- * Valor de mercado vivo de todo el roster Doble G, tal cual lo tiene `players`
- * (refrescado semanalmente desde Transfermarkt por el cron de `enrich-player`).
- * Se filtra por `agent = 'Doble G Sports Group'` — mismo campo, seteado por ese
- * mismo enrich, que ya se usa en la auditoría de roster para cruzar altas. Sirve
- * para pisar el valor de mercado cargado a mano en el Sheet/`agencyPlayers.ts`
- * de Scouting Interno, que nadie vuelve a actualizar una vez tiene un valor.
+ * Valor de mercado y link de Transfermarkt vivos de todo el roster Doble G, tal
+ * cual los tiene `players` (refrescados semanalmente desde Transfermarkt por el
+ * cron de `enrich-player`). Se filtra por `agent = 'Doble G Sports Group'` — mismo
+ * campo, seteado por ese mismo enrich, que ya se usa en la auditoría de roster
+ * para cruzar altas. Sirve para pisar el valor de mercado y el link de
+ * Transfermarkt cargados a mano en el Sheet/`agencyPlayers.ts` de Scouting
+ * Interno, que nadie vuelve a actualizar (o directamente nunca se cargó, caso
+ * real: Rodrigo Schlegel sin fila en el Sheet legacy, ficha sin link a
+ * Transfermarkt pese a que Supabase ya lo tiene).
  */
-export async function fetchAgencyMarketValues(): Promise<AgencyMarketValueRow[]> {
+export async function fetchAgencyLiveData(): Promise<AgencyLiveDataRow[]> {
   const { data, error } = await supabase
     .from('players')
-    .select('name, market_value_eur')
-    .eq('agent', 'Doble G Sports Group')
-    .not('market_value_eur', 'is', null);
+    .select('name, market_value_eur, transfermarkt_url')
+    .eq('agent', 'Doble G Sports Group');
 
   if (error) throw error;
-  return (data ?? [])
-    .filter((r: any) => typeof r.market_value_eur === 'number' && r.market_value_eur > 0)
-    .map((r: any) => ({ name: r.name as string, market_value_eur: r.market_value_eur as number }));
+  return (data ?? []).map((r: any) => ({
+    name: r.name as string,
+    market_value_eur: typeof r.market_value_eur === 'number' && r.market_value_eur > 0 ? r.market_value_eur : null,
+    transfermarkt_url: r.transfermarkt_url || null,
+  }));
 }
 
 export async function fetchDistinctAgents(): Promise<string[]> {
