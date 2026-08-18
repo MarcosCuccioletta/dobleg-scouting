@@ -1,0 +1,182 @@
+import { supabase } from '@/lib/supabase'
+import type { TeamMember, ClubNeed, Negotiation, MarketNote, MarketTeamSearchResult, NeedStatus, NegotiationStatus } from '@/types/market'
+
+export async function fetchTeamMembers(): Promise<TeamMember[]> {
+  const { data, error } = await supabase
+    .from('market_team_members')
+    .select('id, name, active')
+    .eq('active', true)
+    .order('name')
+  if (error) throw error
+  return data ?? []
+}
+
+export async function searchMarketTeams(query: string): Promise<MarketTeamSearchResult[]> {
+  if (!query.trim()) return []
+  const { data, error } = await supabase
+    .from('teams')
+    .select('id, name, logo')
+    .ilike('name', `%${query}%`)
+    .order('name')
+    .limit(20)
+  if (error) throw error
+  return data ?? []
+}
+
+export async function fetchClubNeeds(): Promise<ClubNeed[]> {
+  const { data, error } = await supabase
+    .from('market_club_needs')
+    .select('*')
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return data ?? []
+}
+
+export async function fetchNegotiations(): Promise<Negotiation[]> {
+  const { data, error } = await supabase
+    .from('market_negotiations')
+    .select('*')
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return data ?? []
+}
+
+export interface CreateClubNeedInput {
+  team_id: number
+  team_name: string
+  team_logo: string | null
+  position_label: string
+  assigned_to_id: number | null
+  assigned_to_name: string | null
+  next_followup_date: string | null
+}
+
+export async function createClubNeed(input: CreateClubNeedInput, createdById: string | null, createdByName: string): Promise<ClubNeed | null> {
+  const { data, error } = await supabase
+    .from('market_club_needs')
+    .insert({ ...input, created_by_id: createdById, created_by_name: createdByName })
+    .select()
+    .single()
+  if (error) { console.error('createClubNeed error:', error); return null }
+  return data
+}
+
+export interface CreateNegotiationInput {
+  team_id: number
+  team_name: string
+  team_logo: string | null
+  player_name: string
+  player_api_id: number | null
+  player_source: 'interno' | 'externo' | null
+  contact_name: string | null
+  contact_role: string | null
+  assigned_to_id: number | null
+  assigned_to_name: string | null
+  next_followup_date: string | null
+}
+
+export async function createNegotiation(input: CreateNegotiationInput, createdById: string | null, createdByName: string): Promise<Negotiation | null> {
+  const { data, error } = await supabase
+    .from('market_negotiations')
+    .insert({ ...input, created_by_id: createdById, created_by_name: createdByName })
+    .select()
+    .single()
+  if (error) { console.error('createNegotiation error:', error); return null }
+  return data
+}
+
+export async function updateNeedStatus(id: number, status: NeedStatus): Promise<boolean> {
+  const { error } = await supabase.from('market_club_needs').update({ status, updated_at: new Date().toISOString() }).eq('id', id)
+  if (error) { console.error('updateNeedStatus error:', error); return false }
+  return true
+}
+
+export async function updateNegotiationStatus(id: number, status: NegotiationStatus): Promise<boolean> {
+  const { error } = await supabase.from('market_negotiations').update({ status, updated_at: new Date().toISOString() }).eq('id', id)
+  if (error) { console.error('updateNegotiationStatus error:', error); return false }
+  return true
+}
+
+export async function linkNegotiationPlayer(id: number, playerApiId: number, playerSource: 'interno' | 'externo' | null): Promise<boolean> {
+  const { error } = await supabase
+    .from('market_negotiations')
+    .update({ player_api_id: playerApiId, player_source: playerSource, updated_at: new Date().toISOString() })
+    .eq('id', id)
+  if (error) { console.error('linkNegotiationPlayer error:', error); return false }
+  return true
+}
+
+/** Reasigna y deja una nota automática con el historial del cambio. */
+export async function reassignNeed(id: number, newAssigneeId: number, newAssigneeName: string, actingUserName: string): Promise<boolean> {
+  const { data: current } = await supabase.from('market_club_needs').select('assigned_to_name').eq('id', id).single()
+  const { error } = await supabase
+    .from('market_club_needs')
+    .update({ assigned_to_id: newAssigneeId, assigned_to_name: newAssigneeName, updated_at: new Date().toISOString() })
+    .eq('id', id)
+  if (error) { console.error('reassignNeed error:', error); return false }
+  const fromName = current?.assigned_to_name ?? 'sin responsable'
+  await supabase.from('market_negotiation_notes').insert({
+    need_id: id,
+    body: `${actingUserName} reasignó de ${fromName} a ${newAssigneeName}.`,
+    is_system: true,
+    author_name: actingUserName,
+  })
+  return true
+}
+
+export async function reassignNegotiation(id: number, newAssigneeId: number, newAssigneeName: string, actingUserName: string): Promise<boolean> {
+  const { data: current } = await supabase.from('market_negotiations').select('assigned_to_name').eq('id', id).single()
+  const { error } = await supabase
+    .from('market_negotiations')
+    .update({ assigned_to_id: newAssigneeId, assigned_to_name: newAssigneeName, updated_at: new Date().toISOString() })
+    .eq('id', id)
+  if (error) { console.error('reassignNegotiation error:', error); return false }
+  const fromName = current?.assigned_to_name ?? 'sin responsable'
+  await supabase.from('market_negotiation_notes').insert({
+    negotiation_id: id,
+    body: `${actingUserName} reasignó de ${fromName} a ${newAssigneeName}.`,
+    is_system: true,
+    author_name: actingUserName,
+  })
+  return true
+}
+
+export async function fetchNotesFor(target: { negotiationId?: number; needId?: number }): Promise<MarketNote[]> {
+  let query = supabase.from('market_negotiation_notes').select('*')
+  query = target.negotiationId != null ? query.eq('negotiation_id', target.negotiationId) : query.eq('need_id', target.needId!)
+  const { data, error } = await query.order('created_at', { ascending: false })
+  if (error) throw error
+  return data ?? []
+}
+
+/** Agrega una nota y, si trae fecha de seguimiento, la refleja en el padre (negociación u objetivo) en el mismo paso. */
+export async function addNoteTo(
+  target: { negotiationId?: number; needId?: number },
+  body: string,
+  isMeeting: boolean,
+  nextFollowupDate: string | null,
+  authorId: string | null,
+  authorName: string,
+): Promise<MarketNote | null> {
+  const { data, error } = await supabase
+    .from('market_negotiation_notes')
+    .insert({
+      negotiation_id: target.negotiationId ?? null,
+      need_id: target.needId ?? null,
+      body,
+      is_meeting: isMeeting,
+      author_id: authorId,
+      author_name: authorName,
+    })
+    .select()
+    .single()
+  if (error) { console.error('addNoteTo error:', error); return null }
+
+  if (nextFollowupDate) {
+    const table = target.negotiationId != null ? 'market_negotiations' : 'market_club_needs'
+    const id = target.negotiationId ?? target.needId!
+    await supabase.from(table).update({ next_followup_date: nextFollowupDate, updated_at: new Date().toISOString() }).eq('id', id)
+  }
+
+  return data
+}
