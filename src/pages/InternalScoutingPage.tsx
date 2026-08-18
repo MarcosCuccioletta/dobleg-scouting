@@ -11,6 +11,8 @@ import { fuzzyMatch } from '@/lib/search'
 import type { FilterState, EnrichedPlayer } from '@/types'
 import type { VideoFreshness } from '@/types/videos'
 import { playerVideoKey } from '@/services/playerVideosService'
+import { useLanguage } from '@/context/LanguageContext'
+import { LANGUAGE_LOCALES } from '@/constants/translations'
 
 const DEFAULT_FILTERS: FilterState = {
   search: '',
@@ -104,6 +106,7 @@ function applyFilters(players: EnrichedPlayer[], filters: FilterState, videoFres
 }
 
 export default function InternalScoutingPage() {
+  const { language, t } = useLanguage()
   const { internal, loading, error, videoFreshnessByKey } = useData()
   const [filters, setFilters] = useState<FilterState>(loadFiltersFromStorage)
   const [showMobileFilters, setShowMobileFilters] = useState(false)
@@ -138,10 +141,10 @@ export default function InternalScoutingPage() {
     sessionStorage.removeItem(FILTERS_STORAGE_KEY)
   }, [])
 
-  if (loading) return <LoadingSpinner fullScreen message="Cargando scouting interno..." />
+  if (loading) return <LoadingSpinner fullScreen message={t('interno.cargando')} />
   if (error) return (
     <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 py-8">
-      <EmptyState title="Error al cargar datos" description={error} icon="error" />
+      <EmptyState title={t('interno.errorCargarDatos')} description={error} icon="error" />
     </div>
   )
 
@@ -151,10 +154,10 @@ export default function InternalScoutingPage() {
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-apple-gray-800 dark:text-white tracking-tight">
-            Scouting Interno
+            {t('interno.title')}
           </h1>
           <p className="text-sm text-apple-gray-500 dark:text-apple-gray-400 mt-0.5">
-            {filtered.length.toLocaleString('es')} de {internal.length.toLocaleString('es')} jugadores · Doble G Sports Group
+            {filtered.length.toLocaleString(LANGUAGE_LOCALES[language])} {t('interno.de')} {internal.length.toLocaleString(LANGUAGE_LOCALES[language])} {t('interno.jugadores')} · Doble G Sports Group
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -165,7 +168,7 @@ export default function InternalScoutingPage() {
             </svg>
             <input
               type="text"
-              placeholder="Buscar jugador..."
+              placeholder={t('interno.buscarJugador')}
               value={filters.search}
               onChange={e => setFilters(f => ({ ...f, search: e.target.value }))}
               className="input-apple pl-9 pr-4 w-full sm:w-56"
@@ -194,14 +197,14 @@ export default function InternalScoutingPage() {
               onClick={handleReset}
               className="py-3 px-4 rounded-xl text-sm font-medium text-apple-gray-600 dark:text-apple-gray-300 bg-apple-gray-100 dark:bg-apple-gray-800 hover:bg-apple-gray-200 dark:hover:bg-apple-gray-700 transition-colors"
             >
-              Limpiar
+              {t('interno.limpiar')}
             </button>
           )}
           <button
             onClick={() => setShowMobileFilters(false)}
             className="flex-1 py-3 rounded-xl text-sm font-semibold text-gray-900 bg-brand-green hover:bg-emerald-500 transition-colors"
           >
-            Ver {filtered.length.toLocaleString('es')} resultados
+            {t('interno.ver')} {filtered.length.toLocaleString(LANGUAGE_LOCALES[language])} {t('interno.resultados')}
           </button>
         </div>
       </MobileFilterPanel>
