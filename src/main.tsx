@@ -18,13 +18,13 @@ createRoot(document.getElementById('root')!).render(
     <ErrorBoundary>
       <ThemeProvider>
         <CurrencyProvider>
-        <AuthProvider>
-          <DataProvider>
-            <ScoutsGGProvider>
-              <App />
-            </ScoutsGGProvider>
-          </DataProvider>
-        </AuthProvider>
+          <AuthProvider>
+            <DataProvider>
+              <ScoutsGGProvider>
+                <App />
+              </ScoutsGGProvider>
+            </DataProvider>
+          </AuthProvider>
         </CurrencyProvider>
       </ThemeProvider>
     </ErrorBoundary>

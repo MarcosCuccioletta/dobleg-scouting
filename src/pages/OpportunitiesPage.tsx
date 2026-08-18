@@ -238,7 +238,7 @@ export default function OpportunitiesPage() {
           <label className="block text-xs font-medium text-apple-gray-500 dark:text-apple-gray-400 mb-2">
             Valor:{' '}
             <span className="text-brand-green font-semibold">
-              €{(minValue / 1_000_000).toFixed(1)}M - €{(maxValue / 1_000_000).toFixed(1)}M
+              {formatMarketValueInCurrency(minValue, currency, rate)} - {formatMarketValueInCurrency(maxValue, currency, rate)}
             </span>
           </label>
           <div className="space-y-2">

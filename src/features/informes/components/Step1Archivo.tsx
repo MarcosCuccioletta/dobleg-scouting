@@ -7,6 +7,8 @@ import { dedupePlayers } from '@/features/informes/dedupePlayers'
 import type { PlayerWithScore } from '@/types/scoring'
 import { displayPosition } from '@/types/scoring'
 import { normalizeForSearch } from '@/lib/search'
+import { useCurrency } from '@/context/CurrencyContext'
+import { formatMarketValueInCurrency } from '@/utils/scoring'
 
 // ─── Detección de columnas ────────────────────────────────────────────────
 
@@ -128,6 +130,7 @@ interface Step1ArchivoProps {
 }
 
 export default function Step1Archivo({ parsed, informe, onParsed, onChange, onNext }: Step1ArchivoProps) {
+  const { currency, rate } = useCurrency()
   const [isDragging, setIsDragging] = useState(false)
   const [parsing, setParsing] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -223,10 +226,10 @@ export default function Step1Archivo({ parsed, informe, onParsed, onChange, onNe
       ? Math.floor((Date.now() - new Date(p.birth_date).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
       : null
     const mv = p.market_value_eur
-    const mvFormatted = mv == null ? ''
-      : mv >= 1_000_000 ? `€${(mv / 1_000_000).toFixed(mv % 1_000_000 === 0 ? 0 : 1)}M`
-      : mv >= 1_000 ? `€${(mv / 1_000).toFixed(0)}K`
-      : `€${mv}`
+    // mv === 0 se trata igual que "sin valor" (empty), como en el comportamiento
+    // original: formatMarketValueInCurrency devuelve '-' para 0, que quedaría raro
+    // en este campo de texto libre.
+    const mvFormatted = mv == null || mv === 0 ? '' : formatMarketValueInCurrency(mv, currency, rate)
     const edad = Number.isFinite(age) ? String(age) : ''
     // Rating: autocompletar desde el Score GG del jugador si el campo está vacío.
     const ggScore = p.primary_score ?? p.season_scores?.[0]?.avg_score ?? null

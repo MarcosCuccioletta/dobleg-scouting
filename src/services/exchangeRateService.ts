@@ -13,11 +13,19 @@ function todayKey(): string {
   return new Date().toISOString().split('T')[0]
 }
 
+function isValidRate(rate: number | undefined | null): rate is number {
+  return typeof rate === 'number' && Number.isFinite(rate)
+}
+
 function getCached(): ExchangeRate | null {
   try {
     const raw = localStorage.getItem(CACHE_KEY)
     if (!raw) return null
-    return JSON.parse(raw) as ExchangeRate
+    const parsed = JSON.parse(raw) as ExchangeRate
+    // Una tasa inválida ya guardada (ej. de antes de este chequeo) no debe
+    // seguir sirviéndose como si fuera buena — se descarta y se refetchea.
+    if (!isValidRate(parsed?.rate)) return null
+    return parsed
   } catch {
     return null
   }
@@ -37,6 +45,7 @@ export async function fetchEurUsdRate(): Promise<ExchangeRate> {
     const res = await fetch('https://api.frankfurter.app/latest?from=EUR&to=USD')
     if (!res.ok) throw new Error(`Frankfurter API error: ${res.status}`)
     const data = await res.json()
+    if (!isValidRate(data?.rates?.USD)) throw new Error('Frankfurter API: payload sin rate USD válido')
     const rate: ExchangeRate = { rate: data.rates.USD, date: data.date }
     setCached(rate)
     return rate
