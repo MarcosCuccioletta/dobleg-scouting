@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { dedupeTeamsByName } from './playerStatsService'
 import type { TeamMember, ClubNeed, Negotiation, MarketNote, MarketTeamSearchResult, NeedStatus, NegotiationStatus, NeedCandidate, CandidateStatus } from '@/types/market'
 
 /**
@@ -23,16 +24,25 @@ export async function fetchTeamMembers(): Promise<TeamMember[]> {
   return data ?? []
 }
 
+/**
+ * Mismo club puede estar 2 veces en `teams` (fila de API-Football y de
+ * Sofascore, ver `dedupeTeamsByName`) — sin deduplicar, un buscador de club
+ * libre por nombre (no acotado a una liga) los muestra como si fueran dos
+ * clubes distintos (ej. "CA Talleres" y "Talleres Cordoba" para el mismo
+ * Talleres de Córdoba). Se pide de más (limit*3) porque deduplicar reduce
+ * la cantidad de resultados reales por debajo del límite pedido.
+ */
 export async function searchMarketTeams(query: string): Promise<MarketTeamSearchResult[]> {
   if (!query.trim()) return []
+  const limit = 20
   const { data, error } = await supabase
     .from('teams')
-    .select('id, name, logo')
+    .select('id, name, logo, league_id')
     .ilike('name', `%${query}%`)
     .order('name')
-    .limit(20)
+    .limit(limit * 3)
   if (error) throw error
-  return data ?? []
+  return dedupeTeamsByName(data ?? []).slice(0, limit)
 }
 
 export async function fetchClubNeeds(): Promise<ClubNeed[]> {

@@ -245,7 +245,7 @@ export interface TeamInfo {
  * no usa, ej. "Independiente" vs "CA Independiente"). Saca acentos, mayúsculas
  * y prefijos de tipo de club común en Sudamérica.
  */
-function normalizeTeamName(name: string): string {
+export function normalizeTeamName(name: string): string {
   const noAccents = name.normalize('NFD').replace(/[̀-ͯ]/g, '');
   return noAccents
     .toLowerCase()
@@ -254,15 +254,59 @@ function normalizeTeamName(name: string): string {
 }
 
 /**
- * Un mismo club real puede tener dos filas en `teams` (API-Football y
- * Sofascore, mismo problema que los jugadores duplicados — ver
- * dedup por transfermarkt_id en fetch_players_list). Sin deduplicar, el
- * selector de club en Scout Externo dejaba elegir la copia de Sofascore, que
- * trae menos partidos sincronizados (jugadores recién debutados ausentes) y
- * puede traer un score distinto al de la ficha (identidad de jugador
- * distinta). Se agrupa por nombre normalizado dentro de la misma liga y gana
- * el id de API-Football (< 20000000) cuando hay un empate real.
+ * `normalizeTeamName` sólo saca prefijos comunes ("CA "/"CD "...) — no
+ * alcanza para casos como "CA Talleres" (API-Football) vs "Talleres Cordoba"
+ * (Sofascore agrega la ciudad como sufijo para desambiguar, en vez de un
+ * prefijo). Match real si son iguales o si uno es el otro más una palabra
+ * extra al final (prefijo por palabras completas, no substring a ciegas —
+ * "river" no debe matchear "riverside").
  */
+function sameClub(a: string, b: string): boolean {
+  if (a === b) return true;
+  return a.startsWith(b + ' ') || b.startsWith(a + ' ');
+}
+
+/**
+ * Un mismo club real puede tener dos filas en `teams` (API-Football y
+ * Sofascore, mismo problema que los jugadores duplicados — ver dedup por
+ * transfermarkt_id en fetch_players_list). Sin deduplicar, el selector de
+ * club en Scout Externo dejaba elegir la copia de Sofascore, que trae menos
+ * partidos sincronizados (jugadores recién debutados ausentes) y puede traer
+ * un score distinto al de la ficha (identidad de jugador distinta) — mismo
+ * problema para cualquier buscador de club libre por nombre, no sólo por
+ * liga (ver `searchMarketTeams` en `marketService.ts`).
+ *
+ * Nunca se compara entre ligas distintas (un mismo nombre en dos países es
+ * casi seguro dos clubes reales distintos, ej. "River Plate" en Argentina y
+ * en Uruguay) — dentro de la misma liga, dos nombres "emparentados" por
+ * `sameClub` son casi con certeza el mismo club real duplicado por fuente.
+ * Gana el id de API-Football (< 20000000) cuando hay un empate real.
+ */
+export function dedupeTeamsByName<T extends { id: number; name: string; league_id?: number | null }>(teams: T[]): T[] {
+  const byLeague = new Map<string, T[]>();
+  for (const team of teams) {
+    const leagueKey = String(team.league_id ?? '');
+    if (!byLeague.has(leagueKey)) byLeague.set(leagueKey, []);
+    byLeague.get(leagueKey)!.push(team);
+  }
+
+  const result: T[] = [];
+  for (const group of byLeague.values()) {
+    const kept: { team: T; norm: string }[] = [];
+    for (const team of group) {
+      const norm = normalizeTeamName(team.name);
+      const matchIdx = kept.findIndex(k => sameClub(k.norm, norm));
+      if (matchIdx === -1) {
+        kept.push({ team, norm });
+      } else if (kept[matchIdx].team.id >= 20000000 && team.id < 20000000) {
+        kept[matchIdx] = { team, norm };
+      }
+    }
+    result.push(...kept.map(k => k.team));
+  }
+  return result;
+}
+
 export async function fetchTeamsByLeague(leagueId: number): Promise<TeamInfo[]> {
   const { data, error } = await supabase
     .from('teams')
@@ -271,18 +315,7 @@ export async function fetchTeamsByLeague(leagueId: number): Promise<TeamInfo[]> 
     .order('name');
 
   if (error) throw error;
-  const teams = data ?? [];
-
-  const byKey = new Map<string, TeamInfo>();
-  for (const team of teams) {
-    const key = normalizeTeamName(team.name);
-    const existing = byKey.get(key);
-    if (!existing || (existing.id >= 20000000 && team.id < 20000000)) {
-      byKey.set(key, team);
-    }
-  }
-
-  return Array.from(byKey.values()).sort((a, b) => a.name.localeCompare(b.name));
+  return dedupeTeamsByName(data ?? []).sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export interface ScoreLookupEntry {

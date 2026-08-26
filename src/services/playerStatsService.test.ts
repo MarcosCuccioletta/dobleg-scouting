@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { buildScoreLookup, currentSeasons, dedupeSeasonScoresByPosition, type ScoreLookupRow } from './playerStatsService'
+import { buildScoreLookup, currentSeasons, dedupeSeasonScoresByPosition, dedupeTeamsByName, type ScoreLookupRow } from './playerStatsService'
 import type { PlayerSeasonScore } from '@/types/scoring'
 
 const row = (over: Partial<ScoreLookupRow> & Pick<ScoreLookupRow, 'player_id' | 'name'>): ScoreLookupRow => ({
@@ -238,5 +238,47 @@ describe('dedupeSeasonScoresByPosition', () => {
       seasonScore({ player_id: 1, season: 2025, position: 'EXT', avg_score: 5.4 }),
     ]
     expect(dedupeSeasonScoresByPosition(scores)[0].season).toBe(2026)
+  })
+})
+
+describe('dedupeTeamsByName', () => {
+  // Bug real reportado 2026-08-26: el buscador de club de Mercado mostraba
+  // "CA Talleres" (Sofascore, prefijo) y "Talleres Cordoba" (API-Football,
+  // sufijo con la ciudad) como si fueran dos clubes distintos -- el
+  // normalizado simple por prefijo no los hacia matchear entre si.
+  it('detecta el mismo club cuando una fuente agrega el prefijo del tipo de club y la otra la ciudad como sufijo', () => {
+    const teams = [
+      { id: 20003210, name: 'CA Talleres', league_id: 128 },
+      { id: 456, name: 'Talleres Cordoba', league_id: 128 },
+    ]
+    const result = dedupeTeamsByName(teams)
+    expect(result).toHaveLength(1)
+    expect(result[0].id).toBe(456) // gana el id de API-Football (< 20000000)
+  })
+
+  it('no fusiona clubes de nombre parecido en ligas distintas (paises distintos)', () => {
+    const teams = [
+      { id: 1, name: 'River Plate', league_id: 128 }, // Argentina
+      { id: 2, name: 'River Plate', league_id: 268 }, // Uruguay
+    ]
+    expect(dedupeTeamsByName(teams)).toHaveLength(2)
+  })
+
+  it('no fusiona clubes con nombres distintos dentro de la misma liga', () => {
+    const teams = [
+      { id: 1, name: 'Manchester United', league_id: 39 },
+      { id: 2, name: 'Manchester City', league_id: 39 },
+    ]
+    expect(dedupeTeamsByName(teams)).toHaveLength(2)
+  })
+
+  it('detecta el caso clasico de prefijo compartido (CA Independiente vs Independiente)', () => {
+    const teams = [
+      { id: 20000001, name: 'CA Independiente', league_id: 128 },
+      { id: 453, name: 'Independiente', league_id: 128 },
+    ]
+    const result = dedupeTeamsByName(teams)
+    expect(result).toHaveLength(1)
+    expect(result[0].id).toBe(453)
   })
 })
