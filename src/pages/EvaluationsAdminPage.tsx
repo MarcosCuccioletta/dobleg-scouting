@@ -8,6 +8,8 @@ import {
   type ScoutEvaluation,
 } from '@/services/scoutEvaluationService'
 import { matchScore as sharedMatchScore } from '@/lib/search'
+import { useLanguage } from '@/context/LanguageContext'
+import { LANGUAGE_LOCALES } from '@/constants/translations'
 
 // La política RLS real de UPDATE en `scout_evaluations` ya restringe la escritura
 // a estos dos emails (verificado contra pg_policies) — esto sólo oculta la UI para
@@ -30,13 +32,13 @@ function findBestMatches(
 
     if (score < 10) continue
 
-    if (score >= 50) reasons.push('Nombre similar')
+    if (score >= 50) reasons.push('razonNombreSimilar')
 
     if (searchTeam && player.team) {
       const teamMatch = sharedMatchScore(searchTeam, player.team)
       if (teamMatch >= 50) {
         score += 20
-        reasons.push('Mismo equipo')
+        reasons.push('razonMismoEquipo')
       }
     }
 
@@ -44,7 +46,7 @@ function findBestMatches(
       const posMatch = sharedMatchScore(searchPosition, player.position)
       if (posMatch >= 50) {
         score += 10
-        reasons.push('Misma posicion')
+        reasons.push('razonMismaPosicion')
       }
     }
 
@@ -57,6 +59,7 @@ function findBestMatches(
 }
 
 export default function EvaluationsAdminPage() {
+  const { t, language } = useLanguage()
   const { user } = useAuth()
   const { external, internal } = useData()
   const [evaluations, setEvaluations] = useState<ScoutEvaluation[]>([])
@@ -173,7 +176,7 @@ export default function EvaluationsAdminPage() {
       <div className="max-w-6xl mx-auto px-6 py-10">
         <div className="text-center py-20">
           <p className="text-apple-gray-500 dark:text-apple-gray-400">
-            No tenés acceso a esta página.
+            {t('evaluacionesAdmin.noTienesAcceso')}
           </p>
         </div>
       </div>
@@ -195,10 +198,10 @@ export default function EvaluationsAdminPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-apple-gray-900 dark:text-white mb-2">
-            Evaluaciones de Scouts
+            {t('evaluacionesAdmin.titulo')}
           </h1>
           <p className="text-apple-gray-500 dark:text-apple-gray-400">
-            Vincula las evaluaciones con los jugadores de la base de datos
+            {t('evaluacionesAdmin.subtitulo')}
           </p>
         </div>
 
@@ -212,7 +215,7 @@ export default function EvaluationsAdminPage() {
                 : 'bg-apple-gray-100 dark:bg-apple-gray-800 text-apple-gray-600 dark:text-apple-gray-400'
             }`}
           >
-            Sin vincular ({evaluations.filter(e => !e.player_id).length})
+            {t('evaluacionesAdmin.sinVincularCount').replace('{count}', String(evaluations.filter(e => !e.player_id).length))}
           </button>
           <button
             onClick={() => setFilter('all')}
@@ -222,7 +225,7 @@ export default function EvaluationsAdminPage() {
                 : 'bg-apple-gray-100 dark:bg-apple-gray-800 text-apple-gray-600 dark:text-apple-gray-400'
             }`}
           >
-            Todas ({evaluations.length})
+            {t('evaluacionesAdmin.todasCount').replace('{count}', String(evaluations.length))}
           </button>
         </div>
       </div>
@@ -233,8 +236,8 @@ export default function EvaluationsAdminPage() {
           <div className="p-8 text-center">
             <p className="text-apple-gray-500">
               {filter === 'unmatched'
-                ? 'No hay evaluaciones sin vincular'
-                : 'No hay evaluaciones'}
+                ? t('evaluacionesAdmin.sinEvaluacionesSinVincular')
+                : t('evaluacionesAdmin.sinEvaluaciones')}
             </p>
           </div>
         ) : (
@@ -245,22 +248,22 @@ export default function EvaluationsAdminPage() {
             <thead className="bg-apple-gray-50 dark:bg-apple-gray-700/50">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-apple-gray-500 uppercase">
-                  Jugador
+                  {t('evaluacionesAdmin.colJugador')}
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-apple-gray-500 uppercase">
-                  Equipo / Partido
+                  {t('evaluacionesAdmin.colEquipoPartido')}
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-apple-gray-500 uppercase">
-                  Scout
+                  {t('evaluacionesAdmin.colScout')}
                 </th>
                 <th className="px-4 py-3 text-center text-xs font-semibold text-apple-gray-500 uppercase">
-                  Score
+                  {t('evaluacionesAdmin.colScore')}
                 </th>
                 <th className="px-4 py-3 text-center text-xs font-semibold text-apple-gray-500 uppercase">
-                  Estado
+                  {t('evaluacionesAdmin.colEstado')}
                 </th>
                 <th className="px-4 py-3 text-right text-xs font-semibold text-apple-gray-500 uppercase">
-                  Accion
+                  {t('evaluacionesAdmin.colAccion')}
                 </th>
               </tr>
             </thead>
@@ -283,7 +286,7 @@ export default function EvaluationsAdminPage() {
                       {ev.team}
                     </div>
                     <div className="text-xs text-apple-gray-500">
-                      vs {ev.rival} - {new Date(ev.match_date).toLocaleDateString('es-AR')}
+                      vs {ev.rival} - {new Date(ev.match_date).toLocaleDateString(LANGUAGE_LOCALES[language])}
                     </div>
                   </td>
                   <td className="px-4 py-3">
@@ -291,7 +294,7 @@ export default function EvaluationsAdminPage() {
                       {ev.scout_name}
                     </div>
                     <div className="text-xs text-apple-gray-500">
-                      {new Date(ev.created_at).toLocaleDateString('es-AR')}
+                      {new Date(ev.created_at).toLocaleDateString(LANGUAGE_LOCALES[language])}
                     </div>
                   </td>
                   <td className="px-4 py-3 text-center">
@@ -317,14 +320,14 @@ export default function EvaluationsAdminPage() {
                         <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                         </svg>
-                        Vinculado
+                        {t('evaluacionesAdmin.vinculado')}
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-amber-500/10 text-amber-500 text-xs font-medium">
                         <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
-                        Pendiente
+                        {t('evaluacionesAdmin.pendiente')}
                       </span>
                     )}
                   </td>
@@ -337,7 +340,7 @@ export default function EvaluationsAdminPage() {
                         }}
                         className="px-3 py-1.5 rounded-lg bg-brand-green text-white text-sm font-medium hover:bg-emerald-600 transition-colors"
                       >
-                        Vincular
+                        {t('evaluacionesAdmin.vincular')}
                       </button>
                     )}
                   </td>
@@ -372,7 +375,7 @@ export default function EvaluationsAdminPage() {
                   )}
                 </div>
                 <div className="text-xs text-apple-gray-500 mt-1.5">
-                  vs {ev.rival} · {new Date(ev.match_date).toLocaleDateString('es-AR')} · {ev.scout_name}
+                  vs {ev.rival} · {new Date(ev.match_date).toLocaleDateString(LANGUAGE_LOCALES[language])} · {ev.scout_name}
                 </div>
                 <div className="flex items-center justify-between gap-3 mt-3">
                   {ev.player_id ? (
@@ -380,14 +383,14 @@ export default function EvaluationsAdminPage() {
                       <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                       </svg>
-                      Vinculado
+                      {t('evaluacionesAdmin.vinculado')}
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-amber-500/10 text-amber-500 text-xs font-medium">
                       <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
-                      Pendiente
+                      {t('evaluacionesAdmin.pendiente')}
                     </span>
                   )}
                   {!ev.player_id && (
@@ -395,7 +398,7 @@ export default function EvaluationsAdminPage() {
                       onClick={() => { setSelectedEval(ev); setMatchSearch('') }}
                       className="px-3 py-1.5 rounded-lg bg-brand-green text-white text-sm font-medium hover:bg-emerald-600 transition-colors flex-shrink-0"
                     >
-                      Vincular
+                      {t('evaluacionesAdmin.vincular')}
                     </button>
                   )}
                 </div>
@@ -417,10 +420,10 @@ export default function EvaluationsAdminPage() {
           <div className="relative bg-white dark:bg-apple-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden animate-scale-in">
             <div className="p-6 border-b border-apple-gray-200 dark:border-apple-gray-700">
               <h2 className="text-xl font-bold text-apple-gray-900 dark:text-white">
-                Vincular evaluacion
+                {t('evaluacionesAdmin.vincularEvaluacion')}
               </h2>
               <p className="text-apple-gray-500 mt-1">
-                Busca el jugador en la base de datos para vincular esta evaluacion
+                {t('evaluacionesAdmin.buscaJugadorEnBase')}
               </p>
             </div>
 
@@ -436,8 +439,9 @@ export default function EvaluationsAdminPage() {
                       {selectedEval.team} - {selectedEval.position}
                     </div>
                     <div className="text-sm text-apple-gray-500">
-                      Evaluado por {selectedEval.scout_name} el{' '}
-                      {new Date(selectedEval.match_date).toLocaleDateString('es-AR')}
+                      {t('evaluacionesAdmin.evaluadoPor')
+                        .replace('{scout}', selectedEval.scout_name)
+                        .replace('{date}', new Date(selectedEval.match_date).toLocaleDateString(LANGUAGE_LOCALES[language]))}
                     </div>
                   </div>
                   {selectedEval.technical_score && (
@@ -464,7 +468,7 @@ export default function EvaluationsAdminPage() {
                   type="text"
                   value={matchSearch}
                   onChange={e => setMatchSearch(e.target.value)}
-                  placeholder="Buscar jugador..."
+                  placeholder={t('evaluacionesAdmin.buscarJugadorPlaceholder')}
                   className="w-full px-4 py-3 rounded-xl bg-apple-gray-50 dark:bg-apple-gray-700 border border-apple-gray-200 dark:border-apple-gray-600 text-apple-gray-800 dark:text-white placeholder-apple-gray-400 focus:outline-none focus:border-brand-green"
                 />
               </div>
@@ -472,12 +476,12 @@ export default function EvaluationsAdminPage() {
               {/* Suggested matches */}
               <div className="space-y-2 max-h-64 overflow-auto">
                 <p className="text-xs font-medium text-apple-gray-500 uppercase mb-2">
-                  Sugerencias ({suggestedMatches.length})
+                  {t('evaluacionesAdmin.sugerencias').replace('{count}', String(suggestedMatches.length))}
                 </p>
 
                 {suggestedMatches.length === 0 ? (
                   <p className="text-sm text-apple-gray-500 py-4 text-center">
-                    No se encontraron jugadores similares
+                    {t('evaluacionesAdmin.sinJugadoresSimilares')}
                   </p>
                 ) : (
                   suggestedMatches.map(({ player, score, reasons }) => (
@@ -506,10 +510,10 @@ export default function EvaluationsAdminPage() {
                                 : 'text-apple-gray-400'
                             }`}
                           >
-                            {score}% match
+                            {t('evaluacionesAdmin.matchPercent').replace('{score}', String(score))}
                           </div>
                           <div className="text-xs text-apple-gray-400">
-                            {reasons.join(', ')}
+                            {reasons.map(r => t(`evaluacionesAdmin.${r}`)).join(', ')}
                           </div>
                         </div>
                       </div>
@@ -524,13 +528,13 @@ export default function EvaluationsAdminPage() {
                 onClick={handleSkip}
                 className="px-4 py-2 rounded-xl text-apple-gray-600 dark:text-apple-gray-400 hover:bg-apple-gray-100 dark:hover:bg-apple-gray-700 transition-colors"
               >
-                Omitir (jugador nuevo)
+                {t('evaluacionesAdmin.omitirJugadorNuevo')}
               </button>
               <button
                 onClick={handleSkip}
                 className="px-4 py-2 rounded-xl bg-apple-gray-200 dark:bg-apple-gray-700 text-apple-gray-700 dark:text-apple-gray-300 hover:bg-apple-gray-300 dark:hover:bg-apple-gray-600 transition-colors"
               >
-                Cancelar
+                {t('evaluacionesAdmin.cancelar')}
               </button>
             </div>
           </div>
