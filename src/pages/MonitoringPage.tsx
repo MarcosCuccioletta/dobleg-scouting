@@ -19,10 +19,20 @@ import {
   type ScoutPlayerWithScore,
 } from '@/services/scoutPlayersService'
 import type { TrackingStatus, ScoutPlayerStatusRecord, ScoutPlayer } from '@/types'
-import { TRACKING_STATUS_CONFIG } from '@/hooks/useMonitoringStatus'
 import { displayPosition } from '@/types/scoring'
+import { useLanguage } from '@/context/LanguageContext'
+import { LANGUAGE_LOCALES } from '@/constants/translations'
 
 const ADMIN_EMAIL = 'marcoscucho99@gmail.com'
+
+// ─── STATUS CONFIG (mismas keys que ScoutTrackingGGPage) ─────────────────────
+
+const STATUS_CONFIG: Record<TrackingStatus, { labelKey: string; color: string; bgColor: string }> = {
+  en_seguimiento: { labelKey: 'seguimiento.estadoEnSeguimiento', color: 'text-blue-600 dark:text-blue-400', bgColor: 'bg-blue-500/10 border border-blue-500/20' },
+  contactado:     { labelKey: 'seguimiento.estadoContactado',     color: 'text-amber-600 dark:text-amber-400', bgColor: 'bg-amber-500/10 border border-amber-500/20' },
+  en_negociacion: { labelKey: 'seguimiento.estadoEnNegociacion', color: 'text-purple-600 dark:text-purple-400', bgColor: 'bg-purple-500/10 border border-purple-500/20' },
+  descartado:     { labelKey: 'seguimiento.estadoDescartado',     color: 'text-apple-gray-500', bgColor: 'bg-apple-gray-200/60 border border-apple-gray-300/30 dark:bg-apple-gray-700/50 dark:border-apple-gray-600/30' },
+}
 
 // ─── FILTER SECTION COMPONENT ────────────────────────────────────────────────
 
@@ -61,12 +71,13 @@ function StatusBadge({
   requiresAuth: boolean
   onAuthRequired: () => void
 }) {
+  const { t } = useLanguage()
   const [isOpen, setIsOpen] = useState(false)
   const [isUpdating, setIsUpdating] = useState(false)
   const [dropdownStyle, setDropdownStyle] = useState<{ top: number; left: number }>({ top: 0, left: 0 })
   const buttonRef = useRef<HTMLButtonElement>(null)
   const status: TrackingStatus = (statusRecord?.status as TrackingStatus) || 'en_seguimiento'
-  const config = TRACKING_STATUS_CONFIG[status]
+  const config = STATUS_CONFIG[status]
 
   const handleOpen = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -105,7 +116,7 @@ function StatusBadge({
         disabled={isUpdating}
         className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${config.bgColor} ${config.color} hover:opacity-80 whitespace-nowrap disabled:opacity-50 flex items-center gap-1`}
       >
-        {config.label}
+        {t(config.labelKey)}
         <svg className={`w-3 h-3 transition-transform ${isOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
         </svg>
@@ -113,7 +124,7 @@ function StatusBadge({
 
       {statusRecord?.changed_by_name && status !== 'en_seguimiento' && (
         <p className="text-2xs text-apple-gray-400 mt-0.5 truncate max-w-[140px]">
-          por {statusRecord.changed_by_name}
+          {t('seguimiento.por')} {statusRecord.changed_by_name}
         </p>
       )}
 
@@ -126,17 +137,17 @@ function StatusBadge({
           >
             {requiresAuth && (
               <p className="px-4 py-2 text-xs text-apple-gray-500 border-b border-apple-gray-100 dark:border-apple-gray-700">
-                Iniciá sesión para cambiar
+                {t('seguimiento.iniciarSesionCambiar')}
               </p>
             )}
-            {(Object.entries(TRACKING_STATUS_CONFIG) as [TrackingStatus, typeof config][]).map(([key, cfg]) => (
+            {(Object.entries(STATUS_CONFIG) as [TrackingStatus, typeof config][]).map(([key, cfg]) => (
               <button
                 key={key}
                 onClick={(e) => { e.stopPropagation(); handleChange(key) }}
                 className={`w-full px-4 py-2.5 text-left text-xs font-medium hover:bg-apple-gray-50 dark:hover:bg-apple-gray-700/60 transition-colors flex items-center gap-2 ${cfg.color} ${key === status ? 'bg-apple-gray-50 dark:bg-apple-gray-700/40 font-semibold' : ''}`}
               >
                 <span className={`w-2 h-2 rounded-full flex-shrink-0 ${{ en_seguimiento: 'bg-blue-500', contactado: 'bg-amber-500', en_negociacion: 'bg-purple-500', descartado: 'bg-gray-400' }[key]}`} />
-                {cfg.label}
+                {t(cfg.labelKey)}
                 {key === status && (
                   <svg className="w-3.5 h-3.5 ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
@@ -156,6 +167,7 @@ function StatusBadge({
 export default function MonitoringPage() {
   const navigate = useNavigate()
   const { user, userDisplayName } = useAuth()
+  const { t, language } = useLanguage()
 
   const [players, setPlayers] = useState<ScoutPlayerWithScore[]>([])
   const [statuses, setStatuses] = useState<Record<string, ScoutPlayerStatusRecord>>({})
@@ -261,10 +273,10 @@ export default function MonitoringPage() {
   }, [navigate])
 
   const handleDelete = useCallback(async (id: string) => {
-    if (!confirm('¿Querés quitar este jugador de la lista de Datos?')) return
+    if (!confirm(t('seguimiento.confirmarQuitarDatos'))) return
     await removeScoutPlayerFromList(id, 'datos')
     setPlayers(prev => prev.filter(p => p.id !== id))
-  }, [])
+  }, [t])
 
   const handleSortScore = () => {
     setSortByScore(prev => prev === 'desc' ? 'asc' : prev === 'asc' ? null : 'desc')
@@ -278,7 +290,7 @@ export default function MonitoringPage() {
 
   // ─── Render ───────────────────────────────────────────────────────────────
 
-  if (loading) return <LoadingSpinner fullScreen message="Cargando jugadores en seguimiento..." />
+  if (loading) return <LoadingSpinner fullScreen message={t('seguimiento.cargandoSeguimiento')} />
 
   return (
     <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 py-6">
@@ -286,10 +298,10 @@ export default function MonitoringPage() {
       <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-apple-gray-800 dark:text-white tracking-tight">
-            Seguimiento de Datos
+            {t('seguimiento.tituloDatos')}
           </h1>
           <p className="text-sm text-apple-gray-500 dark:text-apple-gray-400 mt-0.5">
-            {filteredPlayers.length.toLocaleString('es')} de {players.length.toLocaleString('es')} jugadores en seguimiento
+            {filteredPlayers.length.toLocaleString(LANGUAGE_LOCALES[language])} {t('seguimiento.de')} {players.length.toLocaleString(LANGUAGE_LOCALES[language])} {t('seguimiento.jugadoresEnSeguimiento')}
           </p>
         </div>
 
@@ -301,7 +313,7 @@ export default function MonitoringPage() {
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
             </svg>
-            <span className="hidden sm:inline">Agregar Jugador</span>
+            <span className="hidden sm:inline">{t('seguimiento.agregarJugador')}</span>
           </button>
         </div>
       </div>
@@ -316,9 +328,9 @@ export default function MonitoringPage() {
               : 'bg-apple-gray-100 dark:bg-apple-gray-800 text-apple-gray-600 dark:text-apple-gray-400 hover:bg-apple-gray-200 dark:hover:bg-apple-gray-700'
           }`}
         >
-          Todos ({statusCounts.todos})
+          {t('seguimiento.todos')} ({statusCounts.todos})
         </button>
-        {(Object.entries(TRACKING_STATUS_CONFIG) as [TrackingStatus, typeof TRACKING_STATUS_CONFIG.en_seguimiento][]).map(([key, cfg]) => (
+        {(Object.entries(STATUS_CONFIG) as [TrackingStatus, typeof STATUS_CONFIG.en_seguimiento][]).map(([key, cfg]) => (
           <button
             key={key}
             onClick={() => setStatusFilter(statusFilter === key ? 'todos' : key)}
@@ -328,7 +340,7 @@ export default function MonitoringPage() {
                 : 'bg-apple-gray-100 dark:bg-apple-gray-800 text-apple-gray-600 dark:text-apple-gray-400 hover:bg-apple-gray-200 dark:hover:bg-apple-gray-700'
             }`}
           >
-            {cfg.label} ({statusCounts[key] ?? 0})
+            {t(cfg.labelKey)} ({statusCounts[key] ?? 0})
           </button>
         ))}
       </div>
@@ -341,7 +353,7 @@ export default function MonitoringPage() {
           </svg>
           <input
             type="text"
-            placeholder="Buscar por nombre o club..."
+            placeholder={t('seguimiento.buscarNombreClub')}
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             className="input-apple pl-9 pr-4 w-full"
@@ -355,7 +367,7 @@ export default function MonitoringPage() {
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
           </svg>
-          Filtros
+          {t('seguimiento.filtros')}
           {activeFilters > 0 && (
             <span className="w-5 h-5 flex items-center justify-center bg-brand-green text-black text-xs font-bold rounded-full">{activeFilters}</span>
           )}
@@ -368,19 +380,19 @@ export default function MonitoringPage() {
           <div className="sticky top-[4rem] card-apple overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 border-b border-apple-gray-200/50 dark:border-apple-gray-700/50 bg-apple-gray-50 dark:bg-apple-gray-800/50">
               <span className="text-xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider flex items-center gap-2">
-                Filtros
+                {t('seguimiento.filtros')}
                 {activeFilters > 0 && (
                   <span className="px-1.5 py-0.5 bg-brand-green text-black rounded-full text-2xs font-bold">{activeFilters}</span>
                 )}
               </span>
               {activeFilters > 0 && (
                 <button onClick={resetFilters} className="text-xs font-medium text-brand-green hover:text-green-400 transition-colors">
-                  Limpiar
+                  {t('seguimiento.limpiar')}
                 </button>
               )}
             </div>
             <div className="px-4 divide-y divide-apple-gray-200/50 dark:divide-apple-gray-800/50 max-h-[calc(100vh-12rem)] overflow-y-auto scrollbar-thin">
-              <FilterSection title="Posición">
+              <FilterSection title={t('seguimiento.posicion')}>
                 <div className="space-y-2 max-h-56 overflow-y-auto scrollbar-thin pr-1">
                   {positions.map(pos => (
                     <label key={pos} className="flex items-center gap-2.5 cursor-pointer group">
@@ -404,8 +416,8 @@ export default function MonitoringPage() {
         <div className="flex-1 min-w-0">
           {filteredPlayers.length === 0 ? (
             <EmptyState
-              title="Sin resultados"
-              description={players.length === 0 ? 'No hay jugadores en la lista de Datos aún' : 'No se encontraron jugadores con los filtros aplicados'}
+              title={t('seguimiento.sinResultados')}
+              description={players.length === 0 ? t('seguimiento.listaDatosVacia') : t('seguimiento.sinFiltrosResultados')}
             />
           ) : (
             <>
@@ -414,7 +426,7 @@ export default function MonitoringPage() {
                 {filteredPlayers.map(player => {
                   const statusRecord = statuses[player.id] ?? null
                   const playerStatus = (statusRecord?.status as TrackingStatus) || 'en_seguimiento'
-                  const statusCfg = TRACKING_STATUS_CONFIG[playerStatus]
+                  const statusCfg = STATUS_CONFIG[playerStatus]
                   return (
                     <div
                       key={player.id}
@@ -427,7 +439,7 @@ export default function MonitoringPage() {
                           <div className="flex items-center justify-between gap-2 mb-0.5">
                             <p className="font-semibold text-sm text-apple-gray-800 dark:text-white truncate">{player.full_name}</p>
                             <span className={`flex-shrink-0 text-2xs font-semibold px-2 py-0.5 rounded-lg ${statusCfg.bgColor} ${statusCfg.color}`}>
-                              {statusCfg.label}
+                              {t(statusCfg.labelKey)}
                             </span>
                           </div>
                           <p className="text-xs text-apple-gray-500 truncate mb-1.5">
@@ -439,7 +451,7 @@ export default function MonitoringPage() {
                                 {player.gg_score.toFixed(1)}
                               </span>
                             ) : (
-                              <span className="text-2xs text-apple-gray-400">Sin datos suficientes</span>
+                              <span className="text-2xs text-apple-gray-400">{t('seguimiento.sinDatosSuficientes')}</span>
                             )}
                           </div>
                         </div>
@@ -482,23 +494,23 @@ export default function MonitoringPage() {
                     <thead>
                       <tr className="border-b border-apple-gray-200/50 dark:border-apple-gray-700/50 bg-apple-gray-50/80 dark:bg-apple-gray-800/50">
                         <th className="px-4 py-3 text-left text-2xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider">
-                          Jugador
+                          {t('seguimiento.colJugador')}
                         </th>
                         <th className="px-3 py-3 text-left text-2xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider">
-                          Club
+                          {t('seguimiento.colClub')}
                         </th>
                         <th className="px-3 py-3 text-left text-2xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider">
-                          Posición
+                          {t('seguimiento.colPosicion')}
                         </th>
                         <th className="px-3 py-3 text-left text-2xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider">
-                          Edad
+                          {t('seguimiento.colEdad')}
                         </th>
                         <th
                           className="px-3 py-3 text-left text-2xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider cursor-pointer hover:text-brand-green transition-colors select-none"
                           onClick={handleSortScore}
                         >
                           <span className="flex items-center gap-1">
-                            Score GG
+                            {t('seguimiento.colScoreGG')}
                             <span className="inline-flex flex-col">
                               <svg className={`w-2.5 h-2.5 -mb-0.5 ${sortByScore === 'asc' ? 'text-brand-green' : 'text-apple-gray-400'}`} fill="currentColor" viewBox="0 0 20 20">
                                 <path d="M5 12l5-5 5 5H5z" />
@@ -510,16 +522,16 @@ export default function MonitoringPage() {
                           </span>
                         </th>
                         <th className="px-3 py-3 text-left text-2xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider">
-                          Estado
+                          {t('seguimiento.colEstado')}
                         </th>
                         <th className="px-3 py-3 text-left text-2xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider">
-                          Actualizado por
+                          {t('seguimiento.actualizadoPor')}
                         </th>
                         <th className="px-3 py-3 text-left text-2xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider">
-                          Agregado por
+                          {t('seguimiento.agregadoPor')}
                         </th>
                         <th className="px-3 py-3 text-left text-2xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider w-10">
-                          Links
+                          {t('seguimiento.colLinks')}
                         </th>
                       </tr>
                     </thead>
@@ -556,7 +568,7 @@ export default function MonitoringPage() {
                                       {player.full_name}
                                     </p>
                                     {!player.player_db_id && !player.supabase_player_id && (
-                                      <span title="Sin ficha vinculada" className="flex-shrink-0 text-apple-gray-300 dark:text-apple-gray-600">
+                                      <span title={t('seguimiento.sinFichaVinculada')} className="flex-shrink-0 text-apple-gray-300 dark:text-apple-gray-600">
                                         <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636a9 9 0 010 12.728M5.636 5.636a9 9 0 000 12.728M9 10h.01M15 10h.01M9.172 14.172a4 4 0 015.656 0" />
                                         </svg>
@@ -565,7 +577,7 @@ export default function MonitoringPage() {
                                     {isAdmin && (
                                       <button
                                         onClick={e => { e.stopPropagation(); setLinkingPlayer(player) }}
-                                        title={player.player_db_id ? 'Cambiar vínculo' : 'Vincular a base de datos'}
+                                        title={player.player_db_id ? t('seguimiento.cambiarVinculo') : t('seguimiento.vincularBaseDatos')}
                                         className={`flex-shrink-0 p-0.5 rounded transition-colors opacity-0 group-hover:opacity-100 ${player.player_db_id ? 'text-brand-green hover:bg-brand-green/10' : 'text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20'}`}
                                       >
                                         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -582,7 +594,7 @@ export default function MonitoringPage() {
                                   <button
                                     onClick={e => { e.stopPropagation(); handleDelete(player.id) }}
                                     className="opacity-0 group-hover:opacity-100 p-1 text-apple-gray-300 hover:text-red-500 transition-all flex-shrink-0"
-                                    title="Quitar de la lista"
+                                    title={t('seguimiento.quitarDeLista')}
                                   >
                                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -626,7 +638,7 @@ export default function MonitoringPage() {
                                     {player.gg_score.toFixed(1)}
                                   </span>
                                   {player.gg_matches !== null && player.gg_matches !== undefined && (
-                                    <span className="text-2xs text-apple-gray-400">{player.gg_matches} PJ</span>
+                                    <span className="text-2xs text-apple-gray-400">{player.gg_matches} {t('seguimiento.partidosJugadosAbbr')}</span>
                                   )}
                                 </div>
                               ) : (
@@ -653,7 +665,7 @@ export default function MonitoringPage() {
                                     {statusRecord.changed_by_name}
                                   </span>
                                   <p className="text-2xs text-apple-gray-400">
-                                    {new Date(statusRecord.changed_at).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })}
+                                    {new Date(statusRecord.changed_at).toLocaleDateString(LANGUAGE_LOCALES[language], { day: '2-digit', month: 'short' })}
                                   </p>
                                 </div>
                               ) : (
@@ -664,7 +676,7 @@ export default function MonitoringPage() {
                             {/* Added by */}
                             <td className="px-3 py-3">
                               {player.added_by_datos_name ? (
-                                <span className="text-xs text-apple-gray-500">por {player.added_by_datos_name}</span>
+                                <span className="text-xs text-apple-gray-500">{t('seguimiento.por')} {player.added_by_datos_name}</span>
                               ) : (
                                 <span className="text-2xs text-apple-gray-400">—</span>
                               )}
@@ -679,7 +691,7 @@ export default function MonitoringPage() {
                                   rel="noopener noreferrer"
                                   onClick={e => e.stopPropagation()}
                                   className="p-1.5 rounded-md bg-apple-gray-100 dark:bg-apple-gray-700 text-apple-gray-600 dark:text-apple-gray-400 hover:text-brand-green hover:bg-brand-green/10 transition-colors inline-flex"
-                                  title="Transfermarkt"
+                                  title={t('seguimiento.transfermarkt')}
                                 >
                                   <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
                                     <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
@@ -746,10 +758,10 @@ export default function MonitoringPage() {
           {activeFilters > 0 && (
             <button onClick={() => { resetFilters(); setShowMobileFilters(false) }}
               className="w-full mb-3 py-2 text-sm font-semibold text-red-500 hover:text-red-600 transition-colors text-center">
-              Limpiar todos los filtros
+              {t('seguimiento.limpiarTodosFiltros')}
             </button>
           )}
-          <FilterSection title="Posición">
+          <FilterSection title={t('seguimiento.posicion')}>
             <div className="space-y-2 max-h-56 overflow-y-auto scrollbar-thin pr-1">
               {positions.map(pos => (
                 <label key={pos} className="flex items-center gap-2.5 cursor-pointer">
