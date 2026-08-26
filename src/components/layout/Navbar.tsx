@@ -47,6 +47,7 @@ const scoutInternoGroup: NavGroup = {
   items: [
     { to: '/interno', labelKey: 'nav.scoutInterno', icon: 'users' },
     { to: '/entrenadores', labelKey: 'nav.entrenadores', icon: 'whistle' },
+    { to: '/clasificacion-interna', labelKey: 'nav.clasificacionInterna', icon: 'star' },
   ],
 }
 

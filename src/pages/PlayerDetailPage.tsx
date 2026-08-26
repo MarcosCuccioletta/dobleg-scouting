@@ -38,6 +38,9 @@ import SimilarPlayersCard from '@/components/players/SimilarPlayersCard'
 import ManualFixturesEditor from '@/components/agency/ManualFixturesEditor'
 import BodyMapSVG from '@/components/health/BodyMapSVG'
 import ScoutsGGBadge from '@/components/ui/ScoutsGGBadge'
+import { useAgencyClassifications } from '@/hooks/useAgencyClassifications'
+import { agencyPlayerKey } from '@/services/agencyClassificationService'
+import { CLASS_BADGE_COLOR } from '@/constants/agencyClassification'
 import VideosTab from '@/components/videos/VideosTab'
 import type { EnrichedPlayer, SubjectiveMetric } from '@/types'
 
@@ -600,6 +603,7 @@ export default function PlayerDetailPage() {
   const overridePosition = searchParams.get('pos')
   const { external, internal, monitoring, normalized, evolution, subjectiveMetrics, marketValueHistory, gpsEntries, gpsMetrics, agencyPlayers, loading, error } = useData()
   const { currency, rate } = useCurrency()
+  const { classifications: agencyClassifications } = useAgencyClassifications()
   const [activeTab, setActiveTab] = useState('General')
   const [selectedPosition, setSelectedPosition] = useState<Position | null>(null)
   const [comparisonLeague, setComparisonLeague] = useState<string>('all')
@@ -1364,6 +1368,18 @@ export default function PlayerDetailPage() {
                     <h1 className="text-xl font-bold text-apple-gray-800 dark:text-white tracking-tight flex items-center gap-2">
                       {player.Jugador}
                       <ScoutsGGBadge playerName={player.Jugador} variant="pill" />
+                      {(() => {
+                        const cls = agencyClassifications.get(agencyPlayerKey(player.Jugador))
+                        if (!cls) return null
+                        return (
+                          <span
+                            title={`Clasificación Interna: Clase ${cls}`}
+                            className={`px-1.5 py-0.5 rounded text-2xs font-semibold ${CLASS_BADGE_COLOR[cls]}`}
+                          >
+                            {cls}
+                          </span>
+                        )
+                      })()}
                     </h1>
                     <svg
                       className={`w-4 h-4 text-apple-gray-400 group-hover:text-apple-gray-600 dark:group-hover:text-apple-gray-300 transition-transform ${showPlayerSelector ? 'rotate-180' : ''}`}

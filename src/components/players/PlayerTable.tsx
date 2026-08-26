@@ -15,6 +15,9 @@ import { useCurrency } from '@/context/CurrencyContext'
 import { AGENCY_PLAYERS } from '@/constants/agencyPlayers'
 import { playerVideoKey } from '@/services/playerVideosService'
 import type { VideoFreshness } from '@/types/videos'
+import { useAgencyClassifications } from '@/hooks/useAgencyClassifications'
+import { agencyPlayerKey } from '@/services/agencyClassificationService'
+import { CLASS_BADGE_COLOR } from '@/constants/agencyClassification'
 
 const FRESH_DOT: Record<VideoFreshness, string> = {
   green: 'bg-green-500',
@@ -57,6 +60,7 @@ const BASE_COLUMNS: Column[] = [
 const BASE_COLUMNS_INTERNAL: Column[] = [
   { key: 'Jugador', label: 'Jugador', sortable: true, align: 'left' },
   { key: 'videoFreshness', label: 'Video Actualizado', sortable: false, align: 'center' },
+  { key: 'agencyClass', label: 'Clase', sortable: false, align: 'center' },
   { key: 'Equipo', label: 'Equipo', sortable: true, align: 'left', className: 'hidden lg:table-cell' },
   { key: 'Posición', label: 'Pos', sortable: true, align: 'left', className: 'hidden sm:table-cell' },
   { key: 'ageNum', label: 'Edad', sortable: true, align: 'center' },
@@ -109,6 +113,7 @@ export default function PlayerTable({ players, source, isLoading, selectedMetric
   const navigate = useNavigate()
   const { positionAverages, videoFreshnessByKey } = useData()
   const { lookup: scoreLookup } = useScoreLookup()
+  const { classifications } = useAgencyClassifications()
   const { currency, rate } = useCurrency()
   const [sort, setSort] = useState<SortState>({ column: 'ggScore', direction: 'desc' })
   const [page, setPage] = useState(1)
@@ -208,6 +213,11 @@ export default function PlayerTable({ players, source, isLoading, selectedMetric
                     <span className="font-semibold text-apple-gray-800 dark:text-white text-sm truncate">{player.Jugador}</span>
                     <ScoutsGGBadge playerName={player.Jugador} />
                     <ContractBadge status={player.contractStatus} monthsRemaining={player.monthsRemaining} />
+                    {source === 'interno' && classifications.get(agencyPlayerKey(player.Jugador)) && (
+                      <span className={`px-1.5 py-0.5 rounded text-2xs font-semibold flex-shrink-0 ${CLASS_BADGE_COLOR[classifications.get(agencyPlayerKey(player.Jugador))!]}`}>
+                        {classifications.get(agencyPlayerKey(player.Jugador))}
+                      </span>
+                    )}
                   </div>
                   <p className="text-xs text-apple-gray-500 truncate mt-0.5 flex items-center gap-1.5">
                     <span className="truncate">{[player.Liga, player.Equipo, player.Edad ? `${player.Edad}a` : null].filter(Boolean).join(' · ')}</span>
@@ -323,6 +333,20 @@ export default function PlayerTable({ players, source, isLoading, selectedMetric
                       {(() => {
                         const fr: VideoFreshness = videoFreshnessByKey.get(playerVideoKey(player.Jugador)) ?? 'none'
                         return <span title={FRESH_LABEL[fr]} className={`inline-block w-2.5 h-2.5 rounded-full ${FRESH_DOT[fr]}`} />
+                      })()}
+                    </td>
+                  )}
+                  {/* Clase (internal only) */}
+                  {source === 'interno' && (
+                    <td className="px-3 py-3 text-center">
+                      {(() => {
+                        const cls = classifications.get(agencyPlayerKey(player.Jugador))
+                        if (!cls) return <span className="text-apple-gray-300 dark:text-apple-gray-600 text-xs">—</span>
+                        return (
+                          <span className={`inline-flex px-2 py-0.5 rounded text-2xs font-semibold ${CLASS_BADGE_COLOR[cls]}`}>
+                            {cls}
+                          </span>
+                        )
                       })()}
                     </td>
                   )}

@@ -13,6 +13,7 @@ import { normalizeName, formatMarketValueInCurrency } from '@/utils/scoring'
 import { useScoreLookup } from '@/hooks/usePlayerStats'
 import PortfolioValueChart from '@/components/charts/PortfolioValueChart'
 import PortfolioInsights from '@/components/dashboard/PortfolioInsights'
+import AgencyClassificationInsights from '@/components/dashboard/AgencyClassificationInsights'
 import LeagueAnalysis from '@/components/dashboard/LeagueAnalysis'
 import AgencyTransferHistory from '@/components/dashboard/AgencyTransferHistory'
 import ClubsAndCupsSection from '@/components/dashboard/ClubsAndCupsSection'
@@ -569,6 +570,13 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
+
+      {/* Clasificación Interna Section */}
+      <div className="mb-8">
+        <Section title="Clasificación Interna">
+          <AgencyClassificationInsights />
+        </Section>
+      </div>
 
       {/* Portfolio Value Evolution Section */}
       {marketValueHistory.length > 0 && (

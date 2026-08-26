@@ -7,6 +7,8 @@ import { fuzzyMatch } from '@/lib/search'
 import type { Currency } from '@/context/CurrencyContext'
 import { useCurrency } from '@/context/CurrencyContext'
 import { formatMarketValueInCurrency } from '@/utils/scoring'
+import { CLASS_BADGE_COLOR } from '@/constants/agencyClassification'
+import type { AgencyClass } from '@/services/agencyClassificationService'
 
 // Available metrics for column selection
 export const SELECTABLE_METRICS = [
@@ -42,6 +44,8 @@ interface FilterSidebarProps {
   onChange: (filters: FilterState) => void
   onReset: () => void
   showVideoFreshness?: boolean
+  /** Filtro por Clasificación Interna (Clase A/B/C) — solo tiene sentido en Scout Interno. */
+  showAgencyClass?: boolean
   /** En el bottom-sheet de mobile: ocupa todo el ancho, sin card/sticky ni header
    *  propio (el panel ya aporta título y cierre). Desktop no pasa este prop. */
   inPanel?: boolean
@@ -111,7 +115,7 @@ function formatMV(v: number, currency: Currency, rate: number): string {
   return formatMarketValueInCurrency(v, currency, rate)
 }
 
-export default function FilterSidebar({ players, filters, onChange, onReset, showVideoFreshness = false, inPanel = false }: FilterSidebarProps) {
+export default function FilterSidebar({ players, filters, onChange, onReset, showVideoFreshness = false, showAgencyClass = false, inPanel = false }: FilterSidebarProps) {
   const { currency, rate } = useCurrency()
   const update = <K extends keyof FilterState>(key: K, value: FilterState[K]) => {
     onChange({ ...filters, [key]: value })
@@ -142,6 +146,14 @@ export default function FilterSidebar({ players, filters, onChange, onReset, sho
       ? current.filter(x => x !== value)
       : [...current, value]
     onChange({ ...filters, videoFreshness: next })
+  }
+
+  const toggleAgencyClass = (value: AgencyClass) => {
+    const current = filters.agencyClass || []
+    const next = current.includes(value)
+      ? current.filter(x => x !== value)
+      : [...current, value]
+    onChange({ ...filters, agencyClass: next })
   }
 
   // Derive available options from data
@@ -225,6 +237,7 @@ export default function FilterSidebar({ players, filters, onChange, onReset, sho
     filters.minHeight > 0 && filters.minHeight > minHeight,
     filters.maxHeight > 0 && filters.maxHeight < maxHeight,
     (filters.videoFreshness || []).length > 0,
+    (filters.agencyClass || []).length > 0,
   ].filter(Boolean).length
 
   const selectedMetricsCount = (filters.selectedMetrics || []).length
@@ -273,6 +286,28 @@ export default function FilterSidebar({ players, filters, onChange, onReset, sho
               ))}
             </div>
           </Section>
+
+          {/* Clasificación Interna (internal only) */}
+          {showAgencyClass && (
+            <Section title="Clasificación Interna" defaultOpen={false}>
+              <div className="space-y-2">
+                {(['A', 'B', 'C'] as AgencyClass[]).map(cls => (
+                  <label key={cls} className="flex items-center gap-2.5 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={(filters.agencyClass || []).includes(cls)}
+                      onChange={() => toggleAgencyClass(cls)}
+                      className="w-4 h-4 rounded border-apple-gray-300 dark:border-apple-gray-600 text-brand-green focus:ring-brand-green"
+                    />
+                    <span className={`px-1.5 py-0.5 rounded text-2xs font-semibold ${CLASS_BADGE_COLOR[cls]}`}>{cls}</span>
+                    <span className="text-sm text-apple-gray-700 dark:text-apple-gray-300 group-hover:text-apple-gray-900 dark:group-hover:text-white transition-colors">
+                      Clase {cls}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </Section>
+          )}
 
           {/* Frescura de video (internal only) */}
           {showVideoFreshness && (

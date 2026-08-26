@@ -13,6 +13,8 @@ import type { VideoFreshness } from '@/types/videos'
 import { playerVideoKey } from '@/services/playerVideosService'
 import { useLanguage } from '@/context/LanguageContext'
 import { LANGUAGE_LOCALES } from '@/constants/translations'
+import { useAgencyClassifications } from '@/hooks/useAgencyClassifications'
+import { agencyPlayerKey } from '@/services/agencyClassificationService'
 
 const DEFAULT_FILTERS: FilterState = {
   search: '',
@@ -34,6 +36,7 @@ const DEFAULT_FILTERS: FilterState = {
   maxHeight: 0,
   selectedMetrics: [],
   videoFreshness: [],
+  agencyClass: [],
 }
 
 const FILTERS_STORAGE_KEY = 'internal_scouting_filters'
@@ -52,7 +55,7 @@ function saveFiltersToStorage(filters: FilterState): void {
   } catch {}
 }
 
-function applyFilters(players: EnrichedPlayer[], filters: FilterState, videoFreshnessByKey?: Map<string, VideoFreshness>): EnrichedPlayer[] {
+function applyFilters(players: EnrichedPlayer[], filters: FilterState, videoFreshnessByKey?: Map<string, VideoFreshness>, classifications?: Map<string, 'A' | 'B' | 'C'>): EnrichedPlayer[] {
   return players.filter(p => {
     // Smart search for player name (handles accents, case, partial matches)
     if (filters.search && !fuzzyMatch(filters.search, p.Jugador)) return false
@@ -101,6 +104,11 @@ function applyFilters(players: EnrichedPlayer[], filters: FilterState, videoFres
       const fr: VideoFreshness = videoFreshnessByKey.get(playerVideoKey(p.Jugador)) ?? 'none'
       if (!filters.videoFreshness.includes(fr)) return false
     }
+    // Filter by Clasificación Interna (Clase A/B/C)
+    if (filters.agencyClass && filters.agencyClass.length > 0) {
+      const cls = classifications?.get(agencyPlayerKey(p.Jugador))
+      if (!cls || !filters.agencyClass.includes(cls)) return false
+    }
     return true
   })
 }
@@ -108,6 +116,7 @@ function applyFilters(players: EnrichedPlayer[], filters: FilterState, videoFres
 export default function InternalScoutingPage() {
   const { language, t } = useLanguage()
   const { internal, loading, error, videoFreshnessByKey } = useData()
+  const { classifications } = useAgencyClassifications()
   const [filters, setFilters] = useState<FilterState>(loadFiltersFromStorage)
   const [showMobileFilters, setShowMobileFilters] = useState(false)
 
@@ -128,6 +137,7 @@ export default function InternalScoutingPage() {
     filters.maxHeight > 0,
     filters.selectedMetrics.length > 0,
     filters.videoFreshness && filters.videoFreshness.length > 0,
+    filters.agencyClass && filters.agencyClass.length > 0,
   ].filter(Boolean).length
 
   // Save filters to storage when they change
@@ -135,7 +145,10 @@ export default function InternalScoutingPage() {
     saveFiltersToStorage(filters)
   }, [filters])
 
-  const filtered = useMemo(() => applyFilters(internal, filters, videoFreshnessByKey), [internal, filters, videoFreshnessByKey])
+  const filtered = useMemo(
+    () => applyFilters(internal, filters, videoFreshnessByKey, classifications),
+    [internal, filters, videoFreshnessByKey, classifications],
+  )
   const handleReset = useCallback(() => {
     setFilters(DEFAULT_FILTERS)
     sessionStorage.removeItem(FILTERS_STORAGE_KEY)
@@ -180,7 +193,7 @@ export default function InternalScoutingPage() {
       {/* Layout */}
       <div className="flex gap-6">
         <div className="hidden lg:block">
-          <FilterSidebar players={internal} filters={filters} onChange={setFilters} onReset={handleReset} showVideoFreshness />
+          <FilterSidebar players={internal} filters={filters} onChange={setFilters} onReset={handleReset} showVideoFreshness showAgencyClass />
         </div>
         <div className="flex-1 min-w-0">
           <PlayerTable players={filtered} source="interno" selectedMetrics={filters.selectedMetrics} />
@@ -190,7 +203,7 @@ export default function InternalScoutingPage() {
       {/* Mobile filter button + panel */}
       <MobileFilterButton onClick={() => setShowMobileFilters(true)} activeCount={activeFiltersCount} />
       <MobileFilterPanel isOpen={showMobileFilters} onClose={() => setShowMobileFilters(false)} activeCount={activeFiltersCount}>
-        <FilterSidebar players={internal} filters={filters} onChange={setFilters} onReset={handleReset} showVideoFreshness inPanel />
+        <FilterSidebar players={internal} filters={filters} onChange={setFilters} onReset={handleReset} showVideoFreshness showAgencyClass inPanel />
         <div className="flex items-center gap-2 mt-5">
           {activeFiltersCount > 0 && (
             <button

@@ -12,6 +12,7 @@ const CalendarPage = lazy(() => import('@/pages/CalendarPage'))
 const GpsUploadPage = lazy(() => import('@/pages/GpsUploadPage'))
 const ExternalScoutingPage = lazy(() => import('@/pages/ExternalScoutingPage'))
 const InternalScoutingPage = lazy(() => import('@/pages/InternalScoutingPage'))
+const InternalClassificationPage = lazy(() => import('@/pages/InternalClassificationPage'))
 const MonitoringPage = lazy(() => import('@/pages/MonitoringPage'))
 const PlayerDetailPage = lazy(() => import('@/pages/PlayerDetailPage'))
 const ComparisonPage = lazy(() => import('@/pages/ComparisonPage'))
@@ -45,6 +46,7 @@ export default function App() {
             <Route path="/mercado" element={<MarketPage />} />
             <Route path="/scouting" element={<ExternalScoutingPage />} />
             <Route path="/interno" element={<InternalScoutingPage />} />
+            <Route path="/clasificacion-interna" element={<InternalClassificationPage />} />
             <Route path="/panel-interno" element={<DashboardPage />} />
             <Route path="/seguimiento-datos" element={<MonitoringPage />} />
             <Route path="/oportunidades" element={<OpportunitiesPage />} />
