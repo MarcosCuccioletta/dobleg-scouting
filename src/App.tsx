@@ -7,6 +7,7 @@ const PDFBuilderModal = lazy(() => import('@/components/pdf/PDFBuilderModal'))
 const PDFAddedToast = lazy(() => import('@/components/pdf/AddToReportButton').then(m => ({ default: m.PDFAddedToast })))
 
 const HomePage = lazy(() => import('@/pages/HomePage'))
+const MarketPage = lazy(() => import('@/pages/MarketPage'))
 const CalendarPage = lazy(() => import('@/pages/CalendarPage'))
 const GpsUploadPage = lazy(() => import('@/pages/GpsUploadPage'))
 const ExternalScoutingPage = lazy(() => import('@/pages/ExternalScoutingPage'))
@@ -40,6 +41,7 @@ export default function App() {
             <Route path="/" element={<HomePage />} />
             <Route path="/calendario" element={<CalendarPage />} />
             <Route path="/carga-gps" element={<GpsUploadPage />} />
+            <Route path="/mercado" element={<MarketPage />} />
             <Route path="/scouting" element={<ExternalScoutingPage />} />
             <Route path="/interno" element={<InternalScoutingPage />} />
             <Route path="/panel-interno" element={<DashboardPage />} />

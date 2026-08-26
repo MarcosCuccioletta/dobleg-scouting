@@ -2150,12 +2150,25 @@ import { fetchClubNeeds, fetchNegotiations, fetchTeamMembers } from '@/services/
 import { computeAlerts, type AlertableItem } from '@/utils/marketAlerts'
 import { useAuth } from '@/context/AuthContext'
 
+// Este componente vive en el Navbar, montado en TODAS las paginas de la app —
+// sin cache, cada navegacion dispararia 3 queries a Supabase solo para el
+// numerito de la campanita. Cache en memoria de 60s, mismo espiritu que
+// getCached/setCache de usePlayerStats.ts pero local a este archivo (esos dos
+// helpers no estan exportados, y esto no necesita mas que un valor compartido
+// entre montajes).
+let cachedCount: { value: number; timestamp: number } | null = null
+const CACHE_TTL_MS = 60_000
+
 export default function MarketAlertBadge() {
   const { userDisplayName } = useAuth()
   const navigate = useNavigate()
-  const [count, setCount] = useState(0)
+  const [count, setCount] = useState(cachedCount?.value ?? 0)
 
   useEffect(() => {
+    if (cachedCount && Date.now() - cachedCount.timestamp < CACHE_TTL_MS) {
+      setCount(cachedCount.value)
+      return
+    }
     Promise.all([fetchClubNeeds(), fetchNegotiations(), fetchTeamMembers()])
       .then(([needs, negotiations, members]) => {
         const items: AlertableItem[] = [
@@ -2165,6 +2178,7 @@ export default function MarketAlertBadge() {
         const alerts = computeAlerts(items, new Date())
         const me = members.find(m => m.name.toLowerCase() === userDisplayName.toLowerCase())
         const mine = me ? alerts.filter(a => a.assigned_to_id === me.id) : alerts
+        cachedCount = { value: mine.length, timestamp: Date.now() }
         setCount(mine.length)
       })
       .catch(() => setCount(0))
