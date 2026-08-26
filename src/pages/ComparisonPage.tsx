@@ -17,6 +17,9 @@ import {
 import { getScoreColorClass } from '@/components/ui/ScoreBar'
 import AddToReportButton from '@/components/pdf/AddToReportButton'
 import { PlayerPhoto } from '@/components/ui/PlayerPhoto'
+import { useAgencyClassifications } from '@/hooks/useAgencyClassifications'
+import { agencyPlayerKey } from '@/services/agencyClassificationService'
+import { CLASS_BADGE_COLOR } from '@/constants/agencyClassification'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -25,6 +28,17 @@ const PLAYER_COLORS = ['#22C55E', '#3B82F6', '#F59E0B']
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 const METRIC_BY_KEY = new Map(API_METRICS.map(m => [m.key, m]))
+
+function ClassBadge({ name }: { name: string }) {
+  const { classifications } = useAgencyClassifications()
+  const cls = classifications.get(agencyPlayerKey(name))
+  if (!cls) return null
+  return (
+    <span className={`px-1.5 py-0.5 rounded text-2xs font-semibold flex-shrink-0 ${CLASS_BADGE_COLOR[cls]}`}>
+      {cls}
+    </span>
+  )
+}
 
 function getPlayerMetricValue(player: PlayerWithScore, key: ApiMetricKey): number | null {
   if (!player.season_scores?.length) return null
@@ -82,7 +96,10 @@ function PlayerSearch({ selected, onSelect, color, label }: PlayerSearchProps) {
           <div className="flex items-center gap-3">
             <PlayerPhoto src={selected.photo} name={selected.name} size="md" rounded="lg" />
             <div>
-              <p className="font-semibold text-apple-gray-800 dark:text-white text-sm">{selected.name}</p>
+              <p className="font-semibold text-apple-gray-800 dark:text-white text-sm flex items-center gap-1.5">
+                {selected.name}
+                <ClassBadge name={selected.name} />
+              </p>
               <p className="text-xs text-apple-gray-500 dark:text-apple-gray-400">
                 {selected.team?.name ?? '—'} · {selected.primary_position ?? '—'}
               </p>
@@ -348,7 +365,10 @@ function ComparisonContent({ players }: { players: PlayerWithScore[] }) {
             <div className="flex items-center gap-3">
               <PlayerPhoto src={player.photo} name={player.name} size="md" rounded="xl" />
               <div className="flex-1 min-w-0">
-                <h3 className="font-bold text-apple-gray-800 dark:text-white text-sm truncate">{player.name}</h3>
+                <h3 className="font-bold text-apple-gray-800 dark:text-white text-sm truncate flex items-center gap-1.5">
+                  {player.name}
+                  <ClassBadge name={player.name} />
+                </h3>
                 <p className="text-xs text-apple-gray-500 dark:text-apple-gray-400 truncate">
                   {player.team?.name ?? '—'} · {player.primary_position ?? '—'}
                   {player.league?.name ? ` · ${player.league.name}` : ''}
