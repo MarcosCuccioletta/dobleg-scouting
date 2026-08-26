@@ -6,6 +6,7 @@ import { useAuth } from '@/context/AuthContext'
 import ThemeToggle from './ThemeToggle'
 import LanguageToggle from './LanguageToggle'
 import CurrencyToggle from './CurrencyToggle'
+import MarketAlertBadge from './MarketAlertBadge'
 import AuthModal from '@/components/auth/AuthModal'
 import { PDFBuilderFloatingButton } from '@/components/pdf/AddToReportButton'
 import { useSwipeToClose } from '@/hooks/useSwipeToClose'
@@ -357,6 +358,7 @@ export default function Navbar() {
           {/* Right side */}
           <div className="flex items-center gap-2">
             <PDFBuilderFloatingButton />
+            <MarketAlertBadge />
             <LanguageToggle />
             <CurrencyToggle />
             <ThemeToggle />
