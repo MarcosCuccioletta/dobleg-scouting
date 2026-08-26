@@ -16,7 +16,7 @@ export function isMarketLinkAdmin(email: string | null | undefined): boolean {
 export async function fetchTeamMembers(): Promise<TeamMember[]> {
   const { data, error } = await supabase
     .from('market_team_members')
-    .select('id, name, active')
+    .select('id, name, active, user_id')
     .eq('active', true)
     .order('name')
   if (error) throw error

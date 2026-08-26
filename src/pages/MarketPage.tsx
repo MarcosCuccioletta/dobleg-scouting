@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { fetchClubNeeds, fetchNegotiations, fetchTeamMembers } from '@/services/marketService'
 import { computeAlerts, type AlertableItem } from '@/utils/marketAlerts'
 import { NEGOTIATION_STATUS_LABEL_KEY } from '@/components/market/marketLabels'
@@ -15,7 +16,11 @@ type Tab = 'negociaciones' | 'objetivos'
 
 export default function MarketPage() {
   const { t } = useLanguage()
-  const [tab, setTab] = useState<Tab>('negociaciones')
+  const [searchParams] = useSearchParams()
+  const highlight = searchParams.get('highlight')
+  const [highlightKind, highlightIdStr] = highlight?.split('-') ?? []
+  const highlightId = highlightIdStr ? Number(highlightIdStr) : null
+  const [tab, setTab] = useState<Tab>(highlightKind === 'need' ? 'objetivos' : 'negociaciones')
   const [negotiations, setNegotiations] = useState<Negotiation[]>([])
   const [needs, setNeeds] = useState<ClubNeed[]>([])
   const [members, setMembers] = useState<TeamMember[]>([])
@@ -163,6 +168,7 @@ export default function MarketPage() {
               <NegotiationRow
                 key={n.id}
                 negotiation={n}
+                defaultExpanded={highlightKind === 'negotiation' && n.id === highlightId}
                 onUpdated={updated => setNegotiations(prev => prev.map(x => x.id === updated.id ? updated : x))}
               />
             ))}
@@ -179,6 +185,7 @@ export default function MarketPage() {
             <NeedRow
               key={n.id}
               need={n}
+              defaultExpanded={highlightKind === 'need' && n.id === highlightId}
               onUpdated={updated => setNeeds(prev => prev.map(x => x.id === updated.id ? updated : x))}
             />
           ))}

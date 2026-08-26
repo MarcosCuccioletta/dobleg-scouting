@@ -2,6 +2,10 @@ export interface TeamMember {
   id: number
   name: string
   active: boolean
+  /** Cuenta real de la app vinculada a esta persona, si la tiene — permite que
+   * la campanita de alertas sepa "esto es mío" sin depender de que el nombre
+   * coincida exactamente con el de la cuenta logueada. */
+  user_id: string | null
 }
 
 export type NeedStatus = 'abierto' | 'cerrado'

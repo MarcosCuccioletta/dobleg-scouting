@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { useLanguage } from '@/context/LanguageContext'
 import { PlayerPhoto } from '@/components/ui/PlayerPhoto'
@@ -14,13 +14,21 @@ import type { Negotiation, NegotiationStatus } from '@/types/market'
 export default function NegotiationRow({
   negotiation,
   onUpdated,
+  defaultExpanded = false,
 }: {
   negotiation: Negotiation
   onUpdated: (n: Negotiation) => void
+  defaultExpanded?: boolean
 }) {
   const { user, userDisplayName } = useAuth()
   const { t } = useLanguage()
-  const [expanded, setExpanded] = useState(false)
+  const [expanded, setExpanded] = useState(defaultExpanded)
+  const rowRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (defaultExpanded) rowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const [reassigning, setReassigning] = useState(false)
   const [linking, setLinking] = useState(false)
   const [pendingApiId, setPendingApiId] = useState<number | null>(null)
@@ -65,7 +73,10 @@ export default function NegotiationRow({
   }
 
   return (
-    <div className="bg-white dark:bg-apple-gray-800 rounded-xl border border-apple-gray-200 dark:border-apple-gray-700 overflow-hidden transition-all">
+    <div
+      ref={rowRef}
+      className={`bg-white dark:bg-apple-gray-800 rounded-xl border overflow-hidden transition-all ${defaultExpanded ? 'border-brand-green ring-1 ring-brand-green/30' : 'border-apple-gray-200 dark:border-apple-gray-700'}`}
+    >
       <button
         onClick={() => setExpanded(e => !e)}
         className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-apple-gray-50 dark:hover:bg-apple-gray-700/40 transition-colors"

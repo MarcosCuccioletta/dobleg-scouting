@@ -21,11 +21,14 @@ export default function LanguageToggle() {
       <button
         onClick={() => setOpen(o => !o)}
         aria-label="Cambiar idioma"
+        title={current.nativeName}
         className="relative p-2 rounded-lg bg-apple-gray-100 dark:bg-apple-gray-800 hover:bg-apple-gray-200 dark:hover:bg-apple-gray-700 transition-all duration-200 ease-apple group"
       >
-        <div className="relative w-5 h-5 flex items-center justify-center">
-          <span className="text-sm leading-none">{current.flag}</span>
-        </div>
+        <svg className="w-5 h-5 text-apple-gray-600 dark:text-apple-gray-300 group-hover:text-apple-gray-800 dark:group-hover:text-white transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <circle cx="12" cy="12" r="9" strokeWidth="1.6" />
+          <path d="M12 3c2.5 2.5 3.8 5.7 3.8 9s-1.3 6.5-3.8 9c-2.5-2.5-3.8-5.7-3.8-9s1.3-6.5 3.8-9Z" strokeWidth="1.6" />
+          <path d="M3.5 9h17M3.5 15h17" strokeWidth="1.6" />
+        </svg>
       </button>
 
       {open && (

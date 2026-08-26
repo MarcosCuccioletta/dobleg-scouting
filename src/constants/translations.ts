@@ -359,6 +359,8 @@ export const translations: Record<Language, Record<string, string>> = {
     'mercado.candidatoFichado': "Fichado",
     'mercado.vincular': "Vincular",
     'mercado.quitar': "Quitar",
+    'mercado.alertas': "Alertas",
+    'mercado.sinAlertas': "No tenés alertas pendientes.",
   },
   en: {
     'nav.inicio': 'Home',
@@ -687,6 +689,8 @@ export const translations: Record<Language, Record<string, string>> = {
     'mercado.candidatoFichado': "Signed",
     'mercado.vincular': "Link",
     'mercado.quitar': "Remove",
+    'mercado.alertas': "Alerts",
+    'mercado.sinAlertas': "You don't have any pending alerts.",
   },
   tr: {
     'nav.inicio': 'Ana Sayfa',
@@ -1015,6 +1019,8 @@ export const translations: Record<Language, Record<string, string>> = {
     'mercado.candidatoFichado': "Transfer edildi",
     'mercado.vincular': "Bağla",
     'mercado.quitar': "Kaldır",
+    'mercado.alertas': "Uyarılar",
+    'mercado.sinAlertas': "Bekleyen uyarınız yok.",
   },
   it: {
     'nav.inicio': 'Home',
@@ -1343,6 +1349,8 @@ export const translations: Record<Language, Record<string, string>> = {
     'mercado.candidatoFichado': "Ingaggiato",
     'mercado.vincular': "Collega",
     'mercado.quitar': "Rimuovi",
+    'mercado.alertas': "Avvisi",
+    'mercado.sinAlertas': "Non hai avvisi in sospeso.",
   },
   fr: {
     'nav.inicio': 'Accueil',
@@ -1671,6 +1679,8 @@ export const translations: Record<Language, Record<string, string>> = {
     'mercado.candidatoFichado': "Signé",
     'mercado.vincular': "Lier",
     'mercado.quitar': "Retirer",
+    'mercado.alertas': "Alertes",
+    'mercado.sinAlertas': "Vous n'avez aucune alerte en attente.",
   },
   de: {
     'nav.inicio': 'Start',
@@ -1999,6 +2009,8 @@ export const translations: Record<Language, Record<string, string>> = {
     'mercado.candidatoFichado': "Verpflichtet",
     'mercado.vincular': "Verknüpfen",
     'mercado.quitar': "Entfernen",
+    'mercado.alertas': "Benachrichtigungen",
+    'mercado.sinAlertas': "Du hast keine ausstehenden Benachrichtigungen.",
   },
   ar: {
     'nav.inicio': 'الرئيسية',
@@ -2327,6 +2339,8 @@ export const translations: Record<Language, Record<string, string>> = {
     'mercado.candidatoFichado': "تم التعاقد",
     'mercado.vincular': "ربط",
     'mercado.quitar': "إزالة",
+    'mercado.alertas': "التنبيهات",
+    'mercado.sinAlertas': "ليس لديك أي تنبيهات معلقة.",
   },
   zh: {
     'nav.inicio': '首页',
@@ -2641,6 +2655,8 @@ export const translations: Record<Language, Record<string, string>> = {
     'mercado.candidatoFichado': "已签约",
     'mercado.vincular': "关联",
     'mercado.quitar': "移除",
+    'mercado.alertas': "提醒",
+    'mercado.sinAlertas': "您没有待处理的提醒。",
   },
   ja: {
     'nav.inicio': 'ホーム',
@@ -2955,5 +2971,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'mercado.candidatoFichado': "獲得済み",
     'mercado.vincular': "連携",
     'mercado.quitar': "削除",
+    'mercado.alertas': "アラート",
+    'mercado.sinAlertas': "保留中のアラートはありません。",
   },
 }
