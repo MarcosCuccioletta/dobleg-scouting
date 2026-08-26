@@ -105,7 +105,14 @@ export default function MarketNotesPanel({
               className={`text-xs p-2.5 rounded-lg bg-apple-gray-50 dark:bg-apple-gray-800/50 ${n.is_system ? 'italic text-apple-gray-400' : 'text-apple-gray-700 dark:text-apple-gray-200'}`}
             >
               <div className="flex items-center justify-between mb-0.5 gap-2">
-                <span className="font-medium truncate">{n.author_name || t('mercado.sistema')}{n.is_meeting && ` · 🤝 ${t('mercado.reunionSingular')}`}</span>
+                <span className="font-medium truncate">
+                  {n.author_name || t('mercado.sistema')}
+                  {n.is_meeting && (
+                    <span className="ml-1.5 px-1.5 py-0.5 rounded text-2xs font-semibold bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 align-middle">
+                      {t('mercado.reunionSingular')}
+                    </span>
+                  )}
+                </span>
                 <span className="text-apple-gray-400 flex-shrink-0">{new Date(n.created_at).toLocaleDateString(LANGUAGE_LOCALES[language], { day: '2-digit', month: 'short' })}</span>
               </div>
               <p>{n.body}</p>

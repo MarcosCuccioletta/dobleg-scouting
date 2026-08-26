@@ -10,7 +10,7 @@ export interface MarketAlert extends AlertableItem {
   urgency: 'vencido' | 'proximo'
 }
 
-const CLOSED_STATUSES = new Set(['cerrado', 'cerrado_exitoso', 'cerrado_rechazado'])
+const CLOSED_STATUSES = new Set(['cerrado', 'cerrado_exito', 'cerrado_caido'])
 const UPCOMING_WINDOW_DAYS = 3
 
 function daysBetween(from: Date, to: Date): number {

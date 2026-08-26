@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { fetchClubNeeds, fetchNegotiations, fetchTeamMembers } from '@/services/marketService'
 import { computeAlerts, type AlertableItem } from '@/utils/marketAlerts'
+import { NEGOTIATION_STATUS_LABEL_KEY, NEGOTIATION_STATUS_COLOR, NEED_STATUS_LABEL_KEY, NEED_STATUS_COLOR } from '@/components/market/marketLabels'
 import { useAuth } from '@/context/AuthContext'
 import { useLanguage } from '@/context/LanguageContext'
 import type { ClubNeed, Negotiation } from '@/types/market'
@@ -13,6 +14,9 @@ interface AlertEntry {
   title: string
   subtitle: string
   dueDate: string
+  statusLabelKey: string
+  statusColor: string
+  assignedToName: string | null
 }
 
 // Vive en el Navbar, montado en TODAS las paginas de la app — sin cache, cada
@@ -38,6 +42,9 @@ function buildEntries(negotiations: Negotiation[], needs: ClubNeed[], meMemberId
         title: n?.player_name ?? `#${a.id}`,
         subtitle: [n?.current_team_name, n?.team_name].filter(Boolean).join(' → ') || '',
         dueDate: a.next_followup_date ?? '',
+        statusLabelKey: n ? NEGOTIATION_STATUS_LABEL_KEY[n.status] : '',
+        statusColor: n ? NEGOTIATION_STATUS_COLOR[n.status] : '',
+        assignedToName: n?.assigned_to_name ?? null,
       }
     }
     const need = needs.find(x => x.id === a.id)
@@ -48,6 +55,9 @@ function buildEntries(negotiations: Negotiation[], needs: ClubNeed[], meMemberId
       title: need?.position_label ?? `#${a.id}`,
       subtitle: need?.team_name ?? '',
       dueDate: a.next_followup_date ?? '',
+      statusLabelKey: need ? NEED_STATUS_LABEL_KEY[need.status] : '',
+      statusColor: need ? NEED_STATUS_COLOR[need.status] : '',
+      assignedToName: need?.assigned_to_name ?? null,
     }
   })
 }
@@ -134,9 +144,23 @@ export default function MarketAlertBadge() {
                 className="w-full flex items-start gap-2.5 px-3.5 py-2.5 text-left hover:bg-apple-gray-50 dark:hover:bg-apple-gray-700/60 transition-colors"
               >
                 <span className={`mt-1.5 w-1.5 h-1.5 rounded-full flex-shrink-0 ${entry.urgency === 'vencido' ? 'bg-red-500' : 'bg-amber-500'}`} />
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-apple-gray-800 dark:text-white truncate">{entry.title}</p>
+                <div className="min-w-0 flex-1 space-y-0.5">
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-sm font-medium text-apple-gray-800 dark:text-white truncate">{entry.title}</p>
+                    {entry.statusLabelKey && (
+                      <span className={`px-1.5 py-0.5 rounded text-2xs font-semibold flex-shrink-0 ${entry.statusColor}`}>
+                        {t(entry.statusLabelKey)}
+                      </span>
+                    )}
+                  </div>
                   {entry.subtitle && <p className="text-2xs text-apple-gray-400 truncate">{entry.subtitle}</p>}
+                  <p className="text-2xs text-apple-gray-400 truncate">
+                    {entry.assignedToName || t('mercado.sinAsignar')}
+                    {' · '}
+                    <span className={entry.urgency === 'vencido' ? 'text-red-500 font-medium' : 'text-amber-500 font-medium'}>
+                      {t(entry.urgency === 'vencido' ? 'mercado.urgenciaVencido' : 'mercado.urgenciaProximo')}
+                    </span>
+                  </p>
                 </div>
                 <span className="text-2xs text-apple-gray-400 flex-shrink-0 tabular-nums">{entry.dueDate}</span>
               </button>

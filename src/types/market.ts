@@ -9,7 +9,7 @@ export interface TeamMember {
 }
 
 export type NeedStatus = 'abierto' | 'cerrado'
-export type NegotiationStatus = 'contactado' | 'reunion' | 'oferta_enviada' | 'en_espera' | 'cerrado_exitoso' | 'cerrado_rechazado'
+export type NegotiationStatus = 'ofrecido' | 'pausado' | 'en_negociacion' | 'avanzado' | 'cerrado_exito' | 'cerrado_caido'
 export type CandidateStatus = 'propuesto' | 'en_negociacion' | 'descartado' | 'fichado'
 
 export interface ClubNeed {

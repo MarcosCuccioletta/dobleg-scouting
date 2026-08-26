@@ -25,9 +25,9 @@ export default function MarketPage() {
   const [needs, setNeeds] = useState<ClubNeed[]>([])
   const [members, setMembers] = useState<TeamMember[]>([])
   const [loading, setLoading] = useState(true)
-  const [onlyOverdue, setOnlyOverdue] = useState(false)
   const [clubFilter, setClubFilter] = useState('')
   const [assigneeFilter, setAssigneeFilter] = useState<number | 'all'>('all')
+  const [agentFilter, setAgentFilter] = useState<string | 'all'>('all')
   const [negotiationStatusFilter, setNegotiationStatusFilter] = useState<NegotiationStatus | 'all'>('all')
   const [needStatusFilter, setNeedStatusFilter] = useState<NeedStatus | 'all'>('all')
 
@@ -55,22 +55,25 @@ export default function MarketPage() {
     }
   }, [negotiations, needs])
 
+  const agentOptions = useMemo(() => (
+    Array.from(new Set(negotiations.map(n => n.agent_name).filter((v): v is string => Boolean(v && v.trim())))).sort()
+  ), [negotiations])
+
   const visibleNegotiations = useMemo(() => negotiations.filter(n => {
     const clubText = clubFilter.trim().toLowerCase()
     if (clubText && !(n.team_name?.toLowerCase().includes(clubText) || n.current_team_name?.toLowerCase().includes(clubText))) return false
     if (assigneeFilter !== 'all' && n.assigned_to_id !== assigneeFilter) return false
+    if (agentFilter !== 'all' && n.agent_name !== agentFilter) return false
     if (negotiationStatusFilter !== 'all' && n.status !== negotiationStatusFilter) return false
-    if (onlyOverdue && !overdueIds.negotiations.has(n.id)) return false
     return true
-  }), [negotiations, clubFilter, assigneeFilter, negotiationStatusFilter, onlyOverdue, overdueIds])
+  }), [negotiations, clubFilter, assigneeFilter, agentFilter, negotiationStatusFilter])
 
   const visibleNeeds = useMemo(() => needs.filter(n => {
     if (clubFilter.trim() && !n.team_name.toLowerCase().includes(clubFilter.trim().toLowerCase())) return false
     if (assigneeFilter !== 'all' && n.assigned_to_id !== assigneeFilter) return false
     if (needStatusFilter !== 'all' && n.status !== needStatusFilter) return false
-    if (onlyOverdue && !overdueIds.needs.has(n.id)) return false
     return true
-  }), [needs, clubFilter, assigneeFilter, needStatusFilter, onlyOverdue, overdueIds])
+  }), [needs, clubFilter, assigneeFilter, needStatusFilter])
 
   return (
     <div className="max-w-screen-xl mx-auto px-4 sm:px-6 py-6">
@@ -105,11 +108,6 @@ export default function MarketPage() {
             {t('mercado.tabObjetivos')} ({needs.length})
           </button>
         </div>
-
-        <label className="flex items-center gap-1.5 text-xs text-apple-gray-500 dark:text-apple-gray-400 cursor-pointer">
-          <input type="checkbox" checked={onlyOverdue} onChange={e => setOnlyOverdue(e.target.checked)} className="rounded" />
-          {t('mercado.soloVencidos')}
-        </label>
       </div>
 
       <div className="flex flex-wrap items-center gap-2 mb-5">
@@ -130,6 +128,18 @@ export default function MarketPage() {
             <option key={m.id} value={m.id}>{m.name}</option>
           ))}
         </select>
+        {tab === 'negociaciones' && agentOptions.length > 0 && (
+          <select
+            value={agentFilter}
+            onChange={e => setAgentFilter(e.target.value)}
+            className="input-apple text-sm w-auto min-w-0"
+          >
+            <option value="all">{t('mercado.todosRepresentantes')}</option>
+            {agentOptions.map(a => (
+              <option key={a} value={a}>{a}</option>
+            ))}
+          </select>
+        )}
         {tab === 'negociaciones' ? (
           <select
             value={negotiationStatusFilter}
@@ -164,10 +174,18 @@ export default function MarketPage() {
           />
         ) : (
           <div className="space-y-2">
+            <div className="hidden sm:grid grid-cols-[auto_minmax(0,2fr)_7rem_7rem_5.5rem] items-center gap-3 px-4 text-2xs font-semibold uppercase tracking-wide text-apple-gray-400">
+              <span />
+              <span>{t('mercado.jugador')}</span>
+              <span>{t('mercado.estado')}</span>
+              <span>{t('mercado.responsable')}</span>
+              <span className="text-right">{t('mercado.columnaSeguimiento')}</span>
+            </div>
             {visibleNegotiations.map(n => (
               <NegotiationRow
                 key={n.id}
                 negotiation={n}
+                overdue={overdueIds.negotiations.has(n.id)}
                 defaultExpanded={highlightKind === 'negotiation' && n.id === highlightId}
                 onUpdated={updated => setNegotiations(prev => prev.map(x => x.id === updated.id ? updated : x))}
               />
@@ -181,10 +199,18 @@ export default function MarketPage() {
         />
       ) : (
         <div className="space-y-2">
+          <div className="hidden sm:grid grid-cols-[auto_minmax(0,2fr)_7rem_7rem_5.5rem] items-center gap-3 px-4 text-2xs font-semibold uppercase tracking-wide text-apple-gray-400">
+            <span />
+            <span>{t('mercado.club')}</span>
+            <span>{t('mercado.estado')}</span>
+            <span>{t('mercado.responsable')}</span>
+            <span className="text-right">{t('mercado.columnaSeguimiento')}</span>
+          </div>
           {visibleNeeds.map(n => (
             <NeedRow
               key={n.id}
               need={n}
+              overdue={overdueIds.needs.has(n.id)}
               defaultExpanded={highlightKind === 'need' && n.id === highlightId}
               onUpdated={updated => setNeeds(prev => prev.map(x => x.id === updated.id ? updated : x))}
             />

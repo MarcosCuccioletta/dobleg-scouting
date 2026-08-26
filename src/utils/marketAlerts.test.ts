@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { computeAlerts, countMeetings, buildPlayerPhotoUrl, isValidFollowupDate, type AlertableItem } from './marketAlerts'
 
 function item(over: Partial<AlertableItem> & Pick<AlertableItem, 'id' | 'kind'>): AlertableItem {
-  return { status: 'contactado', assigned_to_id: null, next_followup_date: null, ...over }
+  return { status: 'ofrecido', assigned_to_id: null, next_followup_date: null, ...over }
 }
 
 describe('computeAlerts', () => {
@@ -37,8 +37,8 @@ describe('computeAlerts', () => {
 
   it('excluye negociaciones y objetivos cerrados aunque tengan fecha vencida', () => {
     const items = [
-      item({ id: 1, kind: 'negotiation', status: 'cerrado_exitoso', next_followup_date: '2026-08-01' }),
-      item({ id: 2, kind: 'negotiation', status: 'cerrado_rechazado', next_followup_date: '2026-08-01' }),
+      item({ id: 1, kind: 'negotiation', status: 'cerrado_exito', next_followup_date: '2026-08-01' }),
+      item({ id: 2, kind: 'negotiation', status: 'cerrado_caido', next_followup_date: '2026-08-01' }),
       item({ id: 3, kind: 'need', status: 'cerrado', next_followup_date: '2026-08-01' }),
     ]
     expect(computeAlerts(items, today)).toHaveLength(0)

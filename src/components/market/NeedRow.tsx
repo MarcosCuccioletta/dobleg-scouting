@@ -13,10 +13,12 @@ export default function NeedRow({
   need,
   onUpdated,
   defaultExpanded = false,
+  overdue = false,
 }: {
   need: ClubNeed
   onUpdated: (n: ClubNeed) => void
   defaultExpanded?: boolean
+  overdue?: boolean
 }) {
   const { user, userDisplayName } = useAuth()
   const { t } = useLanguage()
@@ -51,28 +53,31 @@ export default function NeedRow({
     >
       <button
         onClick={() => setExpanded(e => !e)}
-        className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-apple-gray-50 dark:hover:bg-apple-gray-700/40 transition-colors"
+        className="w-full flex flex-col gap-2 sm:grid sm:grid-cols-[auto_minmax(0,2fr)_7rem_7rem_5.5rem] sm:items-center sm:gap-3 px-4 py-3 sm:py-3.5 text-left hover:bg-apple-gray-50 dark:hover:bg-apple-gray-700/40 transition-colors font-sans"
       >
-        <svg className={`w-4 h-4 text-apple-gray-400 flex-shrink-0 transition-transform ${expanded ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-        </svg>
+        <div className="flex items-center gap-3 min-w-0 sm:contents">
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <svg className={`w-4 h-4 text-apple-gray-400 flex-shrink-0 transition-transform ${expanded ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+            <TeamLogo src={need.team_logo} className="w-8 h-8 drop-shadow-md flex-shrink-0" />
+          </div>
 
-        <TeamLogo src={need.team_logo} className="w-8 h-8 drop-shadow-md flex-shrink-0" />
-
-        <div className="flex-1 min-w-0">
-          <p className="font-semibold text-sm text-apple-gray-800 dark:text-white truncate">{need.team_name}</p>
-          <p className="text-2xs text-apple-gray-400 truncate">{need.position_label}</p>
+          <div className="min-w-0 flex-1 sm:flex-none">
+            <p className="font-semibold text-sm text-apple-gray-800 dark:text-white truncate">{need.team_name}</p>
+            <p className="text-2xs text-apple-gray-400 truncate">{need.position_label}</p>
+          </div>
         </div>
 
-        <span className={`hidden sm:inline-flex px-2 py-1 rounded-full text-2xs font-semibold flex-shrink-0 ${NEED_STATUS_COLOR[need.status]}`}>
-          {t(NEED_STATUS_LABEL_KEY[need.status])}
-        </span>
-        {need.assigned_to_name && (
-          <span className="hidden md:inline text-2xs text-apple-gray-400 flex-shrink-0 w-24 truncate">{need.assigned_to_name}</span>
-        )}
-        {need.next_followup_date && (
-          <span className="hidden lg:inline text-2xs text-apple-gray-400 flex-shrink-0 w-20 tabular-nums">{need.next_followup_date}</span>
-        )}
+        <div className="flex items-center gap-2 flex-wrap pl-[3.25rem] sm:pl-0 sm:contents">
+          <span className={`inline-flex max-w-full px-2 py-1 rounded-full text-2xs font-semibold truncate ${NEED_STATUS_COLOR[need.status]}`}>
+            {t(NEED_STATUS_LABEL_KEY[need.status])}
+          </span>
+          <span className="text-2xs text-apple-gray-400 truncate min-w-0">{need.assigned_to_name || '—'}</span>
+          <span className={`text-2xs tabular-nums ml-auto sm:ml-0 sm:text-right ${overdue ? 'text-red-500 font-semibold' : 'text-apple-gray-400'}`}>
+            {need.next_followup_date ?? '—'}
+          </span>
+        </div>
       </button>
 
       {expanded && (

@@ -15,10 +15,12 @@ export default function NegotiationRow({
   negotiation,
   onUpdated,
   defaultExpanded = false,
+  overdue = false,
 }: {
   negotiation: Negotiation
   onUpdated: (n: Negotiation) => void
   defaultExpanded?: boolean
+  overdue?: boolean
 }) {
   const { user, userDisplayName } = useAuth()
   const { t } = useLanguage()
@@ -79,36 +81,41 @@ export default function NegotiationRow({
     >
       <button
         onClick={() => setExpanded(e => !e)}
-        className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-apple-gray-50 dark:hover:bg-apple-gray-700/40 transition-colors"
+        className="w-full flex flex-col gap-2 sm:grid sm:grid-cols-[auto_minmax(0,2fr)_7rem_7rem_5.5rem] sm:items-center sm:gap-3 px-4 py-3 sm:py-3.5 text-left hover:bg-apple-gray-50 dark:hover:bg-apple-gray-700/40 transition-colors font-sans"
       >
-        <svg className={`w-4 h-4 text-apple-gray-400 flex-shrink-0 transition-transform ${expanded ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-        </svg>
+        <div className="flex items-center gap-3 min-w-0 sm:contents">
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <svg className={`w-4 h-4 text-apple-gray-400 flex-shrink-0 transition-transform ${expanded ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+            <ClubTransferBadge
+              currentLogo={negotiation.current_team_logo}
+              currentName={negotiation.current_team_name}
+              targetLogo={negotiation.team_logo}
+              targetName={negotiation.team_name}
+            />
+          </div>
 
-        <ClubTransferBadge
-          currentLogo={negotiation.current_team_logo}
-          currentName={negotiation.current_team_name}
-          targetLogo={negotiation.team_logo}
-          targetName={negotiation.team_name}
-        />
-
-        <PlayerPhoto src={photoUrl} name={negotiation.player_name} size="sm" />
-        <div className="flex-1 min-w-0">
-          <p className="font-semibold text-sm text-apple-gray-800 dark:text-white truncate">{negotiation.player_name}</p>
-          <p className="text-2xs text-apple-gray-400 truncate">
-            {negotiation.current_team_name ?? t('mercado.jugadorLibre')} → {negotiation.team_name ?? t('mercado.quedaLibre')}
-          </p>
+          <div className="flex items-center gap-2 min-w-0 flex-1 sm:flex-none">
+            <PlayerPhoto src={photoUrl} name={negotiation.player_name} size="sm" />
+            <div className="min-w-0">
+              <p className="font-semibold text-sm text-apple-gray-800 dark:text-white truncate">{negotiation.player_name}</p>
+              <p className="text-2xs text-apple-gray-400 truncate">
+                {negotiation.current_team_name ?? t('mercado.jugadorLibre')} → {negotiation.team_name ?? t('mercado.quedaLibre')}
+              </p>
+            </div>
+          </div>
         </div>
 
-        <span className={`hidden sm:inline-flex px-2 py-1 rounded-full text-2xs font-semibold flex-shrink-0 ${NEGOTIATION_STATUS_COLOR[negotiation.status]}`}>
-          {t(NEGOTIATION_STATUS_LABEL_KEY[negotiation.status])}
-        </span>
-        {negotiation.assigned_to_name && (
-          <span className="hidden md:inline text-2xs text-apple-gray-400 flex-shrink-0 w-24 truncate">{negotiation.assigned_to_name}</span>
-        )}
-        {negotiation.next_followup_date && (
-          <span className="hidden lg:inline text-2xs text-apple-gray-400 flex-shrink-0 w-20 tabular-nums">{negotiation.next_followup_date}</span>
-        )}
+        <div className="flex items-center gap-2 flex-wrap pl-[3.25rem] sm:pl-0 sm:contents">
+          <span className={`inline-flex max-w-full px-2 py-1 rounded-full text-2xs font-semibold truncate ${NEGOTIATION_STATUS_COLOR[negotiation.status]}`}>
+            {t(NEGOTIATION_STATUS_LABEL_KEY[negotiation.status])}
+          </span>
+          <span className="text-2xs text-apple-gray-400 truncate min-w-0">{negotiation.assigned_to_name || '—'}</span>
+          <span className={`text-2xs tabular-nums ml-auto sm:ml-0 sm:text-right ${overdue ? 'text-red-500 font-semibold' : 'text-apple-gray-400'}`}>
+            {negotiation.next_followup_date ?? '—'}
+          </span>
+        </div>
       </button>
 
       {expanded && (
