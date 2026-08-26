@@ -12,6 +12,8 @@ import { usePlayersList, useLeagues } from '@/hooks/usePlayerStats'
 import type { PlayerWithScore, Position } from '@/types/scoring'
 import { POSITION_DISPLAY } from '@/types/scoring'
 import { API_METRICS, getMetricValue, type ApiMetricKey } from '@/constants/apiMetrics'
+import { useLanguage } from '@/context/LanguageContext'
+import { LANGUAGE_LOCALES } from '@/constants/translations'
 
 // ─── Color interpolation: red (bad) → yellow (medium) → green (good) ────────
 // Input range recalibrated to 1-10 (Score GG scale)
@@ -57,33 +59,33 @@ function getDarkerColor(color: string): string {
 
 // ─── Metric groups for organized dropdowns ───────────────────────────────────
 interface MetricGroup {
-  label: string
+  labelKey: string
   keys: ApiMetricKey[]
 }
 
 const SCATTER_METRIC_GROUPS: MetricGroup[] = [
   {
-    label: 'Gol & Creación',
+    labelKey: 'dispersion.grupoGolCreacion',
     keys: ['goals_p90', 'assists_p90', 'shots_on_p90', 'shots_pct'],
   },
   {
-    label: 'Pases',
+    labelKey: 'dispersion.grupoPases',
     keys: ['passes_accuracy', 'passes_key_p90', 'passes_total_p90'],
   },
   {
-    label: 'Regates & Conducción',
+    labelKey: 'dispersion.grupoRegates',
     keys: ['dribbles_success_p90', 'dribbles_pct', 'fouls_drawn_p90'],
   },
   {
-    label: 'Duelos',
+    labelKey: 'dispersion.grupoDuelos',
     keys: ['duels_won_pct'],
   },
   {
-    label: 'Defensiva',
+    labelKey: 'dispersion.grupoDefensiva',
     keys: ['tackles_p90', 'interceptions_p90', 'blocks_p90'],
   },
   {
-    label: 'Rating & Portero',
+    labelKey: 'dispersion.grupoRating',
     keys: ['avg_rating', 'saves_p90', 'goals_conceded_p90', 'penalty_saved_avg', 'clean_sheet_pct'],
   },
 ]
@@ -105,22 +107,23 @@ function getPlayerMetricValue(player: PlayerWithScore, key: ApiMetricKey): numbe
 function generateAnalysis(
   data: Array<{ player: PlayerWithScore; x: number; y: number }>,
   xKey: ApiMetricKey,
-  yKey: ApiMetricKey
+  yKey: ApiMetricKey,
+  t: (key: string) => string
 ): string {
-  if (data.length === 0) return 'Selecciona una liga para ver el análisis.'
+  if (data.length === 0) return t('dispersion.analisisSeleccionaLiga')
 
   const xAvg = data.reduce((sum, d) => sum + d.x, 0) / data.length
   const yAvg = data.reduce((sum, d) => sum + d.y, 0) / data.length
   const topRight = data.filter(d => d.x > xAvg && d.y > yAvg)
   const best = [...data].sort((a, b) => (b.x + b.y) - (a.x + a.y)).slice(0, 3)
 
-  let analysis = `Se analizaron **${data.length} jugadores**.\n\n`
-  analysis += `**¿Dónde buscar los mejores?**\n`
-  analysis += `Los jugadores más completos están arriba a la derecha del gráfico (${topRight.length} jugadores).\n`
-  analysis += `El color verde indica mayor Score GG.\n\n`
+  let analysis = `${t('dispersion.analisisSeAnalizaron').replace('{count}', String(data.length))}\n\n`
+  analysis += `${t('dispersion.analisisDondeBuscar')}\n`
+  analysis += `${t('dispersion.analisisMasCompletos').replace('{count}', String(topRight.length))}\n`
+  analysis += `${t('dispersion.analisisColorVerde')}\n\n`
 
   if (best.length > 0) {
-    analysis += `**Los 3 mejores en este análisis:**\n`
+    analysis += `${t('dispersion.analisisTop3')}\n`
     best.forEach((d, i) => {
       const medal = i === 0 ? '1.' : i === 1 ? '2.' : '3.'
       analysis += `${medal} **${d.player.name}** - ${d.player.team?.name ?? ''}\n`
@@ -130,11 +133,11 @@ function generateAnalysis(
 
   const topRightPct = Math.round((topRight.length / data.length) * 100)
   if (topRightPct > 25) {
-    analysis += `**Resumen:** Hay varios buenos jugadores para elegir (${topRightPct}% en zona elite).`
+    analysis += t('dispersion.analisisResumenVarios').replace('{pct}', String(topRightPct))
   } else if (topRightPct > 10) {
-    analysis += `**Resumen:** Pocos jugadores destacan en ambas métricas. Revisa los marcados arriba.`
+    analysis += t('dispersion.analisisResumenPocos')
   } else {
-    analysis += `**Resumen:** Es difícil encontrar jugadores buenos en ambas métricas a la vez. Considera priorizar una.`
+    analysis += t('dispersion.analisisResumenDificil')
   }
 
   return analysis
@@ -143,6 +146,7 @@ function generateAnalysis(
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function ScatterChartPage() {
+  const { t, language } = useLanguage()
   const navigate = useNavigate()
   const chartRef = useRef<HTMLDivElement>(null)
   const [exporting, setExporting] = useState(false)
@@ -244,7 +248,7 @@ export default function ScatterChartPage() {
   const yAvg = chartData.length > 0 ? chartData.reduce((s, d) => s + d.y, 0) / chartData.length : 0
 
   // Analysis text
-  const analysis = useMemo(() => generateAnalysis(chartData, xKey, yKey), [chartData, xKey, yKey])
+  const analysis = useMemo(() => generateAnalysis(chartData, xKey, yKey, t), [chartData, xKey, yKey, t])
 
   // Handlers
   const togglePosition = (pos: Position) => {
@@ -318,12 +322,12 @@ export default function ScatterChartPage() {
             <div className="flex items-center gap-2">
               <p className="font-bold text-apple-gray-800 dark:text-white truncate">{d.player.name}</p>
               <ScoutsGGBadge playerName={d.player.name} />
-              {isSelected && <span className="text-2xs bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded font-medium">MARCADO</span>}
+              {isSelected && <span className="text-2xs bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded font-medium">{t('dispersion.marcadoBadge')}</span>}
             </div>
             <p className="text-xs text-apple-gray-500 truncate">{d.player.team?.name ?? ''}</p>
             <p className="text-2xs text-apple-gray-400">
               {d.player.primary_position ? (POSITION_DISPLAY[d.player.primary_position] ?? d.player.primary_position) : ''}
-              {age !== null ? ` · ${age} años` : ''}
+              {age !== null ? ` · ${age} ${t('externo.anios')}` : ''}
             </p>
           </div>
         </div>
@@ -342,13 +346,13 @@ export default function ScatterChartPage() {
           </div>
         </div>
         <p className="mt-2 text-center text-2xs text-apple-gray-400">
-          Click para {isSelected ? 'desmarcar' : 'marcar'}
+          {t('dispersion.clickPara').replace('{action}', isSelected ? t('dispersion.desmarcarMin') : t('dispersion.marcar'))}
         </p>
       </div>
     )
   }
 
-  if (loading && allPlayers.length === 0) return <LoadingSpinner fullScreen message="Cargando datos..." />
+  if (loading && allPlayers.length === 0) return <LoadingSpinner fullScreen message={t('dispersion.cargandoDatos')} />
 
   return (
     <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 py-6">
@@ -356,17 +360,17 @@ export default function ScatterChartPage() {
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-apple-gray-800 dark:text-white tracking-tight">
-            Gráfico de Dispersión
+            {t('dispersion.titulo')}
           </h1>
           <p className="text-sm text-apple-gray-500 dark:text-apple-gray-400 mt-0.5">
-            Compara jugadores en múltiples dimensiones
+            {t('dispersion.subtitulo')}
           </p>
         </div>
         <div className="flex items-center gap-2">
           <AddToReportButton
             type="scatter"
-            title={`Dispersión: ${getMetricLabel(xKey)} vs ${getMetricLabel(yKey)}`}
-            description={`Gráfico de dispersión con ${chartData.length} jugadores. Color por Score GG.`}
+            title={t('dispersion.reporteTitulo').replace('{x}', getMetricLabel(xKey)).replace('{y}', getMetricLabel(yKey))}
+            description={t('dispersion.reporteDescripcion').replace('{count}', String(chartData.length))}
             captureId="scatter-chart-container"
             source="Dispersion"
             variant="compact"
@@ -384,14 +388,14 @@ export default function ScatterChartPage() {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                 </svg>
-                Exportando...
+                {t('dispersion.exportando')}
               </>
             ) : (
               <>
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
-                Exportar PDF
+                {t('dispersion.exportarPDF')}
               </>
             )}
           </button>
@@ -405,7 +409,7 @@ export default function ScatterChartPage() {
           <div className="space-y-2">
             <label className="flex items-center gap-2 text-xs font-medium text-apple-gray-500 uppercase tracking-wider">
               <span className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 text-xs font-bold">X</span>
-              Eje Horizontal
+              {t('dispersion.ejeHorizontal')}
             </label>
             <select
               value={xKey}
@@ -413,7 +417,7 @@ export default function ScatterChartPage() {
               className="w-full px-4 py-3 rounded-xl bg-apple-gray-50 dark:bg-apple-gray-700 border-0 text-apple-gray-800 dark:text-white font-medium focus:ring-2 focus:ring-brand-green"
             >
               {SCATTER_METRIC_GROUPS.map(group => (
-                <optgroup key={group.label} label={group.label}>
+                <optgroup key={group.labelKey} label={t(group.labelKey)}>
                   {group.keys.map(k => (
                     <option key={k} value={k}>{getMetricLabel(k)}</option>
                   ))}
@@ -426,7 +430,7 @@ export default function ScatterChartPage() {
           <div className="space-y-2">
             <label className="flex items-center gap-2 text-xs font-medium text-apple-gray-500 uppercase tracking-wider">
               <span className="w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400 text-xs font-bold">Y</span>
-              Eje Vertical
+              {t('dispersion.ejeVertical')}
             </label>
             <select
               value={yKey}
@@ -434,7 +438,7 @@ export default function ScatterChartPage() {
               className="w-full px-4 py-3 rounded-xl bg-apple-gray-50 dark:bg-apple-gray-700 border-0 text-apple-gray-800 dark:text-white font-medium focus:ring-2 focus:ring-brand-green"
             >
               {SCATTER_METRIC_GROUPS.map(group => (
-                <optgroup key={group.label} label={group.label}>
+                <optgroup key={group.labelKey} label={t(group.labelKey)}>
                   {group.keys.map(k => (
                     <option key={k} value={k}>{getMetricLabel(k)}</option>
                   ))}
@@ -449,7 +453,7 @@ export default function ScatterChartPage() {
           {/* Row 1: Min Matches + Age Range */}
           <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-4 sm:gap-6">
             <div className="flex items-center gap-3 w-full sm:w-auto">
-              <label className="text-xs text-apple-gray-500 font-medium whitespace-nowrap">Min. partidos:</label>
+              <label className="text-xs text-apple-gray-500 font-medium whitespace-nowrap">{t('dispersion.minPartidos')}</label>
               <div className="flex items-center gap-2 flex-1 sm:max-w-[180px]">
                 <input
                   type="range"
@@ -466,7 +470,7 @@ export default function ScatterChartPage() {
 
             {/* Age Range */}
             <div className="flex items-center gap-3 w-full sm:w-auto">
-              <label className="text-xs text-apple-gray-500 font-medium">Edad:</label>
+              <label className="text-xs text-apple-gray-500 font-medium">{t('dispersion.edad')}</label>
               <div className="flex items-center gap-2 flex-1 sm:flex-none">
                 <span className="text-xs font-medium text-apple-gray-600 dark:text-apple-gray-300 w-6 tabular-nums">{ageRange[0]}</span>
                 <div className="relative flex-1 sm:flex-none sm:w-28 h-5 flex items-center">
@@ -502,14 +506,14 @@ export default function ScatterChartPage() {
           <div>
             <div className="flex items-center gap-2 mb-2">
               <label className={`text-xs font-medium ${!selectedLeagueId ? 'text-brand-green' : 'text-apple-gray-500'}`}>
-                Liga {!selectedLeagueId && <span className="text-brand-green">*</span>}
+                {t('dispersion.liga')} {!selectedLeagueId && <span className="text-brand-green">*</span>}
               </label>
               {selectedLeagueId && (
                 <button
                   onClick={() => setSelectedLeagueId(null)}
                   className="text-2xs text-apple-gray-400 hover:text-red-500 transition-colors"
                 >
-                  Limpiar
+                  {t('dispersion.limpiar')}
                 </button>
               )}
             </div>
@@ -533,17 +537,17 @@ export default function ScatterChartPage() {
           {/* Row 3: Positions Multi-select */}
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <label className="text-xs font-medium text-apple-gray-500">Posiciones</label>
+              <label className="text-xs font-medium text-apple-gray-500">{t('dispersion.posiciones')}</label>
               {selectedPositions.length > 0 && (
                 <button
                   onClick={() => setSelectedPositions([])}
                   className="text-2xs text-apple-gray-400 hover:text-red-500 transition-colors"
                 >
-                  Limpiar
+                  {t('dispersion.limpiar')}
                 </button>
               )}
               <span className="text-2xs text-apple-gray-400">
-                {selectedPositions.length === 0 ? '(todas)' : `(${selectedPositions.length})`}
+                {selectedPositions.length === 0 ? t('dispersion.todasParentesis') : `(${selectedPositions.length})`}
               </span>
             </div>
             <div className="flex flex-wrap gap-1.5">
@@ -575,7 +579,7 @@ export default function ScatterChartPage() {
                   type="text"
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
-                  placeholder="Buscar jugador para ubicar en el gráfico..."
+                  placeholder={t('dispersion.buscarJugadorUbicar')}
                   className="w-full pl-9 pr-4 py-2 rounded-xl bg-apple-gray-100 dark:bg-apple-gray-700 border-0 text-sm placeholder:text-apple-gray-400 focus:ring-2 focus:ring-brand-green"
                 />
               </div>
@@ -594,9 +598,9 @@ export default function ScatterChartPage() {
                           <p className="text-xs text-apple-gray-500">{player.team?.name ?? ''} · {player.league?.name ?? ''}</p>
                         </div>
                         {isInChart ? (
-                          <span className="text-xs bg-brand-green/20 text-brand-green px-2 py-0.5 rounded-full">En gráfico</span>
+                          <span className="text-xs bg-brand-green/20 text-brand-green px-2 py-0.5 rounded-full">{t('dispersion.enGrafico')}</span>
                         ) : (
-                          <span className="text-xs text-apple-gray-400">No visible</span>
+                          <span className="text-xs text-apple-gray-400">{t('dispersion.noVisible')}</span>
                         )}
                       </button>
                     )
@@ -609,13 +613,13 @@ export default function ScatterChartPage() {
             {selectedIds.size > 0 && (
               <div className="flex items-center gap-2">
                 <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-2 py-1 rounded-lg font-medium">
-                  {selectedIds.size} marcado{selectedIds.size > 1 ? 's' : ''}
+                  {t('dispersion.marcadoCount').replace('{count}', String(selectedIds.size))}
                 </span>
                 <button
                   onClick={() => setSelectedIds(new Set())}
                   className="text-xs text-apple-gray-400 hover:text-red-500 transition-colors"
                 >
-                  Limpiar
+                  {t('dispersion.limpiar')}
                 </button>
               </div>
             )}
@@ -623,7 +627,7 @@ export default function ScatterChartPage() {
             {/* Summary */}
             <div className="ml-auto flex items-center gap-3">
               <span className="text-sm font-medium text-apple-gray-600 dark:text-apple-gray-400">
-                {chartData.length} jugadores
+                {t('dispersion.jugadoresCount').replace('{count}', String(chartData.length))}
               </span>
             </div>
           </div>
@@ -638,7 +642,7 @@ export default function ScatterChartPage() {
             {getMetricLabel(xKey)} vs {getMetricLabel(yKey)}
           </h2>
           <p className="text-sm text-apple-gray-500 mt-1">
-            Color: Score GG (1-10) | {chartData.length} jugadores analizados
+            {t('dispersion.colorScoreGG').replace('{count}', String(chartData.length))}
           </p>
         </div>
 
@@ -651,13 +655,13 @@ export default function ScatterChartPage() {
             </div>
             {!selectedLeagueId ? (
               <>
-                <p className="text-xl font-semibold text-apple-gray-700 dark:text-apple-gray-300 mb-2">Selecciona una liga</p>
-                <p className="text-sm text-apple-gray-400 max-w-md text-center">Elige una liga en los filtros de arriba para cargar los jugadores</p>
+                <p className="text-xl font-semibold text-apple-gray-700 dark:text-apple-gray-300 mb-2">{t('dispersion.seleccionaUnaLiga')}</p>
+                <p className="text-sm text-apple-gray-400 max-w-md text-center">{t('dispersion.elegirLigaFiltros')}</p>
               </>
             ) : (
               <>
-                <p className="text-lg font-medium mb-1">Sin datos disponibles</p>
-                <p className="text-sm">Ajusta los filtros para ver jugadores</p>
+                <p className="text-lg font-medium mb-1">{t('dispersion.sinDatosDisponibles')}</p>
+                <p className="text-sm">{t('dispersion.ajustaFiltros')}</p>
               </>
             )}
           </div>
@@ -706,7 +710,7 @@ export default function ScatterChartPage() {
                   strokeOpacity={0.5}
                   strokeWidth={1}
                 >
-                  <Label value="Prom." position="top" fill="#6B7280" fontSize={9} />
+                  <Label value={t('dispersion.promedio')} position="top" fill="#6B7280" fontSize={9} />
                 </ReferenceLine>
                 <ReferenceLine
                   y={yAvg}
@@ -760,8 +764,8 @@ export default function ScatterChartPage() {
           <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-2xl border-2 border-blue-200 dark:border-blue-800">
             <div className="flex items-center gap-2 mb-3">
               <div className="w-4 h-4 rounded-full bg-blue-500 shadow-md" />
-              <span className="text-sm font-semibold text-blue-700 dark:text-blue-300">Jugadores Marcados ({selectedIds.size})</span>
-              <span className="text-xs text-blue-500 ml-auto">Click en un círculo para desmarcar</span>
+              <span className="text-sm font-semibold text-blue-700 dark:text-blue-300">{t('dispersion.jugadoresMarcadosCount').replace('{count}', String(selectedIds.size))}</span>
+              <span className="text-xs text-blue-500 ml-auto">{t('dispersion.clickParaDesmarcarTop')}</span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
               {chartData.filter(d => selectedIds.has(d.player.id)).map((d, idx) => {
@@ -791,7 +795,7 @@ export default function ScatterChartPage() {
                       <button
                         onClick={() => navigate(`/jugador/${encodeURIComponent(d.player.name)}?source=externo&apiId=${d.player.id}`)}
                         className="p-1.5 hover:bg-brand-green/10 rounded-lg transition-colors"
-                        title="Ver ficha"
+                        title={t('dispersion.verFicha')}
                       >
                         <svg className="w-4 h-4 text-brand-green" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
@@ -800,7 +804,7 @@ export default function ScatterChartPage() {
                       <button
                         onClick={() => toggleSelect(d.player.id)}
                         className="p-1.5 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition-colors"
-                        title="Desmarcar"
+                        title={t('dispersion.desmarcar')}
                       >
                         <svg className="w-4 h-4 text-apple-gray-400 hover:text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -819,7 +823,7 @@ export default function ScatterChartPage() {
           <div className="mt-6 p-5 bg-apple-gray-50 dark:bg-apple-gray-700/50 rounded-2xl">
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <div className="flex items-center gap-3">
-                <span className="text-sm font-medium text-apple-gray-600 dark:text-apple-gray-300">Score GG:</span>
+                <span className="text-sm font-medium text-apple-gray-600 dark:text-apple-gray-300">{t('dispersion.scoreGGLabel')}</span>
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-xs text-apple-gray-500 font-medium">{scoreMin.toFixed(1)}</span>
@@ -829,32 +833,32 @@ export default function ScatterChartPage() {
               <div className="flex items-center gap-4 text-xs text-apple-gray-500">
                 <div className="flex items-center gap-1.5">
                   <div className="w-3 h-3 rounded-full bg-red-500" />
-                  <span>Bajo</span>
+                  <span>{t('dispersion.bajo')}</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <div className="w-3 h-3 rounded-full bg-yellow-400" />
-                  <span>Medio</span>
+                  <span>{t('dispersion.medio')}</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <div className="w-3 h-3 rounded-full bg-green-500" />
-                  <span>Alto</span>
+                  <span>{t('dispersion.alto')}</span>
                 </div>
               </div>
             </div>
             <div className="mt-3 flex flex-wrap items-center justify-center gap-4 text-xs text-apple-gray-400">
               <div className="flex items-center gap-2">
                 <div className="w-5 h-0 border-t border-dashed border-apple-gray-400" />
-                <span>Línea de promedio</span>
+                <span>{t('dispersion.lineaPromedio')}</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 rounded-full bg-blue-500 ring-2 ring-blue-300" />
-                <span>Jugador marcado</span>
+                <span>{t('dispersion.jugadorMarcadoLegend')}</span>
               </div>
               <div className="flex items-center gap-2">
                 <svg className="w-4 h-4 text-apple-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
                 </svg>
-                <span>Click para marcar/desmarcar</span>
+                <span>{t('dispersion.clickMarcarDesmarcar')}</span>
               </div>
             </div>
           </div>
@@ -868,7 +872,7 @@ export default function ScatterChartPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
               </svg>
             </span>
-            Análisis Inteligente
+            {t('dispersion.analisisInteligente')}
           </h3>
           <div className="bg-gradient-to-br from-apple-gray-50 to-white dark:from-apple-gray-700/50 dark:to-apple-gray-800 rounded-2xl p-6 border border-apple-gray-100 dark:border-apple-gray-700">
             <div className="prose prose-sm dark:prose-invert max-w-none text-apple-gray-600 dark:text-apple-gray-300 leading-relaxed">
@@ -900,7 +904,7 @@ export default function ScatterChartPage() {
         {/* Footer for PDF */}
         <div className="mt-8 pt-4 border-t border-apple-gray-100 dark:border-apple-gray-700 flex items-center justify-between text-xs text-apple-gray-400">
           <span>Scout Platform by Doble G Sports</span>
-          <span>{new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+          <span>{new Date().toLocaleDateString(LANGUAGE_LOCALES[language], { day: 'numeric', month: 'long', year: 'numeric' })}</span>
         </div>
       </div>
     </div>
