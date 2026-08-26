@@ -105,7 +105,7 @@ export default function InternalClassificationPage() {
       const ok = await deleteClassification(key)
       if (!ok) {
         setClassifications(prev)
-        setSavingError(`No se pudo quitar la clasificación de ${player.fullName}. Probá de nuevo.`)
+        setSavingError(t('clasificacion.errorQuitar').replace('{name}', player.fullName))
       }
       return
     }
@@ -115,7 +115,7 @@ export default function InternalClassificationPage() {
     const ok = await setClassification(key, player.fullName, target, userDisplayName || null)
     if (!ok) {
       setClassifications(prev)
-      setSavingError(`No se pudo guardar la clasificación de ${player.fullName}. Probá de nuevo.`)
+      setSavingError(t('clasificacion.errorGuardar').replace('{name}', player.fullName))
     }
   }
 
@@ -167,16 +167,16 @@ export default function InternalClassificationPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pending, dragging, classifications])
 
-  if (rosterLoading || loading) return <LoadingSpinner fullScreen message="Cargando plantel..." />
+  if (rosterLoading || loading) return <LoadingSpinner fullScreen message={t('clasificacion.cargandoPlantel')} />
 
   return (
     <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 py-6">
       <div className="mb-6">
         <h1 className="text-xl sm:text-2xl font-bold text-apple-gray-800 dark:text-white tracking-tight">
-          Clasificación Interna
+          {t('clasificacion.titulo')}
         </h1>
         <p className="text-sm text-apple-gray-500 dark:text-apple-gray-400 mt-0.5">
-          Arrastrá a cada jugador de la agencia a su clase — se refleja en Scout Interno y en su ficha.
+          {t('clasificacion.subtitulo')}
         </p>
       </div>
 
@@ -200,7 +200,7 @@ export default function InternalClassificationPage() {
               <div className="flex items-center gap-2 mb-3 px-1">
                 <span className={`w-2.5 h-2.5 rounded-full ${dot}`} />
                 <h3 className="text-sm font-semibold text-apple-gray-700 dark:text-apple-gray-200">
-                  {key === 'none' ? 'Sin clasificar' : t(CLASS_LABEL_KEY[key])}
+                  {key === 'none' ? t('clasificacion.sinClasificar') : t(CLASS_LABEL_KEY[key])}
                 </h3>
                 <span className="text-2xs text-apple-gray-400 ml-auto">{players.length}</span>
               </div>
@@ -208,7 +208,7 @@ export default function InternalClassificationPage() {
               <div className="space-y-2 min-h-[120px] max-h-[60vh] overflow-y-auto pr-0.5">
                 {players.length === 0 ? (
                   <p className="text-xs text-apple-gray-400 text-center py-6 px-2">
-                    {key === 'none' ? 'Todos ya tienen clase asignada.' : 'Arrastrá jugadores acá.'}
+                    {key === 'none' ? t('clasificacion.todosClasificados') : t('clasificacion.arrastraAca')}
                   </p>
                 ) : (
                   players.map(p => (
