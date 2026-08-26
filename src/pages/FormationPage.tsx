@@ -23,6 +23,7 @@ import {
 } from '@/constants/formations'
 import { getScoreColorClass, type ScoreScale } from '@/components/ui/ScoreBar'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
+import { useLanguage } from '@/context/LanguageContext'
 
 // ─── Age helper ──────────────────────────────────────────────────────────────
 
@@ -61,6 +62,7 @@ function PlayerSelector({
   onRemovePlayer,
   onClose,
 }: PlayerSelectorProps) {
+  const { t } = useLanguage()
   const [searchQuery, setSearchQuery] = useState('')
   const [activeTab, setActiveTab] = useState<'search' | 'suggestions'>('suggestions')
   const searchInputRef = useRef<HTMLInputElement>(null)
@@ -149,7 +151,7 @@ function PlayerSelector({
         <div className="flex-1 min-w-0">
           <p className="font-medium text-apple-gray-800 dark:text-white text-sm truncate">{p.name}</p>
           <p className="text-xs text-apple-gray-500 truncate">
-            {p.team?.name ?? '—'}{age !== null ? ` · ${age} años` : ''}
+            {p.team?.name ?? '—'}{age !== null ? ` · ${age} ${t('externo.anios')}` : ''}
             {showPosition && p.primary_position && (
               <span className="text-apple-gray-400"> · {p.primary_position}</span>
             )}
@@ -180,7 +182,7 @@ function PlayerSelector({
             <div>
               <h3 className="text-lg font-bold text-apple-gray-800 dark:text-white">{displayName}</h3>
               <p className="text-xs text-apple-gray-500 mt-0.5">
-                {currentPlayers.length}/3 jugadores · {canAddMore ? 'Selecciona para agregar' : 'Maximo alcanzado'}
+                {t('formacion.deJugadores').replace('{count}', String(currentPlayers.length))} · {canAddMore ? t('formacion.seleccionaParaAgregar') : t('formacion.maximoAlcanzado')}
               </p>
             </div>
             <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg text-apple-gray-400 hover:text-apple-gray-600 dark:hover:text-apple-gray-200 hover:bg-apple-gray-100 dark:hover:bg-apple-gray-700 transition-colors">
@@ -204,7 +206,7 @@ function PlayerSelector({
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                 </svg>
-                Sugeridos
+                {t('formacion.sugeridos')}
               </button>
               <button
                 onClick={() => setActiveTab('search')}
@@ -217,7 +219,7 @@ function PlayerSelector({
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
-                Buscar
+                {t('formacion.buscar')}
               </button>
             </div>
           )}
@@ -226,7 +228,7 @@ function PlayerSelector({
         {/* Current players in position */}
         {currentPlayers.length > 0 && (
           <div className="p-4 bg-apple-gray-50 dark:bg-apple-gray-900/50 border-b border-apple-gray-200 dark:border-apple-gray-700">
-            <p className="text-xs font-semibold text-apple-gray-500 uppercase tracking-wider mb-2">En esta posicion</p>
+            <p className="text-xs font-semibold text-apple-gray-500 uppercase tracking-wider mb-2">{t('formacion.enEstaPosicion')}</p>
             <div className="space-y-2">
               {currentPlayers.map((p) => (
                 <div key={p.playerId} className="flex items-center justify-between bg-white dark:bg-apple-gray-800 rounded-xl p-3 shadow-sm border border-apple-gray-100 dark:border-apple-gray-700">
@@ -263,7 +265,7 @@ function PlayerSelector({
         {/* Content area */}
         <div className="p-4 max-h-[50vh] overflow-y-auto">
           {!canAddMore ? (
-            <p className="text-center text-apple-gray-500 py-4 text-sm">Maximo 3 jugadores por posicion</p>
+            <p className="text-center text-apple-gray-500 py-4 text-sm">{t('formacion.maximo3PorPosicion')}</p>
           ) : playersLoading ? (
             <div className="flex items-center justify-center py-8">
               <div className="w-6 h-6 border-2 border-brand-green border-t-transparent rounded-full animate-spin" />
@@ -280,7 +282,7 @@ function PlayerSelector({
                   type="text"
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
-                  placeholder="Buscar por nombre o equipo..."
+                  placeholder={t('formacion.buscarPorNombreEquipo')}
                   className="w-full pl-10 pr-4 py-3 rounded-xl bg-apple-gray-100 dark:bg-apple-gray-700 border border-apple-gray-200 dark:border-apple-gray-600 text-apple-gray-800 dark:text-white placeholder-apple-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-green/50 text-sm"
                 />
                 {searchQuery && (
@@ -299,7 +301,7 @@ function PlayerSelector({
               {searchQuery.trim() ? (
                 searchResults.length > 0 ? (
                   <div className="space-y-2">
-                    <p className="text-xs text-apple-gray-500">{searchResults.length} resultado{searchResults.length !== 1 ? 's' : ''}</p>
+                    <p className="text-xs text-apple-gray-500">{t('formacion.resultadoCount').replace('{count}', String(searchResults.length))}</p>
                     {searchResults.map((p, i) => renderPlayerCard(p, i, true))}
                   </div>
                 ) : (
@@ -307,8 +309,8 @@ function PlayerSelector({
                     <svg className="w-12 h-12 mx-auto text-apple-gray-300 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                     </svg>
-                    <p className="text-apple-gray-500 text-sm">No se encontraron jugadores</p>
-                    <p className="text-apple-gray-400 text-xs mt-1">Proba con otro nombre o equipo</p>
+                    <p className="text-apple-gray-500 text-sm">{t('formacion.noSeEncontraronJugadores')}</p>
+                    <p className="text-apple-gray-400 text-xs mt-1">{t('formacion.probaOtroNombreEquipo')}</p>
                   </div>
                 )
               ) : (
@@ -316,8 +318,8 @@ function PlayerSelector({
                   <svg className="w-12 h-12 mx-auto text-apple-gray-300 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
-                  <p className="text-apple-gray-500 text-sm">Busca cualquier jugador</p>
-                  <p className="text-apple-gray-400 text-xs mt-1">Sin restriccion de posicion</p>
+                  <p className="text-apple-gray-500 text-sm">{t('formacion.buscaCualquierJugador')}</p>
+                  <p className="text-apple-gray-400 text-xs mt-1">{t('formacion.sinRestriccionPosicion')}</p>
                 </div>
               )}
             </div>
@@ -326,12 +328,12 @@ function PlayerSelector({
               <svg className="w-12 h-12 mx-auto text-apple-gray-300 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
               </svg>
-              <p className="text-apple-gray-500 text-sm">No hay jugadores sugeridos</p>
-              <p className="text-apple-gray-400 text-xs mt-1">Usa la busqueda para encontrar cualquier jugador</p>
+              <p className="text-apple-gray-500 text-sm">{t('formacion.noHayJugadoresSugeridos')}</p>
+              <p className="text-apple-gray-400 text-xs mt-1">{t('formacion.usaLaBusqueda')}</p>
             </div>
           ) : (
             <div className="space-y-2">
-              <p className="text-xs font-semibold text-apple-gray-500 uppercase tracking-wider mb-2">Mejores para {displayName}</p>
+              <p className="text-xs font-semibold text-apple-gray-500 uppercase tracking-wider mb-2">{t('formacion.mejoresPara').replace('{position}', displayName)}</p>
               {candidates.map((p, i) => renderPlayerCard(p, i))}
             </div>
           )}
@@ -344,6 +346,7 @@ function PlayerSelector({
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function FormationPage() {
+  const { t } = useLanguage()
   const { user, userDisplayName } = useAuth()
   const allLeagues = useLeagues()
 
@@ -492,13 +495,13 @@ export default function FormationPage() {
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-apple-gray-800 dark:text-white tracking-tight">
-            Constructor de Formaciones
+            {t('formacion.titulo')}
           </h1>
           <p className="text-sm text-apple-gray-500 dark:text-apple-gray-400 mt-0.5">
-            {totalPlayers} jugadores · Hasta 3 por posición
+            {t('formacion.totalJugadores').replace('{count}', String(totalPlayers))}
             {activeFormation && (
               <span className="ml-2 text-brand-green">
-                · Editando: {activeFormation.name} <span className="text-apple-gray-400">(por {activeFormation.created_by_name})</span>
+                · {t('formacion.editando').replace('{name}', activeFormation.name)} <span className="text-apple-gray-400">({t('formacion.por').replace('{name}', activeFormation.created_by_name)})</span>
               </span>
             )}
           </p>
@@ -508,7 +511,7 @@ export default function FormationPage() {
             onClick={() => setShowLoadModal(true)}
             className="btn-apple-secondary"
           >
-            Cargar
+            {t('formacion.cargar')}
           </button>
           <button
             onClick={() => {
@@ -521,13 +524,13 @@ export default function FormationPage() {
             disabled={totalPlayers === 0}
             className="btn-apple-primary disabled:opacity-50"
           >
-            Guardar
+            {t('formacion.guardar')}
           </button>
           <button
             onClick={clearFormation}
             className="btn-apple text-red-500 border border-red-300 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20"
           >
-            Limpiar
+            {t('formacion.limpiar')}
           </button>
         </div>
       </div>
@@ -537,7 +540,7 @@ export default function FormationPage() {
         <aside className="w-full lg:w-72 flex-shrink-0">
           <div className="card-apple p-5 space-y-5 sticky top-[4rem]">
             <div>
-              <label className="block text-xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider mb-2">Formación</label>
+              <label className="block text-xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider mb-2">{t('formacion.formacionLabel')}</label>
               <select
                 value={formation}
                 onChange={e => { setFormation(e.target.value); setPositions({}); setActiveFormation(null) }}
@@ -563,13 +566,13 @@ export default function FormationPage() {
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
-                Limpiar filtros
+                {t('formacion.limpiarFiltros')}
               </button>
             )}
 
             <div>
               <label className="block text-xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider mb-2">
-                Liga {selectedLeagueIds.length > 0 && <span className="text-brand-green">({selectedLeagueIds.length})</span>}
+                {t('formacion.liga')} {selectedLeagueIds.length > 0 && <span className="text-brand-green">({selectedLeagueIds.length})</span>}
               </label>
               <select
                 value={selectedLeagueIds.length === 1 ? selectedLeagueIds[0] : ''}
@@ -579,7 +582,7 @@ export default function FormationPage() {
                 }}
                 className="input-apple"
               >
-                <option value="">Todas las ligas</option>
+                <option value="">{t('formacion.todasLasLigas')}</option>
                 {allLeagues.map(l => (
                   <option key={l.id} value={l.id}>{l.name} ({l.country})</option>
                 ))}
@@ -587,22 +590,22 @@ export default function FormationPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider mb-2">Nacionalidad</label>
+              <label className="block text-xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider mb-2">{t('formacion.nacionalidad')}</label>
               <select value={nationality} onChange={e => setNationality(e.target.value)} className="input-apple">
-                <option value="">Todas</option>
+                <option value="">{t('formacion.todas')}</option>
                 {nationalities.map(n => <option key={n} value={n}>{n}</option>)}
               </select>
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider mb-2">
-                Edad: {minAge} - {maxAge} anos
+                {t('formacion.edadRange').replace('{min}', String(minAge)).replace('{max}', String(maxAge))}
               </label>
               <div className="space-y-3">
                 <div>
                   <div className="flex justify-between text-xs text-apple-gray-500 mb-1">
-                    <span>Min: {minAge}</span>
-                    <span>Max: {maxAge}</span>
+                    <span>{t('formacion.minLabel').replace('{v}', String(minAge))}</span>
+                    <span>{t('formacion.maxLabel').replace('{v}', String(maxAge))}</span>
                   </div>
                   <input
                     type="range"
@@ -623,9 +626,9 @@ export default function FormationPage() {
                 </div>
                 <div className="flex gap-1.5">
                   {[
-                    { label: 'Sub-21', min: 15, max: 21 },
-                    { label: 'Sub-23', min: 15, max: 23 },
-                    { label: 'Todos', min: 15, max: 40 },
+                    { label: t('formacion.sub21'), min: 15, max: 21 },
+                    { label: t('formacion.sub23'), min: 15, max: 23 },
+                    { label: t('formacion.todosPreset'), min: 15, max: 40 },
                   ].map(preset => (
                     <button
                       key={preset.label}
@@ -742,28 +745,31 @@ export default function FormationPage() {
       {showSaveModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in" onClick={() => setShowSaveModal(false)}>
           <div className="bg-white dark:bg-apple-gray-800 rounded-apple-xl p-6 max-w-sm w-full shadow-apple-lg animate-scale-in" onClick={e => e.stopPropagation()}>
-            <h3 className="text-lg font-bold text-apple-gray-800 dark:text-white mb-2">Guardar formación</h3>
+            <h3 className="text-lg font-bold text-apple-gray-800 dark:text-white mb-2">{t('formacion.guardarFormacion')}</h3>
             <p className="text-sm text-apple-gray-500 mb-4">
-              Guardando como <span className="font-medium text-brand-green">{userDisplayName}</span>
+              {(() => {
+                const [before, after] = t('formacion.guardandoComo').split('{name}')
+                return <>{before}<span className="font-medium text-brand-green">{userDisplayName}</span>{after}</>
+              })()}
             </p>
             <input
               type="text"
               value={formationName}
               onChange={e => setFormationName(e.target.value)}
-              placeholder="Nombre de la formación..."
+              placeholder={t('formacion.nombreFormacionPlaceholder')}
               className="input-apple mb-4"
               autoFocus
             />
             <div className="flex gap-2">
               <button onClick={() => setShowSaveModal(false)} className="btn-apple-secondary flex-1">
-                Cancelar
+                {t('formacion.cancelar')}
               </button>
               <button
                 onClick={handleSave}
                 disabled={!formationName.trim() || saving}
                 className="btn-apple-primary flex-1 disabled:opacity-50"
               >
-                {saving ? 'Guardando...' : 'Guardar'}
+                {saving ? t('formacion.guardando') : t('formacion.guardar')}
               </button>
             </div>
           </div>
@@ -775,7 +781,7 @@ export default function FormationPage() {
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in" onClick={() => setShowLoadModal(false)}>
           <div className="bg-white dark:bg-apple-gray-800 rounded-apple-xl max-w-lg w-full max-h-[80vh] overflow-hidden shadow-apple-lg animate-scale-in" onClick={e => e.stopPropagation()}>
             <div className="p-5 border-b border-apple-gray-200 dark:border-apple-gray-700 flex items-center justify-between">
-              <h3 className="text-lg font-bold text-apple-gray-800 dark:text-white">Formaciones guardadas</h3>
+              <h3 className="text-lg font-bold text-apple-gray-800 dark:text-white">{t('formacion.formacionesGuardadas')}</h3>
               <button onClick={() => setShowLoadModal(false)} className="w-8 h-8 flex items-center justify-center rounded-lg text-apple-gray-400 hover:text-apple-gray-600 dark:hover:text-apple-gray-200 hover:bg-apple-gray-100 dark:hover:bg-apple-gray-700 transition-colors">
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -788,7 +794,7 @@ export default function FormationPage() {
                   <div className="w-6 h-6 border-2 border-brand-green border-t-transparent rounded-full animate-spin" />
                 </div>
               ) : savedFormations.length === 0 ? (
-                <p className="text-center text-apple-gray-500 py-8">No hay formaciones guardadas</p>
+                <p className="text-center text-apple-gray-500 py-8">{t('formacion.noHayFormacionesGuardadas')}</p>
               ) : (
                 <div className="space-y-2">
                   {savedFormations.map(f => {
@@ -801,11 +807,17 @@ export default function FormationPage() {
                           <div className="flex items-center gap-2">
                             <p className="font-medium text-apple-gray-800 dark:text-white text-sm truncate">{f.name}</p>
                             {isOwn && (
-                              <span className="text-2xs bg-brand-green/20 text-brand-green px-1.5 py-0.5 rounded font-medium">Tuya</span>
+                              <span className="text-2xs bg-brand-green/20 text-brand-green px-1.5 py-0.5 rounded font-medium">{t('formacion.tuya')}</span>
                             )}
                           </div>
                           <p className="text-xs text-apple-gray-500 mt-0.5">
-                            {f.formation_type} · {playerCount} jugadores · por <span className="font-medium">{f.created_by_name}</span>
+                            {(() => {
+                              const [before, after] = t('formacion.formacionSummary')
+                                .replace('{type}', f.formation_type)
+                                .replace('{count}', String(playerCount))
+                                .split('{name}')
+                              return <>{before}<span className="font-medium">{f.created_by_name}</span>{after}</>
+                            })()}
                           </p>
                         </div>
                         <div className="flex gap-1.5 ml-3">
@@ -813,7 +825,7 @@ export default function FormationPage() {
                             onClick={() => handleLoad(f)}
                             className="px-3 py-1.5 text-xs bg-brand-green text-black font-medium rounded-lg hover:bg-green-400 transition-colors"
                           >
-                            Cargar
+                            {t('formacion.cargar')}
                           </button>
                           {isOwn && (
                             <button
