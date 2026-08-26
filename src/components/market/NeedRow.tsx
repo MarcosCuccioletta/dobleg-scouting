@@ -1,0 +1,109 @@
+import { useState } from 'react'
+import { useAuth } from '@/context/AuthContext'
+import { useLanguage } from '@/context/LanguageContext'
+import { TeamLogo } from '@/components/ui/PlayerPhoto'
+import AssigneeSelect from './AssigneeSelect'
+import MarketNotesPanel from './MarketNotesPanel'
+import NeedCandidatesPanel from './NeedCandidatesPanel'
+import { NEED_STATUS_LABEL_KEY, NEED_STATUS_COLOR } from './marketLabels'
+import { updateNeedStatus, reassignNeed } from '@/services/marketService'
+import type { ClubNeed, NeedStatus } from '@/types/market'
+
+export default function NeedRow({
+  need,
+  onUpdated,
+}: {
+  need: ClubNeed
+  onUpdated: (n: ClubNeed) => void
+}) {
+  const { user, userDisplayName } = useAuth()
+  const { t } = useLanguage()
+  const [expanded, setExpanded] = useState(false)
+  const [reassigning, setReassigning] = useState(false)
+  const [notesRefreshSignal, setNotesRefreshSignal] = useState(0)
+
+  const handleStatusChange = async (status: NeedStatus) => {
+    const ok = await updateNeedStatus(need.id, status)
+    if (ok) onUpdated({ ...need, status })
+  }
+
+  const handleReassign = async (id: number, name: string) => {
+    const ok = await reassignNeed(need.id, id, name, user?.id ?? null, userDisplayName || 'Usuario')
+    if (ok) {
+      onUpdated({ ...need, assigned_to_id: id, assigned_to_name: name })
+      setReassigning(false)
+      setNotesRefreshSignal(s => s + 1)
+    }
+  }
+
+  return (
+    <div className="bg-white dark:bg-apple-gray-800 rounded-xl border border-apple-gray-200 dark:border-apple-gray-700 overflow-hidden transition-all">
+      <button
+        onClick={() => setExpanded(e => !e)}
+        className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-apple-gray-50 dark:hover:bg-apple-gray-700/40 transition-colors"
+      >
+        <svg className={`w-4 h-4 text-apple-gray-400 flex-shrink-0 transition-transform ${expanded ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
+
+        <TeamLogo src={need.team_logo} className="w-8 h-8 drop-shadow-md flex-shrink-0" />
+
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold text-sm text-apple-gray-800 dark:text-white truncate">{need.team_name}</p>
+          <p className="text-2xs text-apple-gray-400 truncate">{need.position_label}</p>
+        </div>
+
+        <span className={`hidden sm:inline-flex px-2 py-1 rounded-full text-2xs font-semibold flex-shrink-0 ${NEED_STATUS_COLOR[need.status]}`}>
+          {t(NEED_STATUS_LABEL_KEY[need.status])}
+        </span>
+        {need.assigned_to_name && (
+          <span className="hidden md:inline text-2xs text-apple-gray-400 flex-shrink-0 w-24 truncate">{need.assigned_to_name}</span>
+        )}
+        {need.next_followup_date && (
+          <span className="hidden lg:inline text-2xs text-apple-gray-400 flex-shrink-0 w-20 tabular-nums">{need.next_followup_date}</span>
+        )}
+      </button>
+
+      {expanded && (
+        <div className="px-4 pb-4 pt-1 border-t border-apple-gray-100 dark:border-apple-gray-700 space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3">
+            <div>
+              <label className="block text-2xs font-medium text-apple-gray-400 mb-1">{t('mercado.estado')}</label>
+              <select
+                value={need.status}
+                onChange={e => handleStatusChange(e.target.value as NeedStatus)}
+                className="input-apple text-sm w-full"
+              >
+                {(Object.keys(NEED_STATUS_LABEL_KEY) as NeedStatus[]).map(s => (
+                  <option key={s} value={s}>{t(NEED_STATUS_LABEL_KEY[s])}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex items-end justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-2xs font-medium text-apple-gray-400 mb-1">{t('mercado.responsable')}</p>
+                <p className="text-sm text-apple-gray-700 dark:text-apple-gray-200 truncate">{need.assigned_to_name || t('mercado.sinAsignar')}</p>
+              </div>
+              <button onClick={() => setReassigning(r => !r)} className="text-xs font-medium text-brand-green hover:text-emerald-600 flex-shrink-0">
+                {t('mercado.reasignar')}
+              </button>
+            </div>
+            {reassigning && <div className="sm:col-span-2"><AssigneeSelect value={need.assigned_to_id} onChange={handleReassign} /></div>}
+          </div>
+
+          <div className="pt-2 border-t border-apple-gray-100 dark:border-apple-gray-700">
+            <NeedCandidatesPanel needId={need.id} />
+          </div>
+
+          <div className="pt-2 border-t border-apple-gray-100 dark:border-apple-gray-700">
+            <MarketNotesPanel
+              target={{ needId: need.id }}
+              onFollowupSynced={date => onUpdated({ ...need, next_followup_date: date })}
+              refreshSignal={notesRefreshSignal}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

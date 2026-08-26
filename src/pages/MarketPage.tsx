@@ -1,13 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { fetchClubNeeds, fetchNegotiations, fetchTeamMembers } from '@/services/marketService'
-import { computeAlerts, type AlertableItem, type MarketAlert } from '@/utils/marketAlerts'
-import AlertsStrip from '@/components/market/AlertsStrip'
-import NegotiationCard, { NEGOTIATION_STATUS_LABEL_KEY } from '@/components/market/NegotiationCard'
-import NeedCard from '@/components/market/NeedCard'
+import { computeAlerts, type AlertableItem } from '@/utils/marketAlerts'
+import { NEGOTIATION_STATUS_LABEL_KEY } from '@/components/market/marketLabels'
+import NegotiationRow from '@/components/market/NegotiationRow'
+import NeedRow from '@/components/market/NeedRow'
 import NewNegotiationForm from '@/components/market/NewNegotiationForm'
 import NewNeedForm from '@/components/market/NewNeedForm'
-import NegotiationDetailSheet from '@/components/market/NegotiationDetailSheet'
-import NeedDetailSheet from '@/components/market/NeedDetailSheet'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import EmptyState from '@/components/ui/EmptyState'
 import { useLanguage } from '@/context/LanguageContext'
@@ -30,8 +28,6 @@ export default function MarketPage() {
 
   const [showNewNegotiation, setShowNewNegotiation] = useState(false)
   const [showNewNeed, setShowNewNeed] = useState(false)
-  const [selectedNegotiation, setSelectedNegotiation] = useState<Negotiation | null>(null)
-  const [selectedNeed, setSelectedNeed] = useState<ClubNeed | null>(null)
 
   const loadData = () => {
     setLoading(true)
@@ -42,48 +38,34 @@ export default function MarketPage() {
 
   useEffect(() => { loadData() }, [])
 
-  const alerts = useMemo<MarketAlert[]>(() => {
+  const overdueIds = useMemo(() => {
     const items: AlertableItem[] = [
       ...negotiations.map(n => ({ id: n.id, kind: 'negotiation' as const, status: n.status, assigned_to_id: n.assigned_to_id, next_followup_date: n.next_followup_date })),
       ...needs.map(n => ({ id: n.id, kind: 'need' as const, status: n.status, assigned_to_id: n.assigned_to_id, next_followup_date: n.next_followup_date })),
     ]
-    return computeAlerts(items, new Date())
+    const alerts = computeAlerts(items, new Date())
+    return {
+      negotiations: new Set(alerts.filter(a => a.kind === 'negotiation' && a.urgency === 'vencido').map(a => a.id)),
+      needs: new Set(alerts.filter(a => a.kind === 'need' && a.urgency === 'vencido').map(a => a.id)),
+    }
   }, [negotiations, needs])
 
-  const overdueNegotiationIds = useMemo(
-    () => new Set(alerts.filter(a => a.kind === 'negotiation' && a.urgency === 'vencido').map(a => a.id)),
-    [alerts],
-  )
-  const overdueNeedIds = useMemo(
-    () => new Set(alerts.filter(a => a.kind === 'need' && a.urgency === 'vencido').map(a => a.id)),
-    [alerts],
-  )
-
   const visibleNegotiations = useMemo(() => negotiations.filter(n => {
-    if (clubFilter.trim() && !n.team_name.toLowerCase().includes(clubFilter.trim().toLowerCase())) return false
+    const clubText = clubFilter.trim().toLowerCase()
+    if (clubText && !(n.team_name?.toLowerCase().includes(clubText) || n.current_team_name?.toLowerCase().includes(clubText))) return false
     if (assigneeFilter !== 'all' && n.assigned_to_id !== assigneeFilter) return false
     if (negotiationStatusFilter !== 'all' && n.status !== negotiationStatusFilter) return false
-    if (onlyOverdue && !overdueNegotiationIds.has(n.id)) return false
+    if (onlyOverdue && !overdueIds.negotiations.has(n.id)) return false
     return true
-  }), [negotiations, clubFilter, assigneeFilter, negotiationStatusFilter, onlyOverdue, overdueNegotiationIds])
+  }), [negotiations, clubFilter, assigneeFilter, negotiationStatusFilter, onlyOverdue, overdueIds])
 
   const visibleNeeds = useMemo(() => needs.filter(n => {
     if (clubFilter.trim() && !n.team_name.toLowerCase().includes(clubFilter.trim().toLowerCase())) return false
     if (assigneeFilter !== 'all' && n.assigned_to_id !== assigneeFilter) return false
     if (needStatusFilter !== 'all' && n.status !== needStatusFilter) return false
-    if (onlyOverdue && !overdueNeedIds.has(n.id)) return false
+    if (onlyOverdue && !overdueIds.needs.has(n.id)) return false
     return true
-  }), [needs, clubFilter, assigneeFilter, needStatusFilter, onlyOverdue, overdueNeedIds])
-
-  const handleSelectAlert = (alert: MarketAlert) => {
-    if (alert.kind === 'negotiation') {
-      const n = negotiations.find(x => x.id === alert.id)
-      if (n) { setTab('negociaciones'); setSelectedNegotiation(n) }
-    } else {
-      const n = needs.find(x => x.id === alert.id)
-      if (n) { setTab('objetivos'); setSelectedNeed(n) }
-    }
-  }
+  }), [needs, clubFilter, assigneeFilter, needStatusFilter, onlyOverdue, overdueIds])
 
   return (
     <div className="max-w-screen-xl mx-auto px-4 sm:px-6 py-6">
@@ -102,8 +84,6 @@ export default function MarketPage() {
           {tab === 'negociaciones' ? t('mercado.nuevaNegociacion') : t('mercado.nuevoObjetivo')}
         </button>
       </div>
-
-      <AlertsStrip alerts={alerts} onSelectAlert={handleSelectAlert} />
 
       <div className="flex items-center justify-between gap-3 mb-5 flex-wrap">
         <div className="flex items-center gap-1.5 bg-apple-gray-100 dark:bg-apple-gray-800 rounded-xl p-1">
@@ -178,9 +158,13 @@ export default function MarketPage() {
             description={negotiations.length === 0 ? t('mercado.sinNegociacionesVacio') : t('mercado.sinNegociacionesFiltro')}
           />
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div className="space-y-2">
             {visibleNegotiations.map(n => (
-              <NegotiationCard key={n.id} negotiation={n} onClick={() => setSelectedNegotiation(n)} />
+              <NegotiationRow
+                key={n.id}
+                negotiation={n}
+                onUpdated={updated => setNegotiations(prev => prev.map(x => x.id === updated.id ? updated : x))}
+              />
             ))}
           </div>
         )
@@ -190,9 +174,13 @@ export default function MarketPage() {
           description={needs.length === 0 ? t('mercado.sinObjetivosVacio') : t('mercado.sinObjetivosFiltro')}
         />
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="space-y-2">
           {visibleNeeds.map(n => (
-            <NeedCard key={n.id} need={n} onClick={() => setSelectedNeed(n)} />
+            <NeedRow
+              key={n.id}
+              need={n}
+              onUpdated={updated => setNeeds(prev => prev.map(x => x.id === updated.id ? updated : x))}
+            />
           ))}
         </div>
       )}
@@ -206,24 +194,6 @@ export default function MarketPage() {
         open={showNewNeed}
         onClose={() => setShowNewNeed(false)}
         onCreated={n => setNeeds(prev => [n, ...prev])}
-      />
-      <NegotiationDetailSheet
-        negotiation={selectedNegotiation}
-        open={selectedNegotiation != null}
-        onClose={() => setSelectedNegotiation(null)}
-        onUpdated={n => {
-          setNegotiations(prev => prev.map(x => x.id === n.id ? n : x))
-          setSelectedNegotiation(n)
-        }}
-      />
-      <NeedDetailSheet
-        need={selectedNeed}
-        open={selectedNeed != null}
-        onClose={() => setSelectedNeed(null)}
-        onUpdated={n => {
-          setNeeds(prev => prev.map(x => x.id === n.id ? n : x))
-          setSelectedNeed(n)
-        }}
       />
     </div>
   )

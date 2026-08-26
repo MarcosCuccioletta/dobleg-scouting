@@ -1,5 +1,17 @@
 import { supabase } from '@/lib/supabase'
-import type { TeamMember, ClubNeed, Negotiation, MarketNote, MarketTeamSearchResult, NeedStatus, NegotiationStatus } from '@/types/market'
+import type { TeamMember, ClubNeed, Negotiation, MarketNote, MarketTeamSearchResult, NeedStatus, NegotiationStatus, NeedCandidate, CandidateStatus } from '@/types/market'
+
+/**
+ * Vincular una negociación/candidato a un jugador real de la API sólo lo
+ * pueden hacer estas dos personas — el resto de la agencia carga el nombre
+ * tal como se lo dijeron (con errores de tipeo incluidos) y uno de estos dos
+ * lo corrige después. Ver [[mercado_modelo_de_negocio]] en memoria.
+ */
+export const MARKET_LINK_ADMIN_EMAILS = ['marcoscucho99@gmail.com', 'matiassebastianroberti@gmail.com']
+
+export function isMarketLinkAdmin(email: string | null | undefined): boolean {
+  return !!email && MARKET_LINK_ADMIN_EMAILS.includes(email.toLowerCase())
+}
 
 export async function fetchTeamMembers(): Promise<TeamMember[]> {
   const { data, error } = await supabase
@@ -62,14 +74,19 @@ export async function createClubNeed(input: CreateClubNeedInput, createdById: st
 }
 
 export interface CreateNegotiationInput {
-  team_id: number
-  team_name: string
+  team_id: number | null
+  team_name: string | null
   team_logo: string | null
+  current_team_id: number | null
+  current_team_name: string | null
+  current_team_logo: string | null
   player_name: string
   player_api_id: number | null
   player_source: 'interno' | 'externo' | null
-  contact_name: string | null
-  contact_role: string | null
+  agent_name: string | null
+  target_club_contact_name: string | null
+  target_club_contact_role: string | null
+  current_club_contact_name: string | null
   assigned_to_id: number | null
   assigned_to_name: string | null
   next_followup_date: string | null
@@ -252,4 +269,52 @@ export async function addNoteTo(
   }
 
   return data
+}
+
+// ─── Candidatos de un objetivo (jugadores ofrecidos para ese puesto) ────────
+
+export async function fetchCandidatesFor(needId: number): Promise<NeedCandidate[]> {
+  const { data, error } = await supabase
+    .from('market_need_candidates')
+    .select('*')
+    .eq('need_id', needId)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return data ?? []
+}
+
+export async function addCandidate(
+  needId: number,
+  playerName: string,
+  addedById: string | null,
+  addedByName: string,
+): Promise<NeedCandidate | null> {
+  const { data, error } = await supabase
+    .from('market_need_candidates')
+    .insert({ need_id: needId, player_name: playerName, added_by_id: addedById, added_by_name: addedByName })
+    .select()
+    .single()
+  if (error) { console.error('addCandidate error:', error); return null }
+  return data
+}
+
+export async function updateCandidateStatus(id: number, status: CandidateStatus): Promise<boolean> {
+  const { error } = await supabase.from('market_need_candidates').update({ status }).eq('id', id)
+  if (error) { console.error('updateCandidateStatus error:', error); return false }
+  return true
+}
+
+export async function removeCandidate(id: number): Promise<boolean> {
+  const { error } = await supabase.from('market_need_candidates').delete().eq('id', id)
+  if (error) { console.error('removeCandidate error:', error); return false }
+  return true
+}
+
+/** Mismo espiritu que `linkNegotiationPlayer`: corrige el nombre con el real apenas se confirma el id. */
+export async function linkCandidatePlayer(id: number, playerApiId: number, playerSource: 'interno' | 'externo' | null, correctedName?: string | null): Promise<boolean> {
+  const update: Record<string, unknown> = { player_api_id: playerApiId, player_source: playerSource }
+  if (correctedName) update.player_name = correctedName
+  const { error } = await supabase.from('market_need_candidates').update(update).eq('id', id)
+  if (error) { console.error('linkCandidatePlayer error:', error); return false }
+  return true
 }
