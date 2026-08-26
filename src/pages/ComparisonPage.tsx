@@ -20,6 +20,7 @@ import { PlayerPhoto } from '@/components/ui/PlayerPhoto'
 import { useAgencyClassifications } from '@/hooks/useAgencyClassifications'
 import { agencyPlayerKey } from '@/services/agencyClassificationService'
 import { CLASS_BADGE_COLOR } from '@/constants/agencyClassification'
+import { useLanguage } from '@/context/LanguageContext'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -64,6 +65,7 @@ interface PlayerSearchProps {
 }
 
 function PlayerSearch({ selected, onSelect, color, label }: PlayerSearchProps) {
+  const { t } = useLanguage()
   const [searchText, setSearchText] = useState('')
   const [showDropdown, setShowDropdown] = useState(false)
 
@@ -122,7 +124,7 @@ function PlayerSearch({ selected, onSelect, color, label }: PlayerSearchProps) {
             </svg>
             <input
               type="text"
-              placeholder="Escribir nombre del jugador..."
+              placeholder={t('comparacion.buscarPlaceholder')}
               value={searchText}
               onChange={e => { setSearchText(e.target.value); setShowDropdown(true) }}
               onFocus={() => setShowDropdown(true)}
@@ -169,7 +171,7 @@ function QuickSummaryCard({
   getValue,
   formatValue,
   higherIsBetter = true,
-  winnerLabel = 'Mejor',
+  winnerLabel,
   icon,
 }: {
   label: string
@@ -180,6 +182,8 @@ function QuickSummaryCard({
   winnerLabel?: string
   icon: React.ReactNode
 }) {
+  const { t } = useLanguage()
+  const finalWinnerLabel = winnerLabel ?? t('comparacion.mejor')
   const values = players.map(getValue)
   // Un jugador sin dato para esta métrica (edad o valor de mercado sin cargar) no
   // debe competir por "mejor": antes se coercionaba a 0 y ganaba automáticamente
@@ -219,7 +223,7 @@ function QuickSummaryCard({
                     <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                     </svg>
-                    {winnerLabel}
+                    {finalWinnerLabel}
                   </span>
                 </div>
               )}
@@ -234,6 +238,7 @@ function QuickSummaryCard({
 // ─── ComparisonContent (replaces ComparisonView) ──────────────────────────────
 
 function ComparisonContent({ players }: { players: PlayerWithScore[] }) {
+  const { t } = useLanguage()
   const { currency, rate } = useCurrency()
   // Derive position from first player (for defaults)
   const pos = players[0]?.primary_position ?? null
@@ -328,10 +333,10 @@ function ComparisonContent({ players }: { players: PlayerWithScore[] }) {
           }
         />
         <QuickSummaryCard
-          label="Edad"
+          label={t('comparacion.edad')}
           players={players}
           getValue={p => getAge(p.birth_date)}
-          formatValue={v => `${v} años`}
+          formatValue={v => `${v} ${t('externo.anios')}`}
           higherIsBetter={false}
           icon={
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -340,12 +345,12 @@ function ComparisonContent({ players }: { players: PlayerWithScore[] }) {
           }
         />
         <QuickSummaryCard
-          label="Valor de Mercado"
+          label={t('comparacion.valorDeMercado')}
           players={players}
           getValue={p => p.market_value_eur ?? null}
           formatValue={v => v == null ? '—' : formatMarketValueInCurrency(v, currency, rate)}
           higherIsBetter={false}
-          winnerLabel="Más económico"
+          winnerLabel={t('comparacion.masEconomico')}
           icon={
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -388,7 +393,7 @@ function ComparisonContent({ players }: { players: PlayerWithScore[] }) {
       {activeMetrics.length >= 3 && (
         <div className="card-apple p-5">
           <h4 className="text-sm font-semibold text-apple-gray-700 dark:text-apple-gray-300 mb-5">
-            Comparación Radar{pos ? ` — ${pos}` : ''}
+            {t('comparacion.radarTitulo')}{pos ? ` — ${pos}` : ''}
           </h4>
           <ResponsiveContainer width="100%" height={360}>
             <RadarChart data={radarData} margin={{ top: 10, right: 40, bottom: 10, left: 40 }}>
@@ -433,10 +438,10 @@ function ComparisonContent({ players }: { players: PlayerWithScore[] }) {
         <div className="px-5 py-4 border-b border-apple-gray-200/50 dark:border-apple-gray-700/50 bg-apple-gray-50 dark:bg-apple-gray-800/50 flex items-center justify-between">
           <div>
             <h4 className="text-sm font-semibold text-apple-gray-700 dark:text-apple-gray-300">
-              Métricas clave{pos ? ` — ${pos}` : ''}
+              {t('comparacion.metricasClave')}{pos ? ` — ${pos}` : ''}
             </h4>
             <p className="text-xs text-apple-gray-500 mt-0.5">
-              {customMetrics ? 'Personalizado' : 'Métricas importantes para esta posición'}
+              {customMetrics ? t('comparacion.personalizado') : t('comparacion.metricasImportantes')}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -445,7 +450,7 @@ function ComparisonContent({ players }: { players: PlayerWithScore[] }) {
                 onClick={() => { setCustomMetrics(null); setShowMetricSelector(false) }}
                 className="px-3 py-1.5 text-xs font-medium text-apple-gray-500 hover:text-apple-gray-700 dark:hover:text-apple-gray-300 transition-colors"
               >
-                Restablecer
+                {t('comparacion.restablecer')}
               </button>
             )}
             <button
@@ -456,7 +461,7 @@ function ComparisonContent({ players }: { players: PlayerWithScore[] }) {
                   : 'bg-apple-gray-100 dark:bg-apple-gray-700 text-apple-gray-600 dark:text-apple-gray-300 hover:bg-apple-gray-200 dark:hover:bg-apple-gray-600'
               }`}
             >
-              {showMetricSelector ? 'Cerrar' : 'Personalizar'}
+              {showMetricSelector ? t('comparacion.cerrar') : t('comparacion.personalizar')}
             </button>
           </div>
         </div>
@@ -464,7 +469,7 @@ function ComparisonContent({ players }: { players: PlayerWithScore[] }) {
         {/* Metric selector panel */}
         {showMetricSelector && (
           <div className="px-5 py-4 bg-apple-gray-50/50 dark:bg-apple-gray-800/30 border-b border-apple-gray-200/50 dark:border-apple-gray-700/50">
-            <p className="text-xs text-apple-gray-500 mb-3">Selecciona las métricas a comparar:</p>
+            <p className="text-xs text-apple-gray-500 mb-3">{t('comparacion.seleccionaMetricas')}</p>
             <div className="flex flex-wrap gap-2">
               {availableMetrics.map(key => {
                 const meta = METRIC_BY_KEY.get(key)
@@ -564,6 +569,7 @@ function ComparisonContent({ players }: { players: PlayerWithScore[] }) {
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function ComparisonPage() {
+  const { t } = useLanguage()
   const [playerA, setPlayerA] = useState<PlayerWithScore | null>(null)
   const [playerB, setPlayerB] = useState<PlayerWithScore | null>(null)
   const [playerC, setPlayerC] = useState<PlayerWithScore | null>(null)
@@ -578,18 +584,18 @@ export default function ComparisonPage() {
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-apple-gray-800 dark:text-white tracking-tight">
-            Comparación de Jugadores
+            {t('comparacion.titulo')}
           </h1>
           <p className="text-sm text-apple-gray-500 dark:text-apple-gray-400 mt-0.5">
-            Selecciona 2 o 3 jugadores para comparar
+            {t('comparacion.subtitulo')}
           </p>
         </div>
         {canCompare && (
           <div className="flex items-center gap-2">
             <AddToReportButton
               type="comparison"
-              title={`Comparacion: ${activePlayers.map(p => p.name).join(' vs ')}`}
-              description={`Comparacion detallada de ${activePlayers.length} jugadores.`}
+              title={t('comparacion.reporteTitulo').replace('{names}', activePlayers.map(p => p.name).join(' vs '))}
+              description={t('comparacion.reporteDescripcion').replace('{count}', String(activePlayers.length))}
               captureId="comparison-container"
               source="Comparacion"
               variant="compact"
@@ -607,7 +613,7 @@ export default function ComparisonPage() {
               selected={playerA}
               onSelect={setPlayerA}
               color={PLAYER_COLORS[0]}
-              label="Jugador A"
+              label={t('comparacion.jugadorA')}
             />
           </div>
           <div className="flex-shrink-0 text-center text-xl sm:text-2xl font-bold text-apple-gray-300 dark:text-apple-gray-600 sm:pt-8">VS</div>
@@ -616,7 +622,7 @@ export default function ComparisonPage() {
               selected={playerB}
               onSelect={setPlayerB}
               color={PLAYER_COLORS[1]}
-              label="Jugador B"
+              label={t('comparacion.jugadorB')}
             />
           </div>
           {showC && (
@@ -627,7 +633,7 @@ export default function ComparisonPage() {
                   selected={playerC}
                   onSelect={setPlayerC}
                   color={PLAYER_COLORS[2]}
-                  label="Jugador C"
+                  label={t('comparacion.jugadorC')}
                 />
               </div>
             </>

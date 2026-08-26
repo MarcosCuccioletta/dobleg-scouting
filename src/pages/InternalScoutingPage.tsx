@@ -34,7 +34,6 @@ const DEFAULT_FILTERS: FilterState = {
   pie: '',
   minHeight: 0,
   maxHeight: 0,
-  selectedMetrics: [],
   videoFreshness: [],
   agencyClass: [],
 }
@@ -135,7 +134,6 @@ export default function InternalScoutingPage() {
     filters.pie,
     filters.minHeight > 0,
     filters.maxHeight > 0,
-    filters.selectedMetrics.length > 0,
     filters.videoFreshness && filters.videoFreshness.length > 0,
     filters.agencyClass && filters.agencyClass.length > 0,
   ].filter(Boolean).length
@@ -196,7 +194,7 @@ export default function InternalScoutingPage() {
           <FilterSidebar players={internal} filters={filters} onChange={setFilters} onReset={handleReset} showVideoFreshness showAgencyClass />
         </div>
         <div className="flex-1 min-w-0">
-          <PlayerTable players={filtered} source="interno" selectedMetrics={filters.selectedMetrics} />
+          <PlayerTable players={filtered} source="interno" />
         </div>
       </div>
 

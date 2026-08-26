@@ -6,7 +6,6 @@ import { PlayerPhoto } from '@/components/ui/PlayerPhoto'
 import ScoreBar, { type ScoreScale } from '@/components/ui/ScoreBar'
 import EmptyState from '@/components/ui/EmptyState'
 import ScoutsGGBadge from '@/components/ui/ScoutsGGBadge'
-import { SELECTABLE_METRICS } from '@/components/filters/FilterSidebar'
 import { useData } from '@/context/DataContext'
 import { FILTER_POSITION_MAP } from '@/constants/scoring'
 import { useScoreLookup } from '@/hooks/usePlayerStats'
@@ -36,7 +35,6 @@ interface PlayerTableProps {
   players: EnrichedPlayer[]
   source: 'externo' | 'interno'
   isLoading?: boolean
-  selectedMetrics?: string[]
 }
 
 interface Column {
@@ -45,7 +43,6 @@ interface Column {
   sortable: boolean
   align?: 'left' | 'right' | 'center'
   className?: string
-  isMetric?: boolean  // Dynamic metric column
 }
 
 const BASE_COLUMNS: Column[] = [
@@ -87,17 +84,6 @@ function SortIcon({ direction }: { direction: 'asc' | 'desc' | null }) {
   )
 }
 
-// Format metric value for display
-function formatMetricValue(value: unknown): string {
-  if (value === null || value === undefined || value === '') return '—'
-  const num = typeof value === 'number' ? value : parseFloat(String(value).replace(',', '.'))
-  if (isNaN(num)) return '—'
-  // Show 1-2 decimals depending on magnitude
-  if (num >= 10) return num.toFixed(1)
-  if (num >= 1) return num.toFixed(2)
-  return num.toFixed(2)
-}
-
 function NoScoreIndicator({ reason }: { reason: string }) {
   return (
     <span className="relative group cursor-help">
@@ -109,7 +95,7 @@ function NoScoreIndicator({ reason }: { reason: string }) {
   )
 }
 
-export default function PlayerTable({ players, source, isLoading, selectedMetrics = [] }: PlayerTableProps) {
+export default function PlayerTable({ players, source, isLoading }: PlayerTableProps) {
   const navigate = useNavigate()
   const { positionAverages, videoFreshnessByKey } = useData()
   const { lookup: scoreLookup } = useScoreLookup()
@@ -134,18 +120,8 @@ export default function PlayerTable({ players, source, isLoading, selectedMetric
 
   const columns = useMemo(() => {
     const base = source === 'interno' ? BASE_COLUMNS_INTERNAL : BASE_COLUMNS
-    const metricColumns: Column[] = selectedMetrics.map(key => {
-      const metricInfo = SELECTABLE_METRICS.find(m => m.key === key)
-      return {
-        key,
-        label: metricInfo?.short || key.slice(0, 6),
-        sortable: true,
-        align: 'center' as const,
-        isMetric: true,
-      }
-    })
-    return [...base, ...metricColumns, SCORE_COLUMN]
-  }, [source, selectedMetrics])
+    return [...base, SCORE_COLUMN]
+  }, [source])
 
   const handleSort = (col: string) => {
     setSort(prev =>
@@ -262,9 +238,8 @@ export default function PlayerTable({ players, source, isLoading, selectedMetric
                   <th
                     key={col.key}
                     scope="col"
-                    className={`px-3 py-2.5 text-${col.align ?? 'left'} text-2xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider whitespace-nowrap ${col.className ?? ''} ${col.sortable ? 'cursor-pointer hover:text-apple-gray-700 dark:hover:text-apple-gray-200 select-none transition-colors' : ''} ${col.isMetric ? 'bg-brand-green/5 dark:bg-brand-green/10' : ''}`}
+                    className={`px-3 py-2.5 text-${col.align ?? 'left'} text-2xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider whitespace-nowrap ${col.className ?? ''} ${col.sortable ? 'cursor-pointer hover:text-apple-gray-700 dark:hover:text-apple-gray-200 select-none transition-colors' : ''}`}
                     onClick={() => col.sortable && handleSort(col.key)}
-                    title={col.isMetric ? SELECTABLE_METRICS.find(m => m.key === col.key)?.label : undefined}
                   >
                     <div className={`flex items-center gap-1 ${col.align === 'right' ? 'justify-end' : col.align === 'center' ? 'justify-center' : ''}`}>
                       {col.label}
@@ -370,14 +345,6 @@ export default function PlayerTable({ players, source, isLoading, selectedMetric
                       {formatMarketValueInCurrency(player.marketValueRaw, currency, rate)}
                     </span>
                   </td>
-                  {/* Dynamic metric columns */}
-                  {selectedMetrics.map(key => (
-                    <td key={key} className="px-3 py-3 text-center bg-brand-green/5 dark:bg-brand-green/5">
-                      <span className="text-apple-gray-700 dark:text-apple-gray-300 tabular-nums text-xs font-medium">
-                        {formatMetricValue(player[key])}
-                      </span>
-                    </td>
-                  ))}
                   {/* Score GG */}
                   <td className="px-3 py-3">
                     <div className="flex justify-center">

@@ -10,27 +10,6 @@ import { formatMarketValueInCurrency } from '@/utils/scoring'
 import { CLASS_BADGE_COLOR } from '@/constants/agencyClassification'
 import type { AgencyClass } from '@/services/agencyClassificationService'
 
-// Available metrics for column selection
-export const SELECTABLE_METRICS = [
-  { key: 'Goles', label: 'Goles', short: 'Goles' },
-  { key: 'xG', label: 'xG', short: 'xG' },
-  { key: 'Asistencias', label: 'Asistencias', short: 'Asis' },
-  { key: 'xA', label: 'xA', short: 'xA' },
-  { key: 'Duelos aéreos ganados, %', label: 'Duelos aéreos %', short: 'Aér%' },
-  { key: 'Duelos defensivos ganados, %', label: 'Duelos def %', short: 'Def%' },
-  { key: 'Dribling completados/90', label: 'Dribling/90', short: 'Dri' },
-  { key: 'Duelos atacantes ganados/90', label: 'Duelos ataq/90', short: 'Atq' },
-  { key: 'Duelos atacantes ganados, %', label: 'Duelos ataq %', short: 'Atq%' },
-  { key: 'Carreras en progresión/90', label: 'Carreras prog/90', short: 'Carr' },
-  { key: 'Precisión pases, %', label: 'Pases %', short: 'Pas%' },
-  { key: 'Precisión pases hacia adelante, %', label: 'Pases adelante %', short: 'PasA%' },
-  { key: 'Pases progresivos exitosos/90', label: 'Pases prog/90', short: 'PasPr' },
-  { key: 'Interceptaciones/90', label: 'Intercep/90', short: 'Int' },
-  { key: 'Entradas/90', label: 'Entradas/90', short: 'Ent' },
-  { key: 'Centros precisos/90', label: 'Centros/90', short: 'Cen' },
-  { key: 'Jugadas claves/90', label: 'Jugadas clave/90', short: 'JgCl' },
-]
-
 const VIDEO_FRESHNESS_OPTIONS: { value: VideoFreshness; label: string; dot: string }[] = [
   { value: 'green', label: 'Actualizado (<4m)', dot: 'bg-green-500' },
   { value: 'amber', label: 'Necesita atención (4–7m)', dot: 'bg-amber-500' },
@@ -132,14 +111,6 @@ export default function FilterSidebar({ players, filters, onChange, onReset, sho
     }
   }
 
-  const toggleMetric = (metricKey: string) => {
-    const current = filters.selectedMetrics || []
-    const next = current.includes(metricKey)
-      ? current.filter(x => x !== metricKey)
-      : [...current, metricKey]
-    onChange({ ...filters, selectedMetrics: next })
-  }
-
   const toggleVideoFreshness = (value: VideoFreshness) => {
     const current = filters.videoFreshness || []
     const next = current.includes(value)
@@ -239,8 +210,6 @@ export default function FilterSidebar({ players, filters, onChange, onReset, sho
     (filters.videoFreshness || []).length > 0,
     (filters.agencyClass || []).length > 0,
   ].filter(Boolean).length
-
-  const selectedMetricsCount = (filters.selectedMetrics || []).length
 
   return (
     <aside className={inPanel ? 'w-full' : 'w-60 flex-shrink-0'}>
@@ -471,36 +440,6 @@ export default function FilterSidebar({ players, filters, onChange, onReset, sho
                 -175cm
               </button>
             </div>
-          </Section>
-
-          {/* Métricas - columnas extra */}
-          <Section title={`Métricas ${selectedMetricsCount > 0 ? `(${selectedMetricsCount})` : ''}`} defaultOpen={false}>
-            <p className="text-2xs text-apple-gray-500 mb-3">
-              Selecciona métricas para agregar columnas a la tabla
-            </p>
-            <div className="space-y-1.5 max-h-64 overflow-y-auto scrollbar-thin pr-1">
-              {SELECTABLE_METRICS.map(m => (
-                <label key={m.key} className="flex items-center gap-2 cursor-pointer group">
-                  <input
-                    type="checkbox"
-                    checked={(filters.selectedMetrics || []).includes(m.key)}
-                    onChange={() => toggleMetric(m.key)}
-                    className="w-3.5 h-3.5 rounded border-apple-gray-300 dark:border-apple-gray-600 text-brand-green focus:ring-brand-green"
-                  />
-                  <span className="text-xs text-apple-gray-700 dark:text-apple-gray-300 group-hover:text-apple-gray-900 dark:group-hover:text-white transition-colors">
-                    {m.label}
-                  </span>
-                </label>
-              ))}
-            </div>
-            {selectedMetricsCount > 0 && (
-              <button
-                onClick={() => update('selectedMetrics', [])}
-                className="mt-2 text-xs text-brand-green hover:underline"
-              >
-                Limpiar métricas
-              </button>
-            )}
           </Section>
 
           {/* Minutos jugados */}

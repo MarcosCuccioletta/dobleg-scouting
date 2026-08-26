@@ -221,7 +221,6 @@ export interface FilterState {
   pie: string  // 'izquierdo' | 'derecho' | 'ambos' | '' (all)
   minHeight: number  // cm
   maxHeight: number  // cm
-  selectedMetrics: string[]  // Metrics to show as columns
   videoFreshness: import('@/types/videos').VideoFreshness[]  // Filter by video freshness (internal only)
   agencyClass: ('A' | 'B' | 'C')[]  // Filter by Clasificación Interna (internal only)
 }
