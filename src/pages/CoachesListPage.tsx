@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { AGENCY_COACHES } from '@/constants/agencyCoaches'
+import { useLanguage } from '@/context/LanguageContext'
 
 function initialsOf(fullName: string): string {
   return fullName
@@ -11,14 +12,15 @@ function initialsOf(fullName: string): string {
 }
 
 export default function CoachesListPage() {
+  const { t } = useLanguage()
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6">
       <div className="mb-6">
         <h1 className="text-xl sm:text-2xl font-bold text-apple-gray-800 dark:text-white tracking-tight">
-          Entrenadores
+          {t('nav.entrenadores')}
         </h1>
         <p className="text-sm text-apple-gray-500 dark:text-apple-gray-400 mt-0.5">
-          Cuerpo técnico representado por Doble G Sports Group
+          {t('coachesList.subtitulo')}
         </p>
       </div>
 
@@ -65,7 +67,7 @@ export default function CoachesListPage() {
                       isActive ? 'bg-brand-green animate-pulse-soft' : 'bg-apple-gray-300 dark:bg-apple-gray-600'
                     }`}
                   />
-                  <span className="truncate">{isActive ? coach.club : 'Sin club actualmente'}</span>
+                  <span className="truncate">{isActive ? coach.club : t('coachesList.sinClub')}</span>
                 </span>
               </div>
 

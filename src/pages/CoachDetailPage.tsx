@@ -9,19 +9,22 @@ import CoachTrainingTab from '@/features/coaches/components/CoachTrainingTab'
 import CoachNotesTab from '@/features/coaches/components/CoachNotesTab'
 import CoachTacticalBoardTab from '@/features/coaches/components/CoachTacticalBoardTab'
 import CoachFutureSquadTab from '@/features/coaches/components/CoachFutureSquadTab'
+import { useLanguage } from '@/context/LanguageContext'
 
 type CoachTab = 'resumen' | 'plantel' | 'liga' | 'calendario' | 'entrenamientos' | 'notas' | 'pizarra' | 'plantel_futuro' | 'reserva'
 
-const TABS: { id: CoachTab; label: string }[] = [
-  { id: 'resumen', label: 'Resumen' },
-  { id: 'plantel', label: 'Plantel' },
-  { id: 'liga', label: 'Liga' },
-  { id: 'calendario', label: 'Calendario' },
-  { id: 'entrenamientos', label: 'Entrenamientos' },
-  { id: 'notas', label: 'Notas de partidos' },
-  { id: 'pizarra', label: 'Pizarra' },
-  { id: 'plantel_futuro', label: 'Plantel futuro' },
-]
+const TAB_LABEL_KEY: Record<Exclude<CoachTab, 'reserva'>, string> = {
+  resumen: 'coachDetail.tabResumen',
+  plantel: 'coachDetail.tabPlantel',
+  liga: 'coachDetail.tabLiga',
+  calendario: 'coachDetail.tabCalendario',
+  entrenamientos: 'coachDetail.tabEntrenamientos',
+  notas: 'coachDetail.tabNotas',
+  pizarra: 'coachDetail.tabPizarra',
+  plantel_futuro: 'coachDetail.tabPlantelFuturo',
+}
+
+const TAB_IDS: Exclude<CoachTab, 'reserva'>[] = ['resumen', 'plantel', 'liga', 'calendario', 'entrenamientos', 'notas', 'pizarra', 'plantel_futuro']
 
 const SIN_CLUB_TAB_IDS: CoachTab[] = ['resumen', 'entrenamientos', 'pizarra']
 
@@ -35,6 +38,7 @@ function initialsOf(fullName: string): string {
 }
 
 export default function CoachDetailPage() {
+  const { t } = useLanguage()
   const { coachKey } = useParams<{ coachKey: string }>()
   const coach = coachKey ? getCoachByKey(coachKey) : undefined
   const [searchParams, setSearchParams] = useSearchParams()
@@ -56,15 +60,15 @@ export default function CoachDetailPage() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
         </div>
-        <h1 className="text-lg font-semibold text-apple-gray-800 dark:text-white mb-1.5">Entrenador no encontrado</h1>
+        <h1 className="text-lg font-semibold text-apple-gray-800 dark:text-white mb-1.5">{t('coachDetail.noEncontrado')}</h1>
         <p className="text-sm text-apple-gray-500 dark:text-apple-gray-400 mb-5">
-          No pudimos encontrar a este entrenador en el plantel técnico de Doble G.
+          {t('coachDetail.noEncontradoDesc')}
         </p>
         <Link
           to="/entrenadores"
           className="inline-flex items-center gap-2 min-h-[40px] px-4 rounded-full bg-brand-green text-apple-gray-900 text-sm font-semibold transition-transform duration-200 ease-apple hover:-translate-y-0.5"
         >
-          Volver a Entrenadores
+          {t('coachDetail.volver')}
         </Link>
       </div>
     )
@@ -80,7 +84,7 @@ export default function CoachDetailPage() {
       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
       </svg>
-      Volver a Entrenadores
+      {t('coachDetail.volver')}
     </Link>
   )
 
@@ -103,9 +107,10 @@ export default function CoachDetailPage() {
       </div>
     )
 
+  const baseTabs: { id: CoachTab; label: string }[] = TAB_IDS.map(id => ({ id, label: t(TAB_LABEL_KEY[id]) }))
   const tabs = isActive
-    ? (coach.reserveApiTeamId ? [...TABS, { id: 'reserva' as CoachTab, label: 'Reserva' }] : TABS)
-    : TABS.filter(t => SIN_CLUB_TAB_IDS.includes(t.id))
+    ? (coach.reserveApiTeamId ? [...baseTabs, { id: 'reserva' as CoachTab, label: t('coachDetail.tabReserva') }] : baseTabs)
+    : baseTabs.filter(tab => SIN_CLUB_TAB_IDS.includes(tab.id))
 
   // Un ?tab= de una URL vieja/compartida puede apuntar a un tab que no está
   // visible para este entrenador puntual (p.ej. "plantel" para uno sin_club):
@@ -132,7 +137,7 @@ export default function CoachDetailPage() {
                 isActive ? 'bg-brand-green animate-pulse-soft' : 'bg-apple-gray-300 dark:bg-apple-gray-600'
               }`}
             />
-            <span className="truncate">{isActive ? coach.club : 'Sin club actualmente'}</span>
+            <span className="truncate">{isActive ? coach.club : t('coachesList.sinClub')}</span>
           </span>
         </div>
       </div>
@@ -158,7 +163,7 @@ export default function CoachDetailPage() {
       {activeTab === 'resumen' && (coach.apiTeamId ? <CoachSummaryTab coach={coach} /> : <CoachBioTab coach={coach} />)}
       {activeTab === 'plantel' && coach.apiTeamId && <TeamRosterPanel teamId={coach.apiTeamId} teamName={coach.club ?? ''} />}
       {activeTab === 'reserva' && coach.reserveApiTeamId && (
-        <TeamRosterPanel teamId={coach.reserveApiTeamId} teamName={coach.club ? `${coach.club} (Reserva)` : 'Reserva'} />
+        <TeamRosterPanel teamId={coach.reserveApiTeamId} teamName={coach.club ? `${coach.club} (${t('coachDetail.reservaSufijo')})` : t('coachDetail.reservaSufijo')} />
       )}
       {activeTab === 'liga' && coach.leagueApiId && <CoachLeagueTab coach={coach} />}
       {activeTab === 'calendario' && <CoachCalendarTab key={coach.key} coach={coach} />}

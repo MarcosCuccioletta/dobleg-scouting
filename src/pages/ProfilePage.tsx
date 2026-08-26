@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
+import { useLanguage } from '@/context/LanguageContext'
 
 export default function ProfilePage() {
   const { user, userDisplayName, signOut, deleteAccount } = useAuth()
+  const { t } = useLanguage()
   const [confirming, setConfirming] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState('')
@@ -12,7 +14,7 @@ export default function ProfilePage() {
     setError('')
     const { error } = await deleteAccount()
     if (error) {
-      setError(error.message || 'No se pudo eliminar la cuenta. Intentá de nuevo.')
+      setError(error.message || t('perfil.errorEliminar'))
       setDeleting(false)
       setConfirming(false)
     }
@@ -24,7 +26,7 @@ export default function ProfilePage() {
   return (
     <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
       <h1 className="text-2xl font-bold text-apple-gray-800 dark:text-white tracking-tight mb-6">
-        Perfil
+        {t('nav.perfil')}
       </h1>
 
       {/* Datos de la cuenta */}
@@ -35,7 +37,7 @@ export default function ProfilePage() {
           </div>
           <div className="min-w-0">
             <p className="text-lg font-semibold text-apple-gray-800 dark:text-white truncate">
-              {userDisplayName || 'Usuario'}
+              {userDisplayName || t('perfil.usuario')}
             </p>
             <p className="text-sm text-apple-gray-500 dark:text-apple-gray-400 truncate">
               {user?.email}
@@ -47,17 +49,17 @@ export default function ProfilePage() {
           onClick={() => signOut()}
           className="mt-5 w-full sm:w-auto px-4 py-2.5 rounded-xl text-sm font-medium text-apple-gray-700 dark:text-apple-gray-300 bg-apple-gray-100 dark:bg-apple-gray-700 hover:bg-apple-gray-200 dark:hover:bg-apple-gray-600 transition-colors"
         >
-          Cerrar sesión
+          {t('nav.cerrarSesion')}
         </button>
       </div>
 
       {/* Zona de peligro — eliminar cuenta */}
       <div className="mt-6 rounded-2xl border border-red-200 dark:border-red-900/40 bg-red-50/50 dark:bg-red-900/10 p-5 sm:p-6">
         <h2 className="text-sm font-semibold text-red-700 dark:text-red-400 uppercase tracking-wider mb-2">
-          Eliminar cuenta
+          {t('perfil.eliminarCuenta')}
         </h2>
         <p className="text-sm text-apple-gray-600 dark:text-apple-gray-400 mb-4">
-          Esto elimina tu cuenta de forma permanente. No se puede deshacer.
+          {t('perfil.eliminarDescripcion')}
         </p>
 
         {error && (
@@ -71,12 +73,12 @@ export default function ProfilePage() {
             onClick={() => setConfirming(true)}
             className="px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-red-600 hover:bg-red-700 transition-colors"
           >
-            Eliminar mi cuenta
+            {t('perfil.eliminarBoton')}
           </button>
         ) : (
           <div className="space-y-3">
             <p className="text-sm font-medium text-apple-gray-800 dark:text-white">
-              ¿Seguro? Esta acción es permanente.
+              {t('perfil.confirmarPregunta')}
             </p>
             <div className="flex flex-wrap gap-3">
               <button
@@ -90,14 +92,14 @@ export default function ProfilePage() {
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                   </svg>
                 )}
-                Sí, eliminar definitivamente
+                {t('perfil.confirmarBoton')}
               </button>
               <button
                 onClick={() => { setConfirming(false); setError('') }}
                 disabled={deleting}
                 className="px-4 py-2.5 rounded-xl text-sm font-medium text-apple-gray-700 dark:text-apple-gray-300 bg-apple-gray-100 dark:bg-apple-gray-700 hover:bg-apple-gray-200 dark:hover:bg-apple-gray-600 transition-colors disabled:opacity-50"
               >
-                Cancelar
+                {t('perfil.cancelar')}
               </button>
             </div>
           </div>
@@ -105,7 +107,7 @@ export default function ProfilePage() {
       </div>
 
       <p className="mt-6 text-center text-xs text-apple-gray-400">
-        <a href="/privacidad.html" target="_blank" rel="noreferrer" className="hover:text-brand-green transition-colors">Política de privacidad</a>
+        <a href="/privacidad.html" target="_blank" rel="noreferrer" className="hover:text-brand-green transition-colors">{t('perfil.politicaPrivacidad')}</a>
       </p>
     </div>
   )
