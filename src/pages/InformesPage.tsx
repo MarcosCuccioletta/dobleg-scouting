@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react'
+import { useLanguage } from '@/context/LanguageContext'
 import Stepper from '@/features/informes/components/Stepper'
 import Step1Archivo from '@/features/informes/components/Step1Archivo'
 import Step2Metricas from '@/features/informes/components/Step2Metricas'
@@ -15,6 +16,7 @@ type View = 'list' | 'wizard'
 type SaveFeedback = { type: 'success' | 'error'; message: string }
 
 export default function InformesPage() {
+  const { t } = useLanguage()
   const [view, setView] = useState<View>('list')
   const [step, setStep] = useState(0)
   const [parsed, setParsed] = useState<ParsedFile | null>(null)
@@ -59,11 +61,11 @@ export default function InformesPage() {
     try {
       saveInforme(toSave)
       setInforme(toSave)
-      setSaveFeedback({ type: 'success', message: 'Guardado ✓' })
+      setSaveFeedback({ type: 'success', message: t('informes.guardadoOk') })
     } catch (e) {
       setSaveFeedback({
         type: 'error',
-        message: e instanceof Error ? e.message : 'No se pudo guardar el informe.',
+        message: e instanceof Error ? e.message : t('informes.noSePudoGuardar'),
       })
     }
   }
@@ -90,9 +92,9 @@ export default function InformesPage() {
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-6">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-apple-gray-900 dark:text-white tracking-tight">Informes</h1>
+          <h1 className="text-2xl font-semibold text-apple-gray-900 dark:text-white tracking-tight">{t('informes.titulo')}</h1>
           <p className="text-sm text-apple-gray-500 dark:text-apple-gray-400 mt-1">
-            Subí un archivo de métricas y armá un informe profesional del jugador.
+            {t('informes.subtitulo')}
           </p>
         </div>
         {view === 'wizard' && (
@@ -101,7 +103,7 @@ export default function InformesPage() {
             onClick={() => setView('list')}
             className="px-4 py-2.5 rounded-xl bg-apple-gray-100 dark:bg-apple-gray-800 text-apple-gray-700 dark:text-apple-gray-200 text-sm font-semibold hover:bg-apple-gray-200 dark:hover:bg-apple-gray-700 transition-colors flex-shrink-0"
           >
-            ← Mis informes
+            ← {t('informes.misInformes')}
           </button>
         )}
       </div>

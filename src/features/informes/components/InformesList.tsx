@@ -1,27 +1,30 @@
 import { useCallback, useState } from 'react'
 import { listInformes, deleteInforme } from '@/features/informes/informesStore'
+import { useLanguage } from '@/context/LanguageContext'
+import { LANGUAGE_LOCALES } from '@/constants/translations'
 
 interface InformesListProps {
   onOpen: (id: string) => void
   onNew: () => void
 }
 
-function formatDate(iso: string): string {
+function formatDate(iso: string, locale: string): string {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return ''
-  const date = d.toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })
-  const time = d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
+  const date = d.toLocaleDateString(locale, { day: '2-digit', month: 'short', year: 'numeric' })
+  const time = d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
   return `${date} · ${time}`
 }
 
 export default function InformesList({ onOpen, onNew }: InformesListProps) {
+  const { t, language } = useLanguage()
   const [items, setItems] = useState(() => listInformes())
 
   const refresh = useCallback(() => setItems(listInformes()), [])
 
   function handleDelete(id: string, e: React.MouseEvent) {
     e.stopPropagation()
-    if (!window.confirm('¿Borrar este informe? Esta acción no se puede deshacer.')) return
+    if (!window.confirm(t('informes.confirmBorrar'))) return
     deleteInforme(id)
     refresh()
   }
@@ -30,11 +33,11 @@ export default function InformesList({ onOpen, onNew }: InformesListProps) {
     <div className="space-y-5">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="text-lg font-semibold text-apple-gray-900 dark:text-white">Mis informes</h2>
+          <h2 className="text-lg font-semibold text-apple-gray-900 dark:text-white">{t('informes.misInformes')}</h2>
           <p className="text-sm text-apple-gray-500 dark:text-apple-gray-400 mt-0.5">
             {items.length === 0
-              ? 'Todavía no armaste ningún informe.'
-              : `${items.length} informe${items.length === 1 ? '' : 's'} guardado${items.length === 1 ? '' : 's'}`}
+              ? t('informes.sinInformes')
+              : t(items.length === 1 ? 'informes.contadorUno' : 'informes.contadorVarios').replace('{count}', String(items.length))}
           </p>
         </div>
         <button
@@ -42,7 +45,7 @@ export default function InformesList({ onOpen, onNew }: InformesListProps) {
           onClick={onNew}
           className="px-4 py-2.5 rounded-xl bg-brand-green text-white text-sm font-semibold hover:bg-brand-green/90 transition-colors flex-shrink-0"
         >
-          + Nuevo informe
+          {t('informes.nuevoInforme')}
         </button>
       </div>
 
@@ -52,7 +55,7 @@ export default function InformesList({ onOpen, onNew }: InformesListProps) {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
           <p className="text-sm text-apple-gray-500 dark:text-apple-gray-400 mt-3">
-            Subí un archivo de métricas para armar tu primer informe.
+            {t('informes.subeArchivoPrimer')}
           </p>
         </div>
       ) : (
@@ -64,13 +67,13 @@ export default function InformesList({ onOpen, onNew }: InformesListProps) {
             >
               <div className="min-w-0">
                 <h3 className="text-sm font-semibold text-apple-gray-900 dark:text-white truncate">
-                  {it.nombre || 'Sin nombre'}
+                  {it.nombre || t('informes.sinNombre')}
                 </h3>
                 <p className="text-xs text-apple-gray-500 dark:text-apple-gray-400 truncate mt-0.5">
-                  {it.contextoComparacion || 'Sin contexto de comparación'}
+                  {it.contextoComparacion || t('informes.sinContextoComparacion')}
                 </p>
                 <p className="text-xs text-apple-gray-400 dark:text-apple-gray-500 mt-1">
-                  {formatDate(it.updatedAt)}
+                  {formatDate(it.updatedAt, LANGUAGE_LOCALES[language])}
                 </p>
               </div>
               <div className="flex items-center gap-2 mt-auto pt-1">
@@ -79,14 +82,14 @@ export default function InformesList({ onOpen, onNew }: InformesListProps) {
                   onClick={() => onOpen(it.id)}
                   className="flex-1 px-3 py-2 rounded-xl bg-apple-gray-100 dark:bg-apple-gray-800 text-apple-gray-700 dark:text-apple-gray-200 text-xs font-semibold hover:bg-apple-gray-200 dark:hover:bg-apple-gray-700 transition-colors"
                 >
-                  Abrir
+                  {t('informes.abrir')}
                 </button>
                 <button
                   type="button"
                   onClick={e => handleDelete(it.id, e)}
                   className="px-3 py-2 rounded-xl bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 text-xs font-semibold hover:bg-red-100 dark:hover:bg-red-950/60 transition-colors"
                 >
-                  Borrar
+                  {t('informes.borrar')}
                 </button>
               </div>
             </div>
