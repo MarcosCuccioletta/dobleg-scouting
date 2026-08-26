@@ -325,6 +325,9 @@ export interface ScoreLookupEntry {
   position: Position;
   percentile: number | null;
   matches_played: number;
+  team_name: string | null;
+  team_logo: string | null;
+  birth_date: string | null;
 }
 
 export interface ScoreLookupRow {
@@ -333,6 +336,8 @@ export interface ScoreLookupRow {
   current_team_id: number | null;
   transfermarkt_id: number | null;
   birth_date: string | null;
+  team_name: string | null;
+  team_logo: string | null;
   score: number;
   position: Position;
   percentile: number | null;
@@ -387,6 +392,9 @@ export function buildScoreLookup(
     position: row.position,
     percentile: row.percentile,
     matches_played: row.matches_played,
+    team_name: row.team_name,
+    team_logo: row.team_logo,
+    birth_date: row.birth_date,
   });
 
   // Equipo actual conocido por jugador de agencia (usado en el paso 1 de abajo).
@@ -492,7 +500,7 @@ export async function fetchScoreLookup(
       .from('player_season_scores')
       .select(`
         player_id, position, avg_score, percentile, matches_played, season,
-        player:players!inner(name, current_team_id, transfermarkt_id, birth_date)
+        player:players!inner(name, current_team_id, transfermarkt_id, birth_date, team:teams(name, logo))
       `)
       .in('season', seasons)
       .not('avg_score', 'is', null)
@@ -511,6 +519,8 @@ export async function fetchScoreLookup(
     current_team_id: ((row as any).player?.current_team_id as number | null) ?? null,
     transfermarkt_id: ((row as any).player?.transfermarkt_id as number | null) ?? null,
     birth_date: ((row as any).player?.birth_date as string | null) ?? null,
+    team_name: ((row as any).player?.team?.name as string | null) ?? null,
+    team_logo: ((row as any).player?.team?.logo as string | null) ?? null,
     score: row.avg_score,
     position: row.position as Position,
     percentile: row.percentile,

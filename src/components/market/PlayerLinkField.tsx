@@ -104,20 +104,28 @@ export default function PlayerLinkField({
         </div>
         {open && results.length > 0 && (
           <div className="absolute z-10 mt-1 w-full max-h-60 overflow-y-auto rounded-lg border border-apple-gray-200 dark:border-apple-gray-700 bg-white dark:bg-apple-gray-800 shadow-lg">
-            {results.map(entry => (
-              <button
-                key={entry.player_id}
-                type="button"
-                onClick={() => handleSelect(entry.player_id, entry.name)}
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-apple-gray-50 dark:hover:bg-apple-gray-700/50 transition-colors"
-              >
-                <PlayerPhoto src={buildPlayerPhotoUrl(entry.player_id)} name={entry.name} size="sm" />
-                <span className="min-w-0">
-                  <span className="block text-sm text-apple-gray-800 dark:text-white truncate">{entry.name}</span>
-                  <span className="block text-2xs text-apple-gray-400">{entry.position}</span>
-                </span>
-              </button>
-            ))}
+            {results.map(entry => {
+              const age = computeAge(entry.birth_date)
+              const details = [
+                entry.position,
+                entry.team_name,
+                age != null ? `${age} ${t('externo.anios')}` : null,
+              ].filter(Boolean).join(' · ')
+              return (
+                <button
+                  key={entry.player_id}
+                  type="button"
+                  onClick={() => handleSelect(entry.player_id, entry.name)}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-apple-gray-50 dark:hover:bg-apple-gray-700/50 transition-colors"
+                >
+                  <PlayerPhoto src={buildPlayerPhotoUrl(entry.player_id)} name={entry.name} size="sm" />
+                  <span className="min-w-0">
+                    <span className="block text-sm text-apple-gray-800 dark:text-white truncate">{entry.name}</span>
+                    <span className="block text-2xs text-apple-gray-400 truncate">{details}</span>
+                  </span>
+                </button>
+              )
+            })}
           </div>
         )}
       </div>

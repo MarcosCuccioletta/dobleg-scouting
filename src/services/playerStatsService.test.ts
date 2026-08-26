@@ -4,6 +4,7 @@ import type { PlayerSeasonScore } from '@/types/scoring'
 
 const row = (over: Partial<ScoreLookupRow> & Pick<ScoreLookupRow, 'player_id' | 'name'>): ScoreLookupRow => ({
   current_team_id: null, transfermarkt_id: null, birth_date: null,
+  team_name: null, team_logo: null,
   score: 5, position: 'VC', percentile: 50, matches_played: 1, season: 2026,
   ...over,
 })
