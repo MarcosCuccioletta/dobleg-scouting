@@ -1,19 +1,21 @@
 import { useState, useMemo } from 'react'
 import { SCOUTING_PROJECTS, getNationalityFlag, type ScoutingProject, type ScoutedPlayer } from '@/data/scoutingProjects'
 import { fuzzyMatch } from '@/lib/search'
+import { useLanguage } from '@/context/LanguageContext'
 
 // Project Card Component
 function ProjectCard({ project, onClick }: { project: ScoutingProject; onClick: () => void }) {
+  const { t } = useLanguage()
   const statusColors = {
     completed: 'bg-white/20 text-white',
     'in-progress': 'bg-white/20 text-white',
     upcoming: 'bg-white/20 text-white'
   }
 
-  const statusLabels = {
-    completed: 'Completado',
-    'in-progress': 'En Progreso',
-    upcoming: 'Próximamente'
+  const statusLabelKeys = {
+    completed: 'trabajos.estadoCompletado',
+    'in-progress': 'trabajos.estadoEnProgreso',
+    upcoming: 'trabajos.estadoProximamente'
   }
 
   return (
@@ -40,7 +42,7 @@ function ProjectCard({ project, onClick }: { project: ScoutingProject; onClick: 
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-black/10" />
         <div className="absolute bottom-4 left-5">
           <span className={`px-2.5 py-1 text-xs font-medium rounded-full backdrop-blur-sm ${statusColors[project.status]}`}>
-            {statusLabels[project.status]}
+            {t(statusLabelKeys[project.status])}
           </span>
         </div>
         <div className="absolute top-4 right-4 text-white/90 text-sm font-semibold drop-shadow">
@@ -74,14 +76,14 @@ function ProjectCard({ project, onClick }: { project: ScoutingProject; onClick: 
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
-            <span>{project.totalPlayers} jugadores</span>
+            <span>{t('trabajos.countJugadores').replace('{count}', String(project.totalPlayers))}</span>
           </div>
           {project.highlightedPlayers > 0 && (
             <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/>
               </svg>
-              <span>{project.highlightedPlayers} destacados</span>
+              <span>{t('trabajos.countDestacados').replace('{count}', String(project.highlightedPlayers))}</span>
             </div>
           )}
         </div>
@@ -115,6 +117,7 @@ function ProjectCard({ project, onClick }: { project: ScoutingProject; onClick: 
 
 // Player Row Component
 function PlayerRow({ player, index }: { player: ScoutedPlayer; index: number }) {
+  const { t } = useLanguage()
   const [expanded, setExpanded] = useState(false)
 
   return (
@@ -151,7 +154,7 @@ function PlayerRow({ player, index }: { player: ScoutedPlayer; index: number }) 
             </span>
           </div>
           <div className="text-xs text-apple-gray-500 dark:text-apple-gray-400 truncate">
-            {player.Club} · {player.Edad} años
+            {player.Club} · {player.Edad} {t('externo.anios')}
           </div>
         </div>
 
@@ -170,7 +173,7 @@ function PlayerRow({ player, index }: { player: ScoutedPlayer; index: number }) 
             rel="noopener noreferrer"
             onClick={e => e.stopPropagation()}
             className="p-1.5 text-apple-gray-400 hover:text-brand-green transition-colors"
-            title="Ver en Transfermarkt"
+            title={t('trabajos.verEnTransfermarkt')}
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
@@ -190,7 +193,7 @@ function PlayerRow({ player, index }: { player: ScoutedPlayer; index: number }) 
           <div className="ml-11 p-3 bg-apple-gray-50 dark:bg-apple-gray-800/50 rounded-xl">
             <div className="flex items-center gap-2 mb-2">
               <span className="text-xs font-medium text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider">
-                Rol:
+                {t('trabajos.rol')}
               </span>
               <span className="text-sm text-apple-gray-700 dark:text-apple-gray-300">
                 {player.Rol}
@@ -208,6 +211,7 @@ function PlayerRow({ player, index }: { player: ScoutedPlayer; index: number }) 
 
 // Formation View — all scouted players mapped on pitch by zone
 function FormationView({ players }: { players: ScoutedPlayer[] }) {
+  const { t } = useLanguage()
   const getInitials = (name: string) =>
     name.split(' ').slice(0, 2).map(n => n[0].toUpperCase()).join('')
 
@@ -219,7 +223,7 @@ function FormationView({ players }: { players: ScoutedPlayer[] }) {
   const zones = [
     {
       key: 'attack',
-      label: 'Ataque',
+      label: t('trabajos.ataque'),
       players: players.filter(p => {
         const pos = p.Posicion.toLowerCase()
         return pos.includes('extremo') || pos.includes('delantero') || pos.includes('enganche')
@@ -227,7 +231,7 @@ function FormationView({ players }: { players: ScoutedPlayer[] }) {
     },
     {
       key: 'mid',
-      label: 'Mediocampo',
+      label: t('trabajos.mediocampo'),
       players: players.filter(p => {
         const pos = p.Posicion.toLowerCase()
         return pos.includes('volante') || pos.includes('interior') || pos.includes('medio')
@@ -235,7 +239,7 @@ function FormationView({ players }: { players: ScoutedPlayer[] }) {
     },
     {
       key: 'def',
-      label: 'Defensa',
+      label: t('trabajos.defensa'),
       players: players.filter(p => {
         const pos = p.Posicion.toLowerCase()
         return (pos.includes('defensor') || pos.includes('lateral') || pos.includes('central')) &&
@@ -244,7 +248,7 @@ function FormationView({ players }: { players: ScoutedPlayer[] }) {
     },
     {
       key: 'gk',
-      label: 'Portería',
+      label: t('trabajos.porteria'),
       players: players.filter(p => {
         const pos = p.Posicion.toLowerCase()
         return pos.includes('arquero') || pos.includes('portero')
@@ -294,13 +298,13 @@ function FormationView({ players }: { players: ScoutedPlayer[] }) {
       <div className="flex items-center gap-6 px-4 py-2.5 bg-apple-gray-50 dark:bg-apple-gray-800/80 border-t border-apple-gray-100 dark:border-apple-gray-700 text-xs text-apple-gray-500 dark:text-apple-gray-400">
         <div className="flex items-center gap-1.5">
           <div className="w-3 h-3 rounded-full bg-amber-400" />
-          <span>Destacado</span>
+          <span>{t('trabajos.destacado')}</span>
         </div>
         <div className="flex items-center gap-1.5">
           <div className="w-3 h-3 rounded-full border border-apple-gray-300 dark:border-apple-gray-600 bg-apple-gray-200 dark:bg-apple-gray-700" />
-          <span>Evaluado</span>
+          <span>{t('trabajos.evaluado')}</span>
         </div>
-        <span className="ml-auto">{players.length} jugadores</span>
+        <span className="ml-auto">{t('trabajos.countJugadores').replace('{count}', String(players.length))}</span>
       </div>
     </div>
   )
@@ -308,6 +312,7 @@ function FormationView({ players }: { players: ScoutedPlayer[] }) {
 
 // Project Detail View
 function ProjectDetail({ project, onBack }: { project: ScoutingProject; onBack: () => void }) {
+  const { t } = useLanguage()
   const [filter, setFilter] = useState<'all' | 'highlighted'>('all')
   const [positionFilter, setPositionFilter] = useState<string>('all')
   const [searchTerm, setSearchTerm] = useState('')
@@ -339,7 +344,7 @@ function ProjectDetail({ project, onBack }: { project: ScoutingProject; onBack: 
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
-          Volver a Proyectos
+          {t('trabajos.volverAProyectos')}
         </button>
 
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
@@ -372,7 +377,7 @@ function ProjectDetail({ project, onBack }: { project: ScoutingProject; onBack: 
             </svg>
             <input
               type="text"
-              placeholder="Buscar jugador..."
+              placeholder={t('trabajos.buscarJugador')}
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
               className="w-full pl-9 pr-4 py-2 text-sm bg-apple-gray-50 dark:bg-apple-gray-700 border border-apple-gray-200 dark:border-apple-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-green/50 text-apple-gray-800 dark:text-white"
@@ -389,7 +394,7 @@ function ProjectDetail({ project, onBack }: { project: ScoutingProject; onBack: 
                   : 'text-apple-gray-600 dark:text-apple-gray-400'
               }`}
             >
-              Todos
+              {t('trabajos.todos')}
             </button>
             <button
               onClick={() => setFilter('highlighted')}
@@ -402,7 +407,7 @@ function ProjectDetail({ project, onBack }: { project: ScoutingProject; onBack: 
               <svg className="w-3.5 h-3.5 text-amber-500" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/>
               </svg>
-              Destacados
+              {t('trabajos.destacadosFiltro')}
             </button>
           </div>
 
@@ -412,7 +417,7 @@ function ProjectDetail({ project, onBack }: { project: ScoutingProject; onBack: 
             onChange={e => setPositionFilter(e.target.value)}
             className="px-3 py-2 text-sm bg-apple-gray-50 dark:bg-apple-gray-700 border border-apple-gray-200 dark:border-apple-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-green/50 text-apple-gray-800 dark:text-white"
           >
-            <option value="all">Todas las posiciones</option>
+            <option value="all">{t('trabajos.todasLasPosiciones')}</option>
             {positions.map(pos => (
               <option key={pos} value={pos}>{pos}</option>
             ))}
@@ -424,13 +429,13 @@ function ProjectDetail({ project, onBack }: { project: ScoutingProject; onBack: 
       <div className="bg-white dark:bg-apple-gray-800 rounded-xl border border-apple-gray-200 dark:border-apple-gray-700 overflow-hidden">
         <div className="px-4 py-3 border-b border-apple-gray-200 dark:border-apple-gray-700 bg-apple-gray-50 dark:bg-apple-gray-800/50">
           <h3 className="font-semibold text-apple-gray-800 dark:text-white">
-            Jugadores ({filteredPlayers.length})
+            {t('trabajos.jugadoresConCount').replace('{count}', String(filteredPlayers.length))}
           </h3>
         </div>
 
         {filteredPlayers.length === 0 ? (
           <div className="p-8 text-center text-apple-gray-500 dark:text-apple-gray-400">
-            No se encontraron jugadores con los filtros seleccionados.
+            {t('trabajos.sinJugadoresFiltro')}
           </div>
         ) : (
           <div className="divide-y divide-apple-gray-100 dark:divide-apple-gray-700/50">
@@ -446,6 +451,7 @@ function ProjectDetail({ project, onBack }: { project: ScoutingProject; onBack: 
 
 // Main Page Component
 export default function ScoutingWorksPage() {
+  const { t } = useLanguage()
   const [selectedProject, setSelectedProject] = useState<ScoutingProject | null>(null)
 
   if (selectedProject) {
@@ -461,10 +467,10 @@ export default function ScoutingWorksPage() {
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-apple-gray-800 dark:text-white tracking-tight">
-          Trabajos de Scouting
+          {t('trabajos.titulo')}
         </h1>
         <p className="text-sm text-apple-gray-500 dark:text-apple-gray-400 mt-1">
-          Proyectos de scouting y evaluación de talentos en competiciones juveniles
+          {t('trabajos.subtitulo')}
         </p>
       </div>
 
@@ -486,7 +492,7 @@ export default function ScoutingWorksPage() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
           </svg>
           <p className="text-sm text-apple-gray-500 dark:text-apple-gray-400">
-            Más proyectos de scouting próximamente
+            {t('trabajos.masProyectos')}
           </p>
         </div>
       )}
