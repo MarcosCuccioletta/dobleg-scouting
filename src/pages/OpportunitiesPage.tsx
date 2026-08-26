@@ -16,6 +16,8 @@ import {
   type MarketTag,
 } from '@/utils/opportunities'
 import type { RecentFormPlayer } from '@/types/scoring'
+import { useCurrency } from '@/context/CurrencyContext'
+import { formatMarketValueInCurrency } from '@/utils/scoring'
 
 const CHEAP_MAX = 5_000_000
 const CONTRACT_MAX = 12
@@ -25,16 +27,11 @@ const TAG_LABELS: Record<MarketTag, string> = {
   cheap: 'Precio bajo',
 }
 
-function formatValue(value: number): string {
-  if (value >= 1_000_000) return `€${(value / 1_000_000).toFixed(1)}M`
-  if (value >= 1_000) return `€${Math.round(value / 1_000)}K`
-  return `€${value}`
-}
-
 type FilterType = 'all' | 'contract' | 'cheap'
 
 export default function OpportunitiesPage() {
   const navigate = useNavigate()
+  const { currency, rate } = useCurrency()
 
   const [windowMonths, setWindowMonths] = useState<number>(3)
   const { players: allPlayers, loading } = useRecentForm({
@@ -241,7 +238,7 @@ export default function OpportunitiesPage() {
           <label className="block text-xs font-medium text-apple-gray-500 dark:text-apple-gray-400 mb-2">
             Valor:{' '}
             <span className="text-brand-green font-semibold">
-              €{(minValue / 1_000_000).toFixed(1)}M - €{(maxValue / 1_000_000).toFixed(1)}M
+              {formatMarketValueInCurrency(minValue, currency, rate)} - {formatMarketValueInCurrency(maxValue, currency, rate)}
             </span>
           </label>
           <div className="space-y-2">
@@ -452,7 +449,7 @@ export default function OpportunitiesPage() {
                   <div>
                     <span className="text-apple-gray-400">Valor: </span>
                     <span className="font-medium text-apple-gray-700 dark:text-apple-gray-200">
-                      {p.market_value_eur ? formatValue(p.market_value_eur) : '—'}
+                      {p.market_value_eur ? formatMarketValueInCurrency(p.market_value_eur, currency, rate) : '—'}
                     </span>
                   </div>
                   {contractMonths != null && contractMonths >= 0 && (

@@ -18,6 +18,8 @@ import {
   type ApiMetricKey,
 } from '@/constants/apiMetrics'
 import { getScoreColorClass, getScoreBgClass } from '@/components/ui/ScoreBar'
+import { formatMarketValue } from '@/utils/scoring'
+import { useCurrency } from '@/context/CurrencyContext'
 import type { EnrichedPlayer } from '@/types'
 
 // ─── Helper: adapt PlayerWithScore → EnrichedPlayer (for PDF export) ─────────
@@ -29,10 +31,6 @@ function playerToEnriched(p: PlayerWithScore): EnrichedPlayer {
     : null
 
   const mv = p.market_value_eur
-  const mvFormatted = mv == null ? '—'
-    : mv >= 1_000_000 ? `€${(mv / 1_000_000).toFixed(mv % 1_000_000 === 0 ? 0 : 1)}M`
-    : mv >= 1_000 ? `€${(mv / 1_000).toFixed(0)}K`
-    : `€${mv}`
 
   return {
     Jugador: p.name,
@@ -44,7 +42,7 @@ function playerToEnriched(p: PlayerWithScore): EnrichedPlayer {
     'País de nacimiento': p.nationality ?? '',
     Pie: p.preferred_foot ?? '',
     Altura: p.height_cm != null ? String(p.height_cm) : '',
-    'Valor de mercado (Transfermarkt)': mvFormatted,
+    'Valor de mercado (Transfermarkt)': mv == null ? '—' : formatMarketValue(mv),
     'Vencimiento contrato': p.contract_end_date ?? '',
     'Partidos jugados': score ? String(score.matches_played) : '',
     'Minutos jugados': '',
@@ -61,7 +59,6 @@ function playerToEnriched(p: PlayerWithScore): EnrichedPlayer {
     source: 'externo',
     contractStatus: 'ok',
     monthsRemaining: null,
-    marketValueFormatted: mvFormatted,
     marketValueRaw: mv ?? 0,
     minutesPlayed: score ? score.matches_played * 90 : 0,
     ageNum: age ?? 0,
@@ -244,6 +241,7 @@ export default function BusquedaPage() {
   // mundo" y daban un "prom. liga" / "5° de 30" estadísticamente engañoso.
   const { players: allPlayers, loading } = usePlayersList({ pageSize: 500 })
   const { metricAverages } = usePositionMetricAverages()
+  const { currency, rate } = useCurrency()
 
   const [query, setQuery] = useState('')
   const [showDropdown, setShowDropdown] = useState(false)

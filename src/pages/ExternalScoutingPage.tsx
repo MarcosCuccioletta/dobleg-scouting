@@ -9,6 +9,8 @@ import { PlayerPhoto, TeamLogo } from '@/components/ui/PlayerPhoto'
 import type { Position, PlayerWithScore } from '@/types/scoring'
 import { POSITION_DISPLAY, displayPosition } from '@/types/scoring'
 import { useAuth } from '@/context/AuthContext'
+import { useCurrency } from '@/context/CurrencyContext'
+import { formatMarketValueInCurrency } from '@/utils/scoring'
 import { addScoutPlayer } from '@/services/scoutPlayersService'
 import MobileSheet from '@/components/ui/MobileSheet'
 import MobileFilterPanel, { MobileFilterButton } from '@/components/filters/MobileFilterPanel'
@@ -57,12 +59,6 @@ const MARKET_VALUE_STEPS = [
   0, 50_000, 100_000, 200_000, 500_000, 1_000_000, 2_000_000,
   5_000_000, 10_000_000, 20_000_000, 50_000_000,
 ]
-
-function formatValue(v: number): string {
-  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(v % 1_000_000 === 0 ? 0 : 1)}M`
-  if (v >= 1_000) return `${(v / 1_000).toFixed(0)}K`
-  return String(v)
-}
 
 const STORAGE_KEY = 'external_scouting_supabase_filters'
 
@@ -331,6 +327,7 @@ function ScoutingFilters({
   agentInline?: boolean
 }) {
   const { t } = useLanguage()
+  const { currency, rate } = useCurrency()
   const selectCls = 'input-apple text-xs py-2 lg:py-1.5 px-3 w-full lg:w-auto lg:min-w-0'
 
   return (
@@ -449,7 +446,7 @@ function ScoutingFilters({
             <span className="text-xs font-medium text-apple-gray-500 dark:text-apple-gray-400">{t('externo.valorMercado')}</span>
             <span className="text-xs font-semibold text-apple-gray-700 dark:text-apple-gray-200 tabular-nums">
               {filters.min_market_value > 0 || filters.max_market_value < 50_000_000
-                ? `€${formatValue(filters.min_market_value)} – €${formatValue(filters.max_market_value)}`
+                ? `${formatMarketValueInCurrency(filters.min_market_value, currency, rate)} – ${formatMarketValueInCurrency(filters.max_market_value, currency, rate)}`
                 : t('externo.todos')}
             </span>
           </div>
@@ -492,6 +489,7 @@ export default function ExternalScoutingPage() {
   const { language, t } = useLanguage()
   const navigate = useNavigate()
   const leagues = useLeagues()
+  const { currency, rate } = useCurrency()
   const [filters, setFilters] = useState<Filters>(loadFilters)
   const [page, setPage] = useState(0)
   const [teams, setTeams] = useState<TeamInfo[]>([])
@@ -729,7 +727,7 @@ export default function ExternalScoutingPage() {
             <span className="text-xs font-medium text-apple-gray-500 dark:text-apple-gray-400">{t('externo.valorMercado')}</span>
             <span className="text-xs font-semibold text-apple-gray-700 dark:text-apple-gray-200 tabular-nums">
               {filters.min_market_value > 0 || filters.max_market_value < 50_000_000
-                ? `€${formatValue(filters.min_market_value)} – €${formatValue(filters.max_market_value)}`
+                ? `${formatMarketValueInCurrency(filters.min_market_value, currency, rate)} – ${formatMarketValueInCurrency(filters.max_market_value, currency, rate)}`
                 : t('externo.todos')}
             </span>
           </div>
@@ -894,7 +892,7 @@ export default function ExternalScoutingPage() {
                         </td>
                         <td className="py-2.5 px-3 text-right text-sm text-apple-gray-600 dark:text-apple-gray-300 tabular-nums">
                           {player.market_value_eur
-                            ? `€${formatValue(player.market_value_eur)}`
+                            ? formatMarketValueInCurrency(player.market_value_eur, currency, rate)
                             : '—'}
                         </td>
                         <td className="py-2.5 px-3 text-center text-sm text-apple-gray-600 dark:text-apple-gray-300 tabular-nums">

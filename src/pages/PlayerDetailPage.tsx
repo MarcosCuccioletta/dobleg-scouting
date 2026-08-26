@@ -24,7 +24,8 @@ import GPSTab from '@/components/charts/GPSTab'
 import ExportPDFModal, { type PDFTheme } from '@/components/ui/ExportPDFModal'
 import { exportPlayerToPdfFull } from '@/utils/pdfExport'
 import AddToReportButton from '@/components/pdf/AddToReportButton'
-import { normalizeName } from '@/utils/scoring'
+import { normalizeName, formatMarketValueInCurrency } from '@/utils/scoring'
+import { useCurrency } from '@/context/CurrencyContext'
 import { currentClubFromMatches, resolveDisplayClub } from '@/utils/currentClub'
 import { fuzzyMatch } from '@/lib/search'
 import { POSITION_MAP, DISPLAY_POSITION_MAP, DISPLAY_METRICS, RADAR_METRICS, METRIC_ABBREVIATIONS } from '@/constants/scoring'
@@ -598,6 +599,7 @@ export default function PlayerDetailPage() {
   const apiIdParam = searchParams.get('apiId')
   const overridePosition = searchParams.get('pos')
   const { external, internal, monitoring, normalized, evolution, subjectiveMetrics, marketValueHistory, gpsEntries, gpsMetrics, agencyPlayers, loading, error } = useData()
+  const { currency, rate } = useCurrency()
   const [activeTab, setActiveTab] = useState('General')
   const [selectedPosition, setSelectedPosition] = useState<Position | null>(null)
   const [comparisonLeague, setComparisonLeague] = useState<string>('all')
@@ -1089,6 +1091,8 @@ export default function PlayerDetailPage() {
       marketValueHistory: playerMarketValueHistory,
       metricPercentiles,
       radarData: computeRadarData,
+      currency,
+      rate,
     })
   }
 
@@ -1685,7 +1689,7 @@ export default function PlayerDetailPage() {
                       <div className="bg-gradient-to-br from-apple-gray-50 to-white dark:from-apple-gray-800/50 dark:to-apple-gray-800 rounded-xl p-4 border border-apple-gray-100 dark:border-apple-gray-700">
                         <p className="text-2xs text-apple-gray-500 uppercase tracking-wider mb-1">Valor</p>
                         <p className="text-2xl font-bold text-brand-green tabular-nums">
-                          {player.marketValueFormatted || '—'}
+                          {formatMarketValueInCurrency(player.marketValueRaw, currency, rate)}
                         </p>
                       </div>
                       <div className="bg-gradient-to-br from-apple-gray-50 to-white dark:from-apple-gray-800/50 dark:to-apple-gray-800 rounded-xl p-4 border border-apple-gray-100 dark:border-apple-gray-700">
@@ -1733,7 +1737,7 @@ export default function PlayerDetailPage() {
                           )}
                         </span>
                       </div>
-                      <InfoRow label="Valor de mercado" value={player.marketValueFormatted} />
+                      <InfoRow label="Valor de mercado" value={formatMarketValueInCurrency(player.marketValueRaw, currency, rate)} />
                       {player.Representante && <InfoRow label="Representante" value={player.Representante} />}
                     </div>
                   </div>
@@ -2003,7 +2007,7 @@ export default function PlayerDetailPage() {
                           </svg>
                         </div>
                         <div className="text-center py-2">
-                          <p className="text-3xl font-bold text-brand-green">{player.marketValueFormatted || '—'}</p>
+                          <p className="text-3xl font-bold text-brand-green">{formatMarketValueInCurrency(player.marketValueRaw, currency, rate)}</p>
                           <p className="text-xs text-apple-gray-400 mt-1">Valor de mercado actual</p>
                           {playerMarketValueHistory.length > 1 && (
                             <p className="text-xs text-apple-gray-500 mt-2">

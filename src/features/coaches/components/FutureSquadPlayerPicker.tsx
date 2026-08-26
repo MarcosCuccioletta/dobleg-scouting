@@ -11,6 +11,8 @@ import {
   POSITION_DISPLAY_NAME,
   FORMATION_DISPLAY_OVERRIDES,
 } from '@/constants/formations'
+import { useCurrency } from '@/context/CurrencyContext'
+import { formatMarketValueInCurrency } from '@/utils/scoring'
 
 type PickerTab = 'plantel' | 'sugeridos' | 'buscar'
 
@@ -37,6 +39,7 @@ export default function FutureSquadPlayerPicker({
   onSelectCandidate: (player: PlayerWithScore) => void
   onClose: () => void
 }) {
+  const { currency, rate } = useCurrency()
   const [activeTab, setActiveTab] = useState<PickerTab>('plantel')
   const [searchQuery, setSearchQuery] = useState('')
   const searchInputRef = useRef<HTMLInputElement>(null)
@@ -245,9 +248,9 @@ export default function FutureSquadPlayerPicker({
                   className="min-h-[32px] rounded-lg border border-apple-gray-200 dark:border-apple-gray-700 bg-white dark:bg-apple-gray-900 px-2 text-2xs text-apple-gray-700 dark:text-apple-gray-300"
                 >
                   <option value="">Cualquier valor</option>
-                  <option value="500000">Hasta 500.000 €</option>
-                  <option value="1000000">Hasta 1.000.000 €</option>
-                  <option value="5000000">Hasta 5.000.000 €</option>
+                  <option value="500000">Hasta {formatMarketValueInCurrency(500_000, currency, rate)}</option>
+                  <option value="1000000">Hasta {formatMarketValueInCurrency(1_000_000, currency, rate)}</option>
+                  <option value="5000000">Hasta {formatMarketValueInCurrency(5_000_000, currency, rate)}</option>
                 </select>
                 {suggestedCountries.length > 0 && (
                   <select

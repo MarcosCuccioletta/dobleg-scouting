@@ -3,6 +3,8 @@ import jsPDF from 'jspdf'
 import type { EnrichedPlayer, MarketValueHistoryEntry } from '@/types'
 import { POSITION_MAP, DISPLAY_METRICS, DISPLAY_POSITION_MAP } from '@/constants/scoring'
 import type { PDFTheme } from '@/components/ui/ExportPDFModal'
+import type { Currency } from '@/context/CurrencyContext'
+import { formatMarketValueInCurrency } from '@/utils/scoring'
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -22,6 +24,8 @@ export interface FullExportData {
   marketValueHistory?: MarketValueHistoryEntry[]
   metricPercentiles?: Record<string, number>
   radarData?: { metric: string; value: number; average: number }[]
+  currency: Currency
+  rate: number
 }
 
 // ─── COLORS ───────────────────────────────────────────────────────────────────
@@ -512,7 +516,7 @@ class PDF {
   }
 
   // Contract info
-  contractInfo(p: EnrichedPlayer) {
+  contractInfo(p: EnrichedPlayer, currency: Currency, rate: number) {
     const C = this.colors
     const h = 24
     this.card(this.M, this.y, this.W - this.M * 2, h)
@@ -525,7 +529,7 @@ class PDF {
     this.doc.text('VALOR DE MERCADO', this.M + 6, this.y + 8)
     this.doc.setFontSize(12)
     this.doc.setTextColor(...C.brand)
-    this.doc.text(p.marketValueFormatted || '—', this.M + 6, this.y + 17)
+    this.doc.text(formatMarketValueInCurrency(p.marketValueRaw, currency, rate), this.M + 6, this.y + 17)
 
     // Contract
     this.doc.setFontSize(7)
@@ -626,7 +630,7 @@ class PDF {
 // ─── MAIN EXPORT FUNCTION ─────────────────────────────────────────────────────
 
 export async function exportPlayerToPdfFull(data: FullExportData): Promise<void> {
-  const { player, source, sections, theme = 'light', positionAverageScore, subjectiveGroups, marketValueHistory, metricPercentiles } = data
+  const { player, source, sections, theme = 'light', positionAverageScore, subjectiveGroups, marketValueHistory, metricPercentiles, currency, rate } = data
 
   const pdf = new PDF(theme)
   await pdf.loadLogo()
@@ -650,7 +654,7 @@ export async function exportPlayerToPdfFull(data: FullExportData): Promise<void>
       pdf.scoutEval(subjectiveGroups)
     }
 
-    pdf.contractInfo(player)
+    pdf.contractInfo(player, currency, rate)
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

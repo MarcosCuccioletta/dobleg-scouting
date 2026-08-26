@@ -4,6 +4,9 @@ import type { VideoFreshness } from '@/types/videos'
 import { FILTER_POSITION_MAP, sortLeaguesByPriority } from '@/constants/scoring'
 import { displayPosition } from '@/types/scoring'
 import { fuzzyMatch } from '@/lib/search'
+import type { Currency } from '@/context/CurrencyContext'
+import { useCurrency } from '@/context/CurrencyContext'
+import { formatMarketValueInCurrency } from '@/utils/scoring'
 
 // Available metrics for column selection
 export const SELECTABLE_METRICS = [
@@ -103,13 +106,13 @@ function SliderInput({ label, value, min, max, step = 1, onChange, formatFn }: {
   )
 }
 
-function formatMV(v: number): string {
-  if (v >= 1_000_000) return `€${(v / 1_000_000).toFixed(1)}M`
-  if (v >= 1_000) return `€${Math.round(v / 1_000)}K`
-  return v === 0 ? 'Todos' : `€${v}`
+function formatMV(v: number, currency: Currency, rate: number): string {
+  if (v === 0) return 'Todos'
+  return formatMarketValueInCurrency(v, currency, rate)
 }
 
 export default function FilterSidebar({ players, filters, onChange, onReset, showVideoFreshness = false, inPanel = false }: FilterSidebarProps) {
+  const { currency, rate } = useCurrency()
   const update = <K extends keyof FilterState>(key: K, value: FilterState[K]) => {
     onChange({ ...filters, [key]: value })
   }
@@ -488,7 +491,7 @@ export default function FilterSidebar({ players, filters, onChange, onReset, sho
                 max={maxMarketValue}
                 step={250_000}
                 onChange={v => update('minMarketValue', v)}
-                formatFn={formatMV}
+                formatFn={v => formatMV(v, currency, rate)}
               />
               <SliderInput
                 label="Máximo"
@@ -497,7 +500,7 @@ export default function FilterSidebar({ players, filters, onChange, onReset, sho
                 max={maxMarketValue}
                 step={250_000}
                 onChange={v => update('maxMarketValue', v)}
-                formatFn={v => v === 0 || v >= maxMarketValue ? 'Sin máx' : formatMV(v)}
+                formatFn={v => v === 0 || v >= maxMarketValue ? 'Sin máx' : formatMV(v, currency, rate)}
               />
             </div>
           </Section>

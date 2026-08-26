@@ -5,6 +5,7 @@ import { useLanguage } from '@/context/LanguageContext'
 import { useAuth } from '@/context/AuthContext'
 import ThemeToggle from './ThemeToggle'
 import LanguageToggle from './LanguageToggle'
+import CurrencyToggle from './CurrencyToggle'
 import AuthModal from '@/components/auth/AuthModal'
 import { PDFBuilderFloatingButton } from '@/components/pdf/AddToReportButton'
 import { useSwipeToClose } from '@/hooks/useSwipeToClose'
@@ -357,6 +358,7 @@ export default function Navbar() {
           <div className="flex items-center gap-2">
             <PDFBuilderFloatingButton />
             <LanguageToggle />
+            <CurrencyToggle />
             <ThemeToggle />
 
             {/* User menu */}

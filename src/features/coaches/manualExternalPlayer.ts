@@ -1,5 +1,5 @@
 import { POSITION_MAP } from '@/constants/scoring'
-import { formatMarketValue, parseMarketValue } from '@/utils/scoring'
+import { parseMarketValue } from '@/utils/scoring'
 import type { EnrichedPlayer } from '@/types'
 import type { ManualExternalPlayerRow } from '@/services/manualExternalPlayersService'
 
@@ -49,7 +49,6 @@ export function manualExternalToEnriched(row: ManualExternalPlayerRow, ggScore: 
     source: 'externo',
     contractStatus: 'ok',
     monthsRemaining: null,
-    marketValueFormatted: formatMarketValue(marketValueRaw),
     marketValueRaw,
     minutesPlayed: 0,
     ageNum: row.age ?? 0,

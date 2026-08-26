@@ -9,7 +9,8 @@ import AddToReportButton from '@/components/pdf/AddToReportButton'
 import CopyChartButton from '@/components/ui/CopyChartButton'
 import type { EnrichedPlayer } from '@/types'
 import { useScoreLookup } from '@/hooks/usePlayerStats'
-import { normalizeName } from '@/utils/scoring'
+import { normalizeName, formatMarketValueInCurrency } from '@/utils/scoring'
+import { useCurrency } from '@/context/CurrencyContext'
 
 // Metrics organized by category for dropdown
 const METRIC_CATEGORIES = {
@@ -80,6 +81,7 @@ function normalizeToPercentile(value: number, sortedValues: number[]): number {
 
 export default function RadarAnalysisPage() {
   const { external, internal, loading } = useData()
+  const { currency, rate } = useCurrency()
   const allPlayers = useMemo(() => [...external, ...internal], [external, internal])
 
   // Score GG de la API, siempre 1-10. Sin entrada el jugador queda sin score.
@@ -483,7 +485,9 @@ export default function RadarAnalysisPage() {
                 <div className="flex justify-between items-center text-xs text-apple-gray-500">
                   <span>Valor de mercado</span>
                   <span className="text-brand-green font-medium">
-                    {marketValueRange[1] >= marketValueBounds.max ? 'Todos' : `≤ ${marketValueRange[1]}M`}
+                    {marketValueRange[1] >= marketValueBounds.max
+                      ? 'Todos'
+                      : `≤ ${formatMarketValueInCurrency(marketValueRange[1] * 1_000_000, currency, rate)}`}
                   </span>
                 </div>
                 <input
@@ -506,7 +510,7 @@ export default function RadarAnalysisPage() {
                           : 'bg-apple-gray-100 dark:bg-apple-gray-700 text-apple-gray-500 hover:bg-apple-gray-200'
                       }`}
                     >
-                      {max === Math.ceil(marketValueBounds.max) ? 'Todos' : `≤${max}M`}
+                      {max === Math.ceil(marketValueBounds.max) ? 'Todos' : `≤${formatMarketValueInCurrency(max * 1_000_000, currency, rate)}`}
                     </button>
                   ))}
                 </div>

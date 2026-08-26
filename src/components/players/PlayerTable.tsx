@@ -10,7 +10,8 @@ import { SELECTABLE_METRICS } from '@/components/filters/FilterSidebar'
 import { useData } from '@/context/DataContext'
 import { FILTER_POSITION_MAP } from '@/constants/scoring'
 import { useScoreLookup } from '@/hooks/usePlayerStats'
-import { normalizeName } from '@/utils/scoring'
+import { normalizeName, formatMarketValueInCurrency } from '@/utils/scoring'
+import { useCurrency } from '@/context/CurrencyContext'
 import { AGENCY_PLAYERS } from '@/constants/agencyPlayers'
 import { playerVideoKey } from '@/services/playerVideosService'
 import type { VideoFreshness } from '@/types/videos'
@@ -108,6 +109,7 @@ export default function PlayerTable({ players, source, isLoading, selectedMetric
   const navigate = useNavigate()
   const { positionAverages, videoFreshnessByKey } = useData()
   const { lookup: scoreLookup } = useScoreLookup()
+  const { currency, rate } = useCurrency()
   const [sort, setSort] = useState<SortState>({ column: 'ggScore', direction: 'desc' })
   const [page, setPage] = useState(1)
 
@@ -233,7 +235,7 @@ export default function PlayerTable({ players, source, isLoading, selectedMetric
                     {player['Posición']}
                   </span>
                 )}
-                <span className="ml-auto text-xs font-medium text-brand-green">{player.marketValueFormatted}</span>
+                <span className="ml-auto text-xs font-medium text-brand-green">{formatMarketValueInCurrency(player.marketValueRaw, currency, rate)}</span>
               </div>
             </div>
           )
@@ -341,7 +343,7 @@ export default function PlayerTable({ players, source, isLoading, selectedMetric
                   {/* Valor Mercado */}
                   <td className="px-3 py-3 text-right hidden sm:table-cell">
                     <span className="text-apple-gray-600 dark:text-apple-gray-300 text-xs font-medium tabular-nums">
-                      {player.marketValueFormatted}
+                      {formatMarketValueInCurrency(player.marketValueRaw, currency, rate)}
                     </span>
                   </td>
                   {/* Dynamic metric columns */}

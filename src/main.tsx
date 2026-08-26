@@ -4,6 +4,7 @@ import './index.css'
 import App from './App.tsx'
 import { ThemeProvider } from './context/ThemeContext.tsx'
 import { LanguageProvider } from './context/LanguageContext.tsx'
+import { CurrencyProvider } from './context/CurrencyContext.tsx'
 import { DataProvider } from './context/DataContext.tsx'
 import { AuthProvider } from './context/AuthContext.tsx'
 import { ErrorBoundary } from './components/ErrorBoundary.tsx'
@@ -18,13 +19,15 @@ createRoot(document.getElementById('root')!).render(
     <ErrorBoundary>
       <ThemeProvider>
         <LanguageProvider>
-          <AuthProvider>
-            <DataProvider>
-              <ScoutsGGProvider>
-                <App />
-              </ScoutsGGProvider>
-            </DataProvider>
-          </AuthProvider>
+          <CurrencyProvider>
+            <AuthProvider>
+              <DataProvider>
+                <ScoutsGGProvider>
+                  <App />
+                </ScoutsGGProvider>
+              </DataProvider>
+            </AuthProvider>
+          </CurrencyProvider>
         </LanguageProvider>
       </ThemeProvider>
     </ErrorBoundary>

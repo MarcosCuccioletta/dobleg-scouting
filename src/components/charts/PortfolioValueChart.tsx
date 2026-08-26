@@ -4,6 +4,8 @@ import {
   LineChart, Line, Legend
 } from 'recharts'
 import type { MarketValueHistoryEntry, EnrichedPlayer } from '@/types'
+import type { Currency } from '@/context/CurrencyContext'
+import { useCurrency } from '@/context/CurrencyContext'
 
 interface PortfolioValueChartProps {
   data: MarketValueHistoryEntry[]
@@ -11,17 +13,20 @@ interface PortfolioValueChartProps {
   onPlayerClick?: (playerName: string) => void
 }
 
-function formatValue(value: number): string {
-  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`
-  if (value >= 1_000) return `${Math.round(value / 1_000)}K`
-  return `${value}`
+function formatValue(value: number, currency: Currency, rate: number): string {
+  const converted = currency === 'USD' ? value * rate : value
+  if (converted >= 1_000_000) return `${(converted / 1_000_000).toFixed(1)}M`
+  if (converted >= 1_000) return `${Math.round(converted / 1_000)}K`
+  return `${Math.round(converted)}`
 }
 
-function formatFullValue(value: number): string {
-  if (value >= 1_000_000) {
-    return `€${(value / 1_000_000).toFixed(2)} millones`
+function formatFullValue(value: number, currency: Currency, rate: number): string {
+  const converted = currency === 'USD' ? value * rate : value
+  const symbol = currency === 'USD' ? '$' : '€'
+  if (converted >= 1_000_000) {
+    return `${symbol}${(converted / 1_000_000).toFixed(2)} millones`
   }
-  return `€${value.toLocaleString('es-AR')}`
+  return `${symbol}${converted.toLocaleString('es-AR')}`
 }
 
 // Colors for player comparison
@@ -47,7 +52,10 @@ interface CustomTooltipProps {
 }
 
 function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
+  const { currency, rate } = useCurrency()
   if (!active || !payload?.length) return null
+
+  const symbol = currency === 'USD' ? '$' : '€'
 
   return (
     <div className="bg-white dark:bg-apple-gray-800 rounded-xl shadow-lg border border-apple-gray-200 dark:border-apple-gray-700 p-4">
@@ -57,7 +65,7 @@ function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
           <div className="w-3 h-3 rounded-full" style={{ backgroundColor: entry.color }} />
           <span className="text-xs text-apple-gray-600 dark:text-apple-gray-300">{entry.name}:</span>
           <span className="text-xs font-bold text-apple-gray-800 dark:text-white">
-            €{formatValue(entry.value)}
+            {symbol}{formatValue(entry.value, currency, rate)}
           </span>
         </div>
       ))}
@@ -105,6 +113,8 @@ function Sparkline({ data, trend }: { data: number[]; trend: 'up' | 'down' | 'st
 }
 
 export default function PortfolioValueChart({ data, players, onPlayerClick }: PortfolioValueChartProps) {
+  const { currency, rate } = useCurrency()
+  const symbol = currency === 'USD' ? '$' : '€'
   const [selectedPlayers, setSelectedPlayers] = useState<string[]>([])
   const [view, setView] = useState<'portfolio' | 'compare' | 'trends'>('portfolio')
 
@@ -319,7 +329,7 @@ export default function PortfolioValueChart({ data, players, onPlayerClick }: Po
           <div className="text-right">
             <p className="text-xs text-apple-gray-400">Valor total del portfolio</p>
             <p className="text-xl font-bold text-apple-gray-800 dark:text-white">
-              €{formatValue(currentTotal)}
+              {symbol}{formatValue(currentTotal, currency, rate)}
             </p>
             <p className={`text-xs font-medium ${portfolioGrowth >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
               {portfolioGrowth >= 0 ? '+' : ''}{portfolioGrowth.toFixed(1)}% historico
@@ -342,7 +352,7 @@ export default function PortfolioValueChart({ data, players, onPlayerClick }: Po
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-apple-gray-200 dark:text-apple-gray-700" vertical={false} />
                 <XAxis dataKey="date" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
-                <YAxis tickFormatter={(val) => `€${formatValue(val)}`} tick={{ fontSize: 11 }} tickLine={false} axisLine={false} width={70} />
+                <YAxis tickFormatter={(val) => `${symbol}${formatValue(val, currency, rate)}`} tick={{ fontSize: 11 }} tickLine={false} axisLine={false} width={70} />
                 <Tooltip content={<CustomTooltip />} />
                 <Area
                   type="monotone"
@@ -400,7 +410,7 @@ export default function PortfolioValueChart({ data, players, onPlayerClick }: Po
                   <LineChart data={comparisonData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-apple-gray-200 dark:text-apple-gray-700" vertical={false} />
                     <XAxis dataKey="date" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
-                    <YAxis tickFormatter={(val) => `€${formatValue(val)}`} tick={{ fontSize: 11 }} tickLine={false} axisLine={false} width={70} />
+                    <YAxis tickFormatter={(val) => `${symbol}${formatValue(val, currency, rate)}`} tick={{ fontSize: 11 }} tickLine={false} axisLine={false} width={70} />
                     <Tooltip content={<CustomTooltip />} />
                     <Legend />
                     {selectedPlayers.map((name, i) => (
@@ -452,7 +462,7 @@ export default function PortfolioValueChart({ data, players, onPlayerClick }: Po
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-apple-gray-800 dark:text-white text-sm truncate">{p.name}</p>
                     <p className="text-xs text-apple-gray-500">
-                      €{formatValue(p.initialValue)} → €{formatValue(p.currentValue)}
+                      {symbol}{formatValue(p.initialValue, currency, rate)} → {symbol}{formatValue(p.currentValue, currency, rate)}
                     </p>
                   </div>
                   <div className="text-right">
@@ -489,7 +499,7 @@ export default function PortfolioValueChart({ data, players, onPlayerClick }: Po
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-apple-gray-800 dark:text-white text-sm truncate">{p.name}</p>
                     <p className="text-xs text-apple-gray-500">
-                      €{formatValue(p.peakValue)} → €{formatValue(p.currentValue)}
+                      {symbol}{formatValue(p.peakValue, currency, rate)} → {symbol}{formatValue(p.currentValue, currency, rate)}
                     </p>
                   </div>
                   <div className="text-right">
@@ -520,7 +530,7 @@ export default function PortfolioValueChart({ data, players, onPlayerClick }: Po
               >
                 <div className="min-w-0 flex-1">
                   <p className="font-medium text-apple-gray-800 dark:text-white text-sm truncate">{p.name}</p>
-                  <p className="text-xs text-apple-gray-500">€{formatValue(p.currentValue)}</p>
+                  <p className="text-xs text-apple-gray-500">{symbol}{formatValue(p.currentValue, currency, rate)}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className={`text-xs font-semibold ${
