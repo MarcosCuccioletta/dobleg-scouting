@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { searchMarketTeams } from '@/services/marketService'
 import { TeamLogo } from '@/components/ui/PlayerPhoto'
+import { useLanguage } from '@/context/LanguageContext'
 import type { MarketTeamSearchResult } from '@/types/market'
 
 export default function TeamSearchSelect({
@@ -10,6 +11,7 @@ export default function TeamSearchSelect({
   value: MarketTeamSearchResult | null
   onChange: (team: MarketTeamSearchResult) => void
 }) {
+  const { t } = useLanguage()
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<MarketTeamSearchResult[]>([])
   const [open, setOpen] = useState(false)
@@ -48,7 +50,7 @@ export default function TeamSearchSelect({
             value={query}
             onChange={e => { setQuery(e.target.value); setOpen(true) }}
             onFocus={() => setOpen(true)}
-            placeholder="Buscar club..."
+            placeholder={t('mercado.buscarClub')}
             className="input-apple text-sm w-full"
           />
         )}

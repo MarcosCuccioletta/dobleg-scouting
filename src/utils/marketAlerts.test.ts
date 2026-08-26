@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computeAlerts, countMeetings, buildPlayerPhotoUrl, type AlertableItem } from './marketAlerts'
+import { computeAlerts, countMeetings, buildPlayerPhotoUrl, isValidFollowupDate, type AlertableItem } from './marketAlerts'
 
 function item(over: Partial<AlertableItem> & Pick<AlertableItem, 'id' | 'kind'>): AlertableItem {
   return { status: 'contactado', assigned_to_id: null, next_followup_date: null, ...over }
@@ -72,5 +72,28 @@ describe('buildPlayerPhotoUrl', () => {
 
   it('sin id, devuelve null', () => {
     expect(buildPlayerPhotoUrl(null)).toBeNull()
+  })
+})
+
+describe('isValidFollowupDate', () => {
+  it('acepta una fecha real en formato yyyy-mm-dd', () => {
+    expect(isValidFollowupDate('2026-08-29')).toBe(true)
+  })
+
+  it('rechaza un año corrupto de mas de 4 digitos (bug real: tipeo en el input nativo produjo "92026-02-08")', () => {
+    expect(isValidFollowupDate('92026-02-08')).toBe(false)
+  })
+
+  it('rechaza un mes invalido', () => {
+    expect(isValidFollowupDate('2026-29-08')).toBe(false)
+  })
+
+  it('rechaza un dia que no existe para ese mes (ej. 31 de febrero)', () => {
+    expect(isValidFollowupDate('2026-02-31')).toBe(false)
+  })
+
+  it('rechaza string vacio o mal formado', () => {
+    expect(isValidFollowupDate('')).toBe(false)
+    expect(isValidFollowupDate('29/08/2026')).toBe(false)
   })
 })

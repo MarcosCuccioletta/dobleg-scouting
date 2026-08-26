@@ -4,11 +4,14 @@ import TeamSearchSelect from './TeamSearchSelect'
 import AssigneeSelect from './AssigneeSelect'
 import PlayerLinkField from './PlayerLinkField'
 import { createNegotiation } from '@/services/marketService'
+import { isValidFollowupDate } from '@/utils/marketAlerts'
 import { useAuth } from '@/context/AuthContext'
+import { useLanguage } from '@/context/LanguageContext'
 import type { Negotiation, MarketTeamSearchResult } from '@/types/market'
 
 export default function NewNegotiationForm({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated: (negotiation: Negotiation) => void }) {
   const { user, userDisplayName } = useAuth()
+  const { t } = useLanguage()
   const [team, setTeam] = useState<MarketTeamSearchResult | null>(null)
   const [playerName, setPlayerName] = useState('')
   const [playerApiId, setPlayerApiId] = useState<number | null>(null)
@@ -56,13 +59,13 @@ export default function NewNegotiationForm({ open, onClose, onCreated }: { open:
         contact_role: contactRole || null,
         assigned_to_id: assigneeId,
         assigned_to_name: assigneeName || null,
-        next_followup_date: followupDate || null,
+        next_followup_date: followupDate && isValidFollowupDate(followupDate) ? followupDate : null,
       },
       user?.id ?? null,
       userDisplayName || 'Usuario',
     )
     setSaving(false)
-    if (!result) { setError('No se pudo guardar. Probá de nuevo.'); return }
+    if (!result) { setError(t('mercado.errorGuardar')); return }
     onCreated(result)
     setTeam(null)
     setPlayerName('')
@@ -76,55 +79,57 @@ export default function NewNegotiationForm({ open, onClose, onCreated }: { open:
   }
 
   return (
-    <MobileSheet open={open} onClose={onClose} title="Nueva negociación">
+    <MobileSheet open={open} onClose={onClose} title={t('mercado.nuevaNegociacion')}>
       <div className="space-y-4 p-4">
         <div>
-          <label className="block text-xs font-medium text-apple-gray-500 mb-1.5">Club</label>
+          <label className="block text-xs font-medium text-apple-gray-500 mb-1.5">{t('mercado.club')}</label>
           <TeamSearchSelect value={team} onChange={setTeam} />
         </div>
         <div>
-          <label className="block text-xs font-medium text-apple-gray-500 mb-1.5">Jugador</label>
+          <label className="block text-xs font-medium text-apple-gray-500 mb-1.5">{t('mercado.jugador')}</label>
           <input
             type="text"
             value={playerName}
             onChange={e => setPlayerName(e.target.value)}
-            placeholder="Nombre del jugador"
+            placeholder={t('mercado.nombreJugadorPlaceholder')}
             className="input-apple text-sm w-full mb-2"
           />
           <PlayerLinkField playerName={playerName} playerApiId={playerApiId} onChange={setPlayerApiId} />
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-medium text-apple-gray-500 mb-1.5">Contacto</label>
+            <label className="block text-xs font-medium text-apple-gray-500 mb-1.5">{t('mercado.contacto')}</label>
             <input
               type="text"
               value={contactName}
               onChange={e => setContactName(e.target.value)}
-              placeholder="Nombre"
+              placeholder={t('mercado.nombre')}
               className="input-apple text-sm w-full"
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-apple-gray-500 mb-1.5">Cargo</label>
+            <label className="block text-xs font-medium text-apple-gray-500 mb-1.5">{t('mercado.cargo')}</label>
             <input
               type="text"
               value={contactRole}
               onChange={e => setContactRole(e.target.value)}
-              placeholder="Ej: Director deportivo"
+              placeholder={t('mercado.cargoPlaceholder')}
               className="input-apple text-sm w-full"
             />
           </div>
         </div>
         <div>
-          <label className="block text-xs font-medium text-apple-gray-500 mb-1.5">Responsable</label>
+          <label className="block text-xs font-medium text-apple-gray-500 mb-1.5">{t('mercado.responsable')}</label>
           <AssigneeSelect value={assigneeId} onChange={(id, name) => { setAssigneeId(id); setAssigneeName(name) }} />
         </div>
         <div>
-          <label className="block text-xs font-medium text-apple-gray-500 mb-1.5">Volver a hablar el (opcional)</label>
+          <label className="block text-xs font-medium text-apple-gray-500 mb-1.5">{t('mercado.volverAHablar')}</label>
           <input
             type="date"
             value={followupDate}
             onChange={e => setFollowupDate(e.target.value)}
+            min="2020-01-01"
+            max="2100-12-31"
             className="input-apple text-sm w-full"
           />
         </div>
@@ -134,7 +139,7 @@ export default function NewNegotiationForm({ open, onClose, onCreated }: { open:
           disabled={!canSave || saving}
           className="w-full py-2.5 rounded-lg text-sm font-semibold text-white bg-brand-green hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
         >
-          {saving ? 'Guardando...' : 'Guardar negociación'}
+          {saving ? t('mercado.guardando') : t('mercado.guardarNegociacion')}
         </button>
       </div>
     </MobileSheet>

@@ -3,6 +3,7 @@ import { useScoreLookup } from '@/hooks/usePlayerStats'
 import { normalizeName } from '@/utils/scoring'
 import { buildPlayerPhotoUrl } from '@/utils/marketAlerts'
 import { PlayerPhoto } from '@/components/ui/PlayerPhoto'
+import { useLanguage } from '@/context/LanguageContext'
 
 export default function PlayerLinkField({
   playerName,
@@ -13,6 +14,7 @@ export default function PlayerLinkField({
   playerApiId: number | null
   onChange: (id: number | null) => void
 }) {
+  const { t } = useLanguage()
   const { lookup } = useScoreLookup()
   const [manualInput, setManualInput] = useState(playerApiId != null ? String(playerApiId) : '')
 
@@ -37,7 +39,7 @@ export default function PlayerLinkField({
             const n = parseInt(e.target.value, 10)
             onChange(Number.isFinite(n) ? n : null)
           }}
-          placeholder="ID de jugador en la API (opcional)"
+          placeholder={t('mercado.idJugadorPlaceholder')}
           className="input-apple text-sm flex-1"
         />
       </div>
@@ -47,7 +49,7 @@ export default function PlayerLinkField({
           onClick={() => { onChange(suggestion.player_id); setManualInput(String(suggestion.player_id)) }}
           className="text-xs text-brand-green hover:text-emerald-600 font-medium"
         >
-          ¿Es {suggestion.name}, {suggestion.position}? Usar este jugador de la API
+          {t('mercado.esJugadorSugerido').replace('{name}', suggestion.name).replace('{position}', suggestion.position)}
         </button>
       )}
     </div>

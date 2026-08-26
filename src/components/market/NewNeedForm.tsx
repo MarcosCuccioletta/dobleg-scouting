@@ -3,11 +3,14 @@ import MobileSheet from '@/components/ui/MobileSheet'
 import TeamSearchSelect from './TeamSearchSelect'
 import AssigneeSelect from './AssigneeSelect'
 import { createClubNeed } from '@/services/marketService'
+import { isValidFollowupDate } from '@/utils/marketAlerts'
 import { useAuth } from '@/context/AuthContext'
+import { useLanguage } from '@/context/LanguageContext'
 import type { ClubNeed, MarketTeamSearchResult } from '@/types/market'
 
 export default function NewNeedForm({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated: (need: ClubNeed) => void }) {
   const { user, userDisplayName } = useAuth()
+  const { t } = useLanguage()
   const [team, setTeam] = useState<MarketTeamSearchResult | null>(null)
   const [positionLabel, setPositionLabel] = useState('')
   const [assigneeId, setAssigneeId] = useState<number | null>(null)
@@ -45,13 +48,13 @@ export default function NewNeedForm({ open, onClose, onCreated }: { open: boolea
         position_label: positionLabel.trim(),
         assigned_to_id: assigneeId,
         assigned_to_name: assigneeName || null,
-        next_followup_date: followupDate || null,
+        next_followup_date: followupDate && isValidFollowupDate(followupDate) ? followupDate : null,
       },
       user?.id ?? null,
       userDisplayName || 'Usuario',
     )
     setSaving(false)
-    if (!result) { setError('No se pudo guardar. Probá de nuevo.'); return }
+    if (!result) { setError(t('mercado.errorGuardar')); return }
     onCreated(result)
     setTeam(null)
     setPositionLabel('')
@@ -62,32 +65,34 @@ export default function NewNeedForm({ open, onClose, onCreated }: { open: boolea
   }
 
   return (
-    <MobileSheet open={open} onClose={onClose} title="Nuevo objetivo">
+    <MobileSheet open={open} onClose={onClose} title={t('mercado.nuevoObjetivo')}>
       <div className="space-y-4 p-4">
         <div>
-          <label className="block text-xs font-medium text-apple-gray-500 mb-1.5">Club</label>
+          <label className="block text-xs font-medium text-apple-gray-500 mb-1.5">{t('mercado.club')}</label>
           <TeamSearchSelect value={team} onChange={setTeam} />
         </div>
         <div>
-          <label className="block text-xs font-medium text-apple-gray-500 mb-1.5">¿Qué busca?</label>
+          <label className="block text-xs font-medium text-apple-gray-500 mb-1.5">{t('mercado.queBusca')}</label>
           <input
             type="text"
             value={positionLabel}
             onChange={e => setPositionLabel(e.target.value)}
-            placeholder="Ej: Lateral derecho"
+            placeholder={t('mercado.posicionPlaceholder')}
             className="input-apple text-sm w-full"
           />
         </div>
         <div>
-          <label className="block text-xs font-medium text-apple-gray-500 mb-1.5">Responsable</label>
+          <label className="block text-xs font-medium text-apple-gray-500 mb-1.5">{t('mercado.responsable')}</label>
           <AssigneeSelect value={assigneeId} onChange={(id, name) => { setAssigneeId(id); setAssigneeName(name) }} />
         </div>
         <div>
-          <label className="block text-xs font-medium text-apple-gray-500 mb-1.5">Volver a hablar el (opcional)</label>
+          <label className="block text-xs font-medium text-apple-gray-500 mb-1.5">{t('mercado.volverAHablar')}</label>
           <input
             type="date"
             value={followupDate}
             onChange={e => setFollowupDate(e.target.value)}
+            min="2020-01-01"
+            max="2100-12-31"
             className="input-apple text-sm w-full"
           />
         </div>
@@ -97,7 +102,7 @@ export default function NewNeedForm({ open, onClose, onCreated }: { open: boolea
           disabled={!canSave || saving}
           className="w-full py-2.5 rounded-lg text-sm font-semibold text-white bg-brand-green hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
         >
-          {saving ? 'Guardando...' : 'Guardar objetivo'}
+          {saving ? t('mercado.guardando') : t('mercado.guardarObjetivo')}
         </button>
       </div>
     </MobileSheet>

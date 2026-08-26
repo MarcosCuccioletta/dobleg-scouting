@@ -3,9 +3,10 @@ import MobileSheet from '@/components/ui/MobileSheet'
 import MarketNotesPanel from './MarketNotesPanel'
 import AssigneeSelect from './AssigneeSelect'
 import PlayerLinkField from './PlayerLinkField'
-import { NEGOTIATION_STATUS_LABEL } from './NegotiationCard'
+import { NEGOTIATION_STATUS_LABEL_KEY } from './NegotiationCard'
 import { updateNegotiationStatus, reassignNegotiation, linkNegotiationPlayer } from '@/services/marketService'
 import { useAuth } from '@/context/AuthContext'
+import { useLanguage } from '@/context/LanguageContext'
 import { TeamLogo, PlayerPhoto } from '@/components/ui/PlayerPhoto'
 import { buildPlayerPhotoUrl } from '@/utils/marketAlerts'
 import type { Negotiation, NegotiationStatus } from '@/types/market'
@@ -22,9 +23,11 @@ export default function NegotiationDetailSheet({
   onUpdated: (n: Negotiation) => void
 }) {
   const { user, userDisplayName } = useAuth()
+  const { t } = useLanguage()
   const [reassigning, setReassigning] = useState(false)
   const [linking, setLinking] = useState(false)
   const [pendingApiId, setPendingApiId] = useState<number | null>(null)
+  const [notesRefreshSignal, setNotesRefreshSignal] = useState(0)
 
   if (!negotiation) return null
 
@@ -38,6 +41,7 @@ export default function NegotiationDetailSheet({
     if (ok) {
       onUpdated({ ...negotiation, assigned_to_id: id, assigned_to_name: name })
       setReassigning(false)
+      setNotesRefreshSignal(s => s + 1)
     }
   }
 
@@ -53,7 +57,7 @@ export default function NegotiationDetailSheet({
   const photoUrl = buildPlayerPhotoUrl(negotiation.player_api_id)
 
   return (
-    <MobileSheet open={open} onClose={onClose} title="Negociación">
+    <MobileSheet open={open} onClose={onClose} title={t('mercado.negociacionTitulo')}>
       <div className="space-y-4">
         <div className="flex items-center gap-3">
           <TeamLogo src={negotiation.team_logo} className="w-12 h-12 drop-shadow-md flex-shrink-0" />
@@ -67,41 +71,41 @@ export default function NegotiationDetailSheet({
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-apple-gray-500 mb-1.5">Estado</label>
+          <label className="block text-xs font-medium text-apple-gray-500 mb-1.5">{t('mercado.estado')}</label>
           <select
             value={negotiation.status}
             onChange={e => handleStatusChange(e.target.value as NegotiationStatus)}
             className="input-apple text-sm w-full"
           >
-            {(Object.keys(NEGOTIATION_STATUS_LABEL) as NegotiationStatus[]).map(s => (
-              <option key={s} value={s}>{NEGOTIATION_STATUS_LABEL[s]}</option>
+            {(Object.keys(NEGOTIATION_STATUS_LABEL_KEY) as NegotiationStatus[]).map(s => (
+              <option key={s} value={s}>{t(NEGOTIATION_STATUS_LABEL_KEY[s])}</option>
             ))}
           </select>
         </div>
 
         {(negotiation.contact_name || negotiation.contact_role) && (
           <p className="text-xs text-apple-gray-500">
-            Contacto: {negotiation.contact_name}{negotiation.contact_role ? ` · ${negotiation.contact_role}` : ''}
+            {t('mercado.contactoConDatos')} {negotiation.contact_name}{negotiation.contact_role ? ` · ${negotiation.contact_role}` : ''}
           </p>
         )}
 
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
-            <p className="text-2xs text-apple-gray-400">Responsable</p>
-            <p className="text-sm text-apple-gray-700 dark:text-apple-gray-200 truncate">{negotiation.assigned_to_name || 'Sin asignar'}</p>
+            <p className="text-2xs text-apple-gray-400">{t('mercado.responsable')}</p>
+            <p className="text-sm text-apple-gray-700 dark:text-apple-gray-200 truncate">{negotiation.assigned_to_name || t('mercado.sinAsignar')}</p>
           </div>
           <button onClick={() => setReassigning(r => !r)} className="text-xs font-medium text-brand-green hover:text-emerald-600 flex-shrink-0">
-            Reasignar
+            {t('mercado.reasignar')}
           </button>
         </div>
         {reassigning && <AssigneeSelect value={negotiation.assigned_to_id} onChange={handleReassign} />}
 
         <div className="flex items-center justify-between gap-2 pt-1">
           <p className="text-2xs text-apple-gray-400">
-            {negotiation.player_api_id ? `Vinculado a la API (#${negotiation.player_api_id})` : 'Sin vincular a la API'}
+            {negotiation.player_api_id ? t('mercado.vinculadoApi').replace('{id}', String(negotiation.player_api_id)) : t('mercado.sinVincularApi')}
           </p>
           <button onClick={() => setLinking(l => !l)} className="text-xs font-medium text-brand-green hover:text-emerald-600 flex-shrink-0">
-            Vincular jugador
+            {t('mercado.vincularJugador')}
           </button>
         </div>
         {linking && (
@@ -112,7 +116,7 @@ export default function NegotiationDetailSheet({
               disabled={pendingApiId == null}
               className="text-xs font-semibold text-white bg-brand-green px-3 py-1.5 rounded-lg hover:bg-emerald-600 disabled:opacity-50"
             >
-              Guardar vínculo
+              {t('mercado.guardarVinculo')}
             </button>
           </div>
         )}
@@ -121,6 +125,7 @@ export default function NegotiationDetailSheet({
           <MarketNotesPanel
             target={{ negotiationId: negotiation.id }}
             onFollowupSynced={date => onUpdated({ ...negotiation, next_followup_date: date })}
+            refreshSignal={notesRefreshSignal}
           />
         </div>
       </div>

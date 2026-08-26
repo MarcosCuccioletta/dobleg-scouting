@@ -1,9 +1,10 @@
 import { TeamLogo } from '@/components/ui/PlayerPhoto'
+import { useLanguage } from '@/context/LanguageContext'
 import type { ClubNeed } from '@/types/market'
 
-const NEED_STATUS_LABEL: Record<ClubNeed['status'], string> = {
-  abierto: 'Abierto',
-  cerrado: 'Cerrado',
+export const NEED_STATUS_LABEL_KEY: Record<ClubNeed['status'], string> = {
+  abierto: 'mercado.estadoAbierto',
+  cerrado: 'mercado.estadoCerrado',
 }
 
 const NEED_STATUS_COLOR: Record<ClubNeed['status'], string> = {
@@ -12,6 +13,8 @@ const NEED_STATUS_COLOR: Record<ClubNeed['status'], string> = {
 }
 
 export default function NeedCard({ need, onClick }: { need: ClubNeed; onClick: () => void }) {
+  const { t } = useLanguage()
+
   return (
     <button
       onClick={onClick}
@@ -22,17 +25,17 @@ export default function NeedCard({ need, onClick }: { need: ClubNeed; onClick: (
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-apple-gray-800 dark:text-white truncate">{need.team_name}</p>
           {need.assigned_to_name && (
-            <p className="text-xs text-apple-gray-400">Responsable: {need.assigned_to_name}</p>
+            <p className="text-xs text-apple-gray-400">{t('mercado.responsable')}: {need.assigned_to_name}</p>
           )}
         </div>
         <span className={`px-2 py-1 rounded-full text-2xs font-semibold flex-shrink-0 ${NEED_STATUS_COLOR[need.status]}`}>
-          {NEED_STATUS_LABEL[need.status]}
+          {t(NEED_STATUS_LABEL_KEY[need.status])}
         </span>
       </div>
       <p className="text-sm font-medium text-apple-gray-700 dark:text-apple-gray-200">{need.position_label}</p>
       {need.next_followup_date && (
         <div className="mt-3 pt-3 border-t border-apple-gray-100 dark:border-apple-gray-700 text-xs text-apple-gray-500">
-          Seguimiento: {need.next_followup_date}
+          {t('mercado.seguimientoLabel')}: {need.next_followup_date}
         </div>
       )}
     </button>

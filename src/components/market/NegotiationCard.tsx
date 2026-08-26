@@ -1,14 +1,15 @@
 import { TeamLogo, PlayerPhoto } from '@/components/ui/PlayerPhoto'
 import { buildPlayerPhotoUrl } from '@/utils/marketAlerts'
+import { useLanguage } from '@/context/LanguageContext'
 import type { Negotiation, NegotiationStatus } from '@/types/market'
 
-export const NEGOTIATION_STATUS_LABEL: Record<NegotiationStatus, string> = {
-  contactado: 'Contactado',
-  reunion: 'Reunión',
-  oferta_enviada: 'Oferta enviada',
-  en_espera: 'En espera',
-  cerrado_exitoso: 'Cerrado (éxito)',
-  cerrado_rechazado: 'Cerrado (rechazado)',
+export const NEGOTIATION_STATUS_LABEL_KEY: Record<NegotiationStatus, string> = {
+  contactado: 'mercado.estadoContactado',
+  reunion: 'mercado.estadoReunion',
+  oferta_enviada: 'mercado.estadoOfertaEnviada',
+  en_espera: 'mercado.estadoEnEspera',
+  cerrado_exitoso: 'mercado.estadoCerradoExitoso',
+  cerrado_rechazado: 'mercado.estadoCerradoRechazado',
 }
 
 export const NEGOTIATION_STATUS_COLOR: Record<NegotiationStatus, string> = {
@@ -21,6 +22,7 @@ export const NEGOTIATION_STATUS_COLOR: Record<NegotiationStatus, string> = {
 }
 
 export default function NegotiationCard({ negotiation, onClick }: { negotiation: Negotiation; onClick: () => void }) {
+  const { t } = useLanguage()
   const photoUrl = buildPlayerPhotoUrl(negotiation.player_api_id)
 
   return (
@@ -33,11 +35,11 @@ export default function NegotiationCard({ negotiation, onClick }: { negotiation:
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-apple-gray-800 dark:text-white truncate">{negotiation.team_name}</p>
           {negotiation.assigned_to_name && (
-            <p className="text-xs text-apple-gray-400">Responsable: {negotiation.assigned_to_name}</p>
+            <p className="text-xs text-apple-gray-400">{t('mercado.responsable')}: {negotiation.assigned_to_name}</p>
           )}
         </div>
         <span className={`px-2 py-1 rounded-full text-2xs font-semibold flex-shrink-0 ${NEGOTIATION_STATUS_COLOR[negotiation.status]}`}>
-          {NEGOTIATION_STATUS_LABEL[negotiation.status]}
+          {t(NEGOTIATION_STATUS_LABEL_KEY[negotiation.status])}
         </span>
       </div>
       <div className="flex items-center gap-2.5">
@@ -47,7 +49,7 @@ export default function NegotiationCard({ negotiation, onClick }: { negotiation:
       {(negotiation.contact_name || negotiation.next_followup_date) && (
         <div className="mt-3 pt-3 border-t border-apple-gray-100 dark:border-apple-gray-700 flex items-center justify-between text-xs text-apple-gray-500">
           <span>{negotiation.contact_name}{negotiation.contact_role ? ` · ${negotiation.contact_role}` : ''}</span>
-          {negotiation.next_followup_date && <span>Seguimiento: {negotiation.next_followup_date}</span>}
+          {negotiation.next_followup_date && <span>{t('mercado.seguimientoLabel')}: {negotiation.next_followup_date}</span>}
         </div>
       )}
     </button>

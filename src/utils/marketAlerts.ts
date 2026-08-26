@@ -60,3 +60,25 @@ export function buildPlayerPhotoUrl(playerApiId: number | null): string | null {
   if (!playerApiId) return null
   return `https://media.api-sports.io/football/players/${playerApiId}.png`
 }
+
+/**
+ * Valida que un string de fecha de un `<input type="date">` sea una fecha
+ * real razonable antes de guardarla. El input nativo normalmente sólo emite
+ * `yyyy-mm-dd` completo o `''`, pero un typing parcial/fuera de formato
+ * (tipeo rápido, autofill, automatización) puede colar un año de más de 4
+ * dígitos que Postgres acepta sin problema (DATE no tiene límite superior
+ * real) y que después rompe silenciosamente el cálculo de alertas y
+ * cualquier `toLocaleDateString`. Sin este chequeo, un fat-finger queda
+ * guardado sin ningún error visible.
+ */
+export function isValidFollowupDate(value: string): boolean {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
+  if (!match) return false
+  const [, yearStr, monthStr, dayStr] = match
+  const year = Number(yearStr)
+  const month = Number(monthStr)
+  const day = Number(dayStr)
+  if (year < 2000 || year > 2100) return false
+  const date = new Date(year, month - 1, day)
+  return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day
+}
