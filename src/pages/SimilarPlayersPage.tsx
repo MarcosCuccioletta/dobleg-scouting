@@ -10,11 +10,13 @@ import { PlayerPhoto } from '@/components/ui/PlayerPhoto'
 import { displayPosition } from '@/types/scoring'
 import type { PlayerWithScore, Position } from '@/types/scoring'
 import { computeSimilarity } from '@/utils/similarity'
+import { useLanguage } from '@/context/LanguageContext'
 
 const STORAGE_KEY = 'similar-players-state-v2'
 
 export default function SimilarPlayersPage() {
   const navigate = useNavigate()
+  const { t } = useLanguage()
   const [search, setSearch] = useState('')
   const [selectedPlayer, setSelectedPlayer] = useState<PlayerWithScore | null>(null)
   const [restored, setRestored] = useState(false)
@@ -93,7 +95,7 @@ export default function SimilarPlayersPage() {
 
   if (errorAll) return (
     <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 py-8">
-      <EmptyState title="Error al cargar datos" description={errorAll} icon="error" />
+      <EmptyState title={t('externo.errorCargarDatos')} description={errorAll} icon="error" />
     </div>
   )
 
@@ -102,17 +104,17 @@ export default function SimilarPlayersPage() {
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-apple-gray-800 dark:text-white tracking-tight">
-          Jugadores Similares
+          {t('similares.titulo')}
         </h1>
         <p className="text-sm text-apple-gray-500 dark:text-apple-gray-400 mt-1">
-          Busca un jugador para encontrar los 10 más similares según su posición y métricas futbolísticas
+          {t('similares.subtitulo')}
         </p>
       </div>
 
       {/* Search */}
       <div className="card-apple p-6 mb-6">
         <label className="block text-sm font-medium text-apple-gray-700 dark:text-apple-gray-300 mb-2">
-          Seleccionar jugador
+          {t('similares.seleccionarJugador')}
         </label>
         <div className="relative">
           <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-apple-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -120,7 +122,7 @@ export default function SimilarPlayersPage() {
           </svg>
           <input
             type="text"
-            placeholder="Buscar jugador por nombre..."
+            placeholder={t('similares.buscarPlaceholder')}
             value={search}
             onChange={e => {
               setSearch(e.target.value)
@@ -156,10 +158,10 @@ export default function SimilarPlayersPage() {
         {search.trim().length >= 2 && !selectedPlayer && (
           <p className="text-xs text-apple-gray-400 mt-2">
             {loadingSearch
-              ? 'Buscando…'
+              ? t('similares.buscando')
               : searchResults.length === 0
-                ? `Sin resultados para «${search.trim()}». Se buscan jugadores con 5 partidos o más en la temporada.`
-                : `${searchResults.length} resultado(s)`}
+                ? t('similares.sinResultadosPara').replace('{query}', search.trim())
+                : t('similares.resultados').replace('{count}', String(searchResults.length))}
           </p>
         )}
       </div>
@@ -200,10 +202,10 @@ export default function SimilarPlayersPage() {
           <div className="px-6 py-4 border-b border-apple-gray-200/50 dark:border-apple-gray-700/50 bg-apple-gray-50 dark:bg-apple-gray-800/50 flex items-center justify-between">
             <div>
               <h3 className="font-semibold text-apple-gray-800 dark:text-white">
-                10 Jugadores más similares
+                {t('similares.diezMasSimilares')}
               </h3>
               <p className="text-xs text-apple-gray-500 dark:text-apple-gray-400 mt-0.5">
-                Basado en métricas de rendimiento para {displayPosition(selectedPosition) || 'la posición'}
+                {t('similares.basadoEnMetricas').replace('{position}', displayPosition(selectedPosition) || t('similares.laPosicion'))}
               </p>
             </div>
             <CopyChartButton targetId="similar-players-container" filename={`similares_${selectedPlayer.name.replace(/\s+/g, '_')}`} />
@@ -211,11 +213,11 @@ export default function SimilarPlayersPage() {
 
           {loading ? (
             <div className="p-8 flex justify-center">
-              <LoadingSpinner message="Calculando similares..." />
+              <LoadingSpinner message={t('similares.calculando')} />
             </div>
           ) : similarPlayers.length === 0 ? (
             <div className="p-8 text-center text-apple-gray-500 dark:text-apple-gray-400">
-              No se encontraron jugadores similares para esta posición.
+              {t('similares.sinSimilares')}
             </div>
           ) : (
             <div className="divide-y divide-apple-gray-100 dark:divide-apple-gray-700/50">
@@ -251,7 +253,7 @@ export default function SimilarPlayersPage() {
 
                     {/* Similarity */}
                     <div className="w-14 sm:w-20 text-right">
-                      <div className="text-xs text-apple-gray-400 dark:text-apple-gray-500">Similitud</div>
+                      <div className="text-xs text-apple-gray-400 dark:text-apple-gray-500">{t('similares.similitud')}</div>
                       <div className={`text-sm font-bold ${
                         similarity >= 80 ? 'text-emerald-500' :
                         similarity >= 60 ? 'text-amber-500' :
@@ -280,10 +282,10 @@ export default function SimilarPlayersPage() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
           </svg>
           <h3 className="text-lg font-semibold text-apple-gray-700 dark:text-apple-gray-300 mb-2">
-            Busca un jugador
+            {t('similares.buscaUnJugador')}
           </h3>
           <p className="text-sm text-apple-gray-500 dark:text-apple-gray-400 max-w-md mx-auto">
-            Escribe el nombre de un jugador para encontrar otros con características similares basándose en sus métricas de rendimiento.
+            {t('similares.buscaUnJugadorDesc')}
           </p>
         </div>
       )}
