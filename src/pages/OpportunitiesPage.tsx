@@ -18,19 +18,21 @@ import {
 import type { RecentFormPlayer } from '@/types/scoring'
 import { useCurrency } from '@/context/CurrencyContext'
 import { formatMarketValueInCurrency } from '@/utils/scoring'
+import { useLanguage } from '@/context/LanguageContext'
 
 const CHEAP_MAX = 5_000_000
 const CONTRACT_MAX = 12
 
-const TAG_LABELS: Record<MarketTag, string> = {
-  contract: 'Fin de contrato',
-  cheap: 'Precio bajo',
+const TAG_LABEL_KEY: Record<MarketTag, string> = {
+  contract: 'oportunidades.finDeContrato',
+  cheap: 'oportunidades.precioBajo',
 }
 
 type FilterType = 'all' | 'contract' | 'cheap'
 
 export default function OpportunitiesPage() {
   const navigate = useNavigate()
+  const { t } = useLanguage()
   const { currency, rate } = useCurrency()
 
   const [windowMonths, setWindowMonths] = useState<number>(3)
@@ -156,7 +158,7 @@ export default function OpportunitiesPage() {
       {/* Ventana de forma reciente */}
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider mr-2">
-          Forma:
+          {t('oportunidades.forma')}
         </span>
         {[1, 3, 6, 12].map(w => (
           <button
@@ -168,7 +170,7 @@ export default function OpportunitiesPage() {
                 : 'bg-apple-gray-100 dark:bg-apple-gray-700 text-apple-gray-600 dark:text-apple-gray-300 hover:bg-apple-gray-200 dark:hover:bg-apple-gray-600'
             }`}
           >
-            {w === 1 ? '1 mes' : `${w} meses`}
+            {w === 1 ? t('oportunidades.mes1') : t('oportunidades.mesesN').replace('{n}', String(w))}
           </button>
         ))}
       </div>
@@ -176,7 +178,7 @@ export default function OpportunitiesPage() {
       {/* Tipo (tag de mercado) */}
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider mr-2">
-          Tipo:
+          {t('oportunidades.tipo')}
         </span>
         <button
           onClick={() => setTypeFilter('all')}
@@ -186,7 +188,7 @@ export default function OpportunitiesPage() {
               : 'bg-apple-gray-100 dark:bg-apple-gray-700 text-apple-gray-600 dark:text-apple-gray-300 hover:bg-apple-gray-200 dark:hover:bg-apple-gray-600'
           }`}
         >
-          Todas ({counts.all})
+          {t('oportunidades.todasTipo').replace('{count}', String(counts.all))}
         </button>
         {(['contract', 'cheap'] as const).map(type => (
           <button
@@ -198,7 +200,7 @@ export default function OpportunitiesPage() {
                 : 'bg-apple-gray-100 dark:bg-apple-gray-700 text-apple-gray-600 dark:text-apple-gray-300 hover:bg-apple-gray-200 dark:hover:bg-apple-gray-600'
             }`}
           >
-            {TAG_LABELS[type]} ({counts[type]})
+            {t(TAG_LABEL_KEY[type])} ({counts[type]})
           </button>
         ))}
       </div>
@@ -208,9 +210,9 @@ export default function OpportunitiesPage() {
         {/* Edad */}
         <div className="w-full lg:w-auto lg:min-w-[200px]">
           <label className="block text-xs font-medium text-apple-gray-500 dark:text-apple-gray-400 mb-2">
-            Edad:{' '}
+            {t('oportunidades.edad')}{' '}
             <span className="text-brand-green font-semibold">
-              {minAge} - {maxAge} años
+              {minAge} - {maxAge} {t('externo.anios')}
             </span>
           </label>
           <div className="space-y-2">
@@ -236,7 +238,7 @@ export default function OpportunitiesPage() {
         {/* Valor de mercado */}
         <div className="w-full lg:w-auto lg:min-w-[220px]">
           <label className="block text-xs font-medium text-apple-gray-500 dark:text-apple-gray-400 mb-2">
-            Valor:{' '}
+            {t('oportunidades.valor')}{' '}
             <span className="text-brand-green font-semibold">
               {formatMarketValueInCurrency(minValue, currency, rate)} - {formatMarketValueInCurrency(maxValue, currency, rate)}
             </span>
@@ -266,7 +268,7 @@ export default function OpportunitiesPage() {
         {/* Contrato */}
         <div className="w-full lg:w-auto lg:min-w-[140px]">
           <label className="block text-xs font-medium text-apple-gray-500 dark:text-apple-gray-400 mb-1">
-            Contrato (meses)
+            {t('oportunidades.contratoMeses')}
           </label>
           <select
             value={maxContract ?? 'all'}
@@ -275,25 +277,25 @@ export default function OpportunitiesPage() {
             }
             className="w-full px-3 py-2 lg:py-1.5 rounded-lg text-sm bg-apple-gray-100 dark:bg-apple-gray-700 text-apple-gray-700 dark:text-apple-gray-200 border-0 focus:ring-2 focus:ring-brand-green"
           >
-            <option value="all">Cualquiera</option>
-            <option value="6">≤ 6 meses</option>
-            <option value="12">≤ 12 meses</option>
-            <option value="18">≤ 18 meses</option>
-            <option value="24">≤ 24 meses</option>
+            <option value="all">{t('oportunidades.cualquiera')}</option>
+            <option value="6">{t('oportunidades.mesesMenorIgual').replace('{n}', '6')}</option>
+            <option value="12">{t('oportunidades.mesesMenorIgual').replace('{n}', '12')}</option>
+            <option value="18">{t('oportunidades.mesesMenorIgual').replace('{n}', '18')}</option>
+            <option value="24">{t('oportunidades.mesesMenorIgual').replace('{n}', '24')}</option>
           </select>
         </div>
 
         {/* Posición */}
         <div className="w-full lg:w-auto lg:min-w-[160px]">
           <label className="block text-xs font-medium text-apple-gray-500 dark:text-apple-gray-400 mb-1">
-            Posición
+            {t('oportunidades.posicion')}
           </label>
           <select
             value={positionFilter}
             onChange={e => setPositionFilter(e.target.value)}
             className="w-full px-3 py-2 lg:py-1.5 rounded-lg text-sm bg-apple-gray-100 dark:bg-apple-gray-700 text-apple-gray-700 dark:text-apple-gray-200 border-0 focus:ring-2 focus:ring-brand-green"
           >
-            <option value="all">Todas</option>
+            <option value="all">{t('oportunidades.todasPosicion')}</option>
             {positions.map(pos => (
               <option key={pos} value={pos}>
                 {displayPosition(pos)}
@@ -311,27 +313,30 @@ export default function OpportunitiesPage() {
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
-            Limpiar
+            {t('oportunidades.limpiar')}
           </button>
         )}
       </div>
     </div>
   )
 
-  if (loading) return <LoadingSpinner fullScreen message="Analizando oportunidades..." />
+  if (loading) return <LoadingSpinner fullScreen message={t('oportunidades.analizando')} />
 
   return (
     <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 py-6">
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-xl sm:text-2xl font-bold text-apple-gray-800 dark:text-white tracking-tight">
-          Oportunidades de Mercado
+          {t('oportunidades.titulo')}
         </h1>
         <p className="text-sm text-apple-gray-500 dark:text-apple-gray-400 mt-0.5">
-          {filteredPlayers.length} jugadores en alza · ranking por Score GG reciente
+          {t('oportunidades.jugadoresEnAlza').replace('{count}', String(filteredPlayers.length))}
           {hiddenAgencyCount > 0 && (
             <span className="text-apple-gray-400">
-              {' · '}{hiddenAgencyCount} de Doble G {hiddenAgencyCount === 1 ? 'oculto' : 'ocultos'}
+              {' · '}
+              {t('oportunidades.ocultosDobleG')
+                .replace('{count}', String(hiddenAgencyCount))
+                .replace('{palabra}', t(hiddenAgencyCount === 1 ? 'oportunidades.ocultoSingular' : 'oportunidades.ocultoPlural'))}
             </span>
           )}
         </p>
@@ -350,14 +355,14 @@ export default function OpportunitiesPage() {
           onClick={() => setShowFilters(false)}
           className="mt-6 w-full py-3 rounded-xl text-sm font-semibold text-gray-900 bg-brand-green hover:bg-emerald-500 transition-colors"
         >
-          Ver {filteredPlayers.length} resultados
+          {t('oportunidades.verResultados').replace('{count}', String(filteredPlayers.length))}
         </button>
       </MobileFilterPanel>
 
       {/* Opportunities grid */}
       {filteredPlayers.length === 0 ? (
         <div className="text-center py-12 text-apple-gray-500">
-          No se encontraron oportunidades con estos filtros
+          {t('oportunidades.sinOportunidades')}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -423,7 +428,7 @@ export default function OpportunitiesPage() {
                     >
                       {score.toFixed(1)}
                     </span>
-                    <p className="text-2xs text-apple-gray-400 mt-1">Score GG · {p.recent_matches} PJ</p>
+                    <p className="text-2xs text-apple-gray-400 mt-1">{t('oportunidades.scoreGGpj').replace('{count}', String(p.recent_matches))}</p>
                   </div>
                 </div>
 
@@ -431,7 +436,7 @@ export default function OpportunitiesPage() {
                 <div className="flex items-center gap-3 mb-3 text-sm">
                   {age != null && (
                     <span className="text-apple-gray-600 dark:text-apple-gray-400">
-                      {age} años
+                      {age} {t('externo.anios')}
                     </span>
                   )}
                   {p.primary_position && (
@@ -447,16 +452,16 @@ export default function OpportunitiesPage() {
                 {/* Value and contract */}
                 <div className="flex items-center justify-between mb-3 text-sm">
                   <div>
-                    <span className="text-apple-gray-400">Valor: </span>
+                    <span className="text-apple-gray-400">{t('oportunidades.valor')} </span>
                     <span className="font-medium text-apple-gray-700 dark:text-apple-gray-200">
                       {p.market_value_eur ? formatMarketValueInCurrency(p.market_value_eur, currency, rate) : '—'}
                     </span>
                   </div>
                   {contractMonths != null && contractMonths >= 0 && (
                     <div>
-                      <span className="text-apple-gray-400">Contrato: </span>
+                      <span className="text-apple-gray-400">{t('oportunidades.contratoLabel')}</span>
                       <span className="font-medium text-apple-gray-700 dark:text-apple-gray-200">
-                        {contractMonths} meses
+                        {t('oportunidades.mesesN').replace('{n}', String(contractMonths))}
                       </span>
                     </div>
                   )}
@@ -465,12 +470,12 @@ export default function OpportunitiesPage() {
                 {/* Market tags */}
                 {tags.length > 0 && (
                   <div className="flex flex-wrap gap-2 pt-3 border-t border-apple-gray-100 dark:border-apple-gray-700">
-                    {tags.map(t => (
+                    {tags.map(tag => (
                       <span
-                        key={t}
+                        key={tag}
                         className="text-xs font-medium px-2.5 py-1 rounded-full bg-brand-green/10 text-brand-green"
                       >
-                        {TAG_LABELS[t]}
+                        {t(TAG_LABEL_KEY[tag])}
                       </span>
                     ))}
                   </div>
