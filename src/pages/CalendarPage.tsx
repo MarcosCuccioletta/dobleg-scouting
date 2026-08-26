@@ -4,12 +4,26 @@ import { fetchAllAgencyFixtures, groupFixturesByDate, toArDateKey } from '@/serv
 import { fetchManualFixtures, manualToAgencyFixtures } from '@/services/agencyManualFixturesService'
 import { AGENCY_PLAYERS } from '@/constants/agencyPlayers'
 import type { AgencyFixture } from '@/types/footballApi'
-
-const DAYS_SHORT = ['LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB', 'DOM']
-const DAYS_FULL = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
-const MONTHS = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
+import { useLanguage } from '@/context/LanguageContext'
+import { LANGUAGE_LOCALES } from '@/constants/translations'
 
 type View = 'month' | 'week'
+
+// Nombres de día/mes vía Intl según el idioma activo, no arrays fijos en
+// español — 2 de enero de 2023 fue un lunes, se usa solo como semana de
+// referencia para pedirle a Intl el nombre de cada día.
+function getDayNames(locale: string, format: 'short' | 'long'): string[] {
+  const base = new Date(2023, 0, 2)
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(base)
+    d.setDate(base.getDate() + i)
+    return new Intl.DateTimeFormat(locale, { weekday: format }).format(d)
+  })
+}
+
+function getMonthNames(locale: string): string[] {
+  return Array.from({ length: 12 }, (_, i) => new Intl.DateTimeFormat(locale, { month: 'long' }).format(new Date(2023, i, 1)))
+}
 
 function isoDay(date: Date): number {
   return date.getDay() === 0 ? 6 : date.getDay() - 1
@@ -19,8 +33,8 @@ function sameDay(a: Date, b: Date): boolean {
   return toArDateKey(a) === toArDateKey(b)
 }
 
-function formatTime(dateStr: string): string {
-  return new Intl.DateTimeFormat('es-AR', {
+function formatTime(dateStr: string, locale: string): string {
+  return new Intl.DateTimeFormat(locale, {
     hour: '2-digit', minute: '2-digit',
     timeZone: 'America/Argentina/Buenos_Aires',
   }).format(new Date(dateStr))
@@ -70,7 +84,7 @@ function isAway(fixture: AgencyFixture): boolean {
 
 // ─── Match Pill (compact, for month cells) ────────────────────────────────────
 
-function MatchPill({ fixture }: { fixture: AgencyFixture }) {
+function MatchPill({ fixture, locale }: { fixture: AgencyFixture; locale: string }) {
   const live = isLive(fixture.statusShort)
   const done = isFinished(fixture.statusShort)
   const opponent = fixture.isHome ? fixture.awayTeam : fixture.homeTeam
@@ -87,7 +101,7 @@ function MatchPill({ fixture }: { fixture: AgencyFixture }) {
       )}
       <img src={opponent.logo} alt="" className="w-5 h-5 object-contain flex-shrink-0" />
       <span className="truncate">
-        {done ? `${fixture.goalsHome}-${fixture.goalsAway}` : formatTime(fixture.date)}
+        {done ? `${fixture.goalsHome}-${fixture.goalsAway}` : formatTime(fixture.date, locale)}
         {' vs '}{opponent.name.length > 14 ? opponent.name.slice(0, 13) + '…' : opponent.name}
       </span>
       {live && <span className="w-1.5 h-1.5 rounded-full bg-brand-green animate-pulse-soft flex-shrink-0" />}
@@ -97,7 +111,7 @@ function MatchPill({ fixture }: { fixture: AgencyFixture }) {
 
 // ─── Match Detail Row (for week view & expanded day) ──────────────────────────
 
-function MatchDetailRow({ fixture }: { fixture: AgencyFixture }) {
+function MatchDetailRow({ fixture, locale }: { fixture: AgencyFixture; locale: string }) {
   const live = isLive(fixture.statusShort)
   const done = isFinished(fixture.statusShort)
   const abroad = isAway(fixture)
@@ -110,7 +124,7 @@ function MatchDetailRow({ fixture }: { fixture: AgencyFixture }) {
         {live ? (
           <span className="text-xs font-bold text-brand-green">{fixture.elapsed}'</span>
         ) : (
-          <span className="text-xs font-mono text-apple-gray-400">{formatTime(fixture.date)}</span>
+          <span className="text-xs font-mono text-apple-gray-400">{formatTime(fixture.date, locale)}</span>
         )}
       </div>
 
@@ -152,12 +166,15 @@ function MatchDetailRow({ fixture }: { fixture: AgencyFixture }) {
 // ─── Month View ───────────────────────────────────────────────────────────────
 
 function MonthView({
-  year, month, fixturesByDate, today, selectedDay, onSelectDay,
+  year, month, fixturesByDate, today, selectedDay, onSelectDay, daysShort, locale, t,
 }: {
   year: number; month: number
   fixturesByDate: Map<string, AgencyFixture[]>
   today: Date; selectedDay: Date | null
   onSelectDay: (d: Date) => void
+  daysShort: string[]
+  locale: string
+  t: (key: string) => string
 }) {
   const weeks = useMemo(() => getMonthGrid(year, month), [year, month])
 
@@ -165,7 +182,7 @@ function MonthView({
     <div className="bg-white dark:bg-apple-gray-800/60 rounded-apple-lg border border-apple-gray-200/60 dark:border-apple-gray-700/40 overflow-hidden">
       {/* Header */}
       <div className="grid grid-cols-7 border-b border-apple-gray-200/60 dark:border-apple-gray-700/40">
-        {DAYS_SHORT.map(d => (
+        {daysShort.map(d => (
           <div key={d} className="py-2.5 text-center text-2xs font-semibold text-apple-gray-400 dark:text-apple-gray-500 uppercase tracking-wider">
             {d}
           </div>
@@ -201,10 +218,10 @@ function MonthView({
                 </span>
                 <div className="space-y-1.5 hidden sm:block">
                   {matches.slice(0, 4).map(m => (
-                    <MatchPill key={m.fixtureId} fixture={m} />
+                    <MatchPill key={m.fixtureId} fixture={m} locale={locale} />
                   ))}
                   {matches.length > 4 && (
-                    <span className="text-xs text-apple-gray-400 pl-1">+{matches.length - 4} más</span>
+                    <span className="text-xs text-apple-gray-400 pl-1">{t('calendario.masCount').replace('{count}', String(matches.length - 4))}</span>
                   )}
                 </div>
                 {/* Mobile: just dots */}
@@ -229,11 +246,14 @@ function MonthView({
 // ─── Week View ────────────────────────────────────────────────────────────────
 
 function WeekView({
-  baseDate, fixturesByDate, today,
+  baseDate, fixturesByDate, today, daysFull, locale, t,
 }: {
   baseDate: Date
   fixturesByDate: Map<string, AgencyFixture[]>
   today: Date
+  daysFull: string[]
+  locale: string
+  t: (key: string) => string
 }) {
   const days = useMemo(() => getWeekDays(baseDate), [baseDate])
 
@@ -260,14 +280,14 @@ function WeekView({
                 {day.getDate()}
               </span>
               <span className="text-sm font-medium text-apple-gray-600 dark:text-apple-gray-400">
-                {DAYS_FULL[i]}
+                {daysFull[i]}
               </span>
               {isToday && (
-                <span className="text-2xs font-semibold text-brand-green uppercase tracking-wider">Hoy</span>
+                <span className="text-2xs font-semibold text-brand-green uppercase tracking-wider">{t('calendario.hoy')}</span>
               )}
               {matches.length > 0 && (
                 <span className="ml-auto text-2xs font-medium text-apple-gray-400">
-                  {matches.length} {matches.length === 1 ? 'partido' : 'partidos'}
+                  {matches.length} {matches.length === 1 ? t('calendario.partidoSingular') : t('calendario.partidoPlural')}
                 </span>
               )}
             </div>
@@ -275,12 +295,12 @@ function WeekView({
             {matches.length > 0 ? (
               <div className="divide-y divide-apple-gray-100 dark:divide-apple-gray-700/30">
                 {matches.map(m => (
-                  <MatchDetailRow key={m.fixtureId} fixture={m} />
+                  <MatchDetailRow key={m.fixtureId} fixture={m} locale={locale} />
                 ))}
               </div>
             ) : (
               <div className="py-5 text-center text-xs text-apple-gray-300 dark:text-apple-gray-600">
-                Sin partidos
+                {t('calendario.sinPartidos')}
               </div>
             )}
           </div>
@@ -293,9 +313,11 @@ function WeekView({
 // ─── Selected Day Panel ───────────────────────────────────────────────────────
 
 function DayPanel({
-  day, fixtures, onClose,
+  day, fixtures, onClose, daysFull, monthNames, locale, t,
 }: {
   day: Date; fixtures: AgencyFixture[]; onClose: () => void
+  daysFull: string[]; monthNames: string[]; locale: string
+  t: (key: string) => string
 }) {
   const dayIdx = isoDay(day)
 
@@ -303,7 +325,7 @@ function DayPanel({
     <div className="mt-3 bg-white dark:bg-apple-gray-800/60 rounded-apple-lg border border-apple-gray-200/60 dark:border-apple-gray-700/40 overflow-hidden animate-slide-up">
       <div className="flex items-center justify-between px-4 py-3 border-b border-apple-gray-100 dark:border-apple-gray-700/30">
         <span className="text-sm font-semibold text-apple-gray-800 dark:text-white">
-          {DAYS_FULL[dayIdx]} {day.getDate()} de {MONTHS[day.getMonth()]}
+          {daysFull[dayIdx]} {day.getDate()} {monthNames[day.getMonth()]}
         </span>
         <button onClick={onClose} className="p-1 rounded-lg hover:bg-apple-gray-100 dark:hover:bg-apple-gray-700 transition-colors">
           <svg className="w-4 h-4 text-apple-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -314,11 +336,11 @@ function DayPanel({
       {fixtures.length > 0 ? (
         <div className="divide-y divide-apple-gray-100 dark:divide-apple-gray-700/30">
           {fixtures.map(m => (
-            <MatchDetailRow key={m.fixtureId} fixture={m} />
+            <MatchDetailRow key={m.fixtureId} fixture={m} locale={locale} />
           ))}
         </div>
       ) : (
-        <div className="py-8 text-center text-sm text-apple-gray-400">Sin partidos este día</div>
+        <div className="py-8 text-center text-sm text-apple-gray-400">{t('calendario.sinPartidosEsteDia')}</div>
       )}
     </div>
   )
@@ -336,10 +358,12 @@ function PlayerSearch({
   onSelect,
   selected,
   onClear,
+  t,
 }: {
   onSelect: (player: typeof ACTIVE_PLAYERS[number]) => void
   selected: typeof ACTIVE_PLAYERS[number] | null
   onClear: () => void
+  t: (key: string) => string
 }) {
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
@@ -391,7 +415,7 @@ function PlayerSearch({
           value={query}
           onChange={e => { setQuery(e.target.value); setOpen(true) }}
           onFocus={() => setOpen(true)}
-          placeholder="Buscar jugador..."
+          placeholder={t('calendario.buscarJugador')}
           className="w-full sm:w-56 pl-8 pr-3 py-1.5 rounded-lg bg-apple-gray-100 dark:bg-apple-gray-800 border border-apple-gray-200/60 dark:border-apple-gray-700/40 text-sm text-apple-gray-800 dark:text-white placeholder:text-apple-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-green/30 focus:border-brand-green/40 transition-all"
         />
       </div>
@@ -399,7 +423,7 @@ function PlayerSearch({
       {open && (
         <div className="absolute top-full left-0 right-0 sm:right-auto sm:w-72 mt-1.5 bg-white dark:bg-apple-gray-800 border border-apple-gray-200/60 dark:border-apple-gray-700/40 rounded-xl shadow-lg overflow-hidden z-50 max-h-[320px] overflow-y-auto">
           {results.length === 0 ? (
-            <div className="px-4 py-6 text-center text-sm text-apple-gray-400">Sin resultados</div>
+            <div className="px-4 py-6 text-center text-sm text-apple-gray-400">{t('calendario.sinResultados')}</div>
           ) : (
             results.map(p => (
               <button
@@ -430,6 +454,11 @@ function PlayerSearch({
 // ─── Main Calendar Page ───────────────────────────────────────────────────────
 
 export default function CalendarPage() {
+  const { t, language } = useLanguage()
+  const locale = LANGUAGE_LOCALES[language]
+  const daysShort = useMemo(() => getDayNames(locale, 'short'), [locale])
+  const daysFull = useMemo(() => getDayNames(locale, 'long'), [locale])
+  const monthNames = useMemo(() => getMonthNames(locale), [locale])
   const [fixtures, setFixtures] = useState<AgencyFixture[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -506,13 +535,13 @@ export default function CalendarPage() {
     const first = days[0]
     const last = days[6]
     if (first.getMonth() === last.getMonth()) {
-      return `${first.getDate()} - ${last.getDate()} de ${MONTHS[first.getMonth()]}`
+      return `${first.getDate()} - ${last.getDate()} ${monthNames[first.getMonth()]}`
     }
-    return `${first.getDate()} ${MONTHS[first.getMonth()].slice(0, 3)} - ${last.getDate()} ${MONTHS[last.getMonth()].slice(0, 3)}`
-  }, [currentDate])
+    return `${first.getDate()} ${monthNames[first.getMonth()].slice(0, 3)} - ${last.getDate()} ${monthNames[last.getMonth()].slice(0, 3)}`
+  }, [currentDate, monthNames])
 
   const title = view === 'month'
-    ? `${MONTHS[month]} ${year}`
+    ? `${monthNames[month]} ${year}`
     : weekRange
 
   return (
@@ -527,12 +556,13 @@ export default function CalendarPage() {
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
-          Inicio
+          {t('nav.inicio')}
         </Link>
         <PlayerSearch
           selected={selectedPlayer}
           onSelect={p => { setSelectedPlayer(p); setSelectedDay(null) }}
           onClear={() => { setSelectedPlayer(null); setSelectedDay(null) }}
+          t={t}
         />
       </div>
 
@@ -562,11 +592,11 @@ export default function CalendarPage() {
             onClick={goToToday}
             className="ml-1 px-3 py-1.5 rounded-lg text-xs font-medium text-brand-green hover:bg-brand-green/10 transition-colors"
           >
-            Hoy
+            {t('calendario.hoy')}
           </button>
           {view === 'month' && monthMatchCount > 0 && (
             <span className="ml-2 text-xs text-apple-gray-400">
-              {monthMatchCount} {monthMatchCount === 1 ? 'partido' : 'partidos'}
+              {monthMatchCount} {monthMatchCount === 1 ? t('calendario.partidoSingular') : t('calendario.partidoPlural')}
             </span>
           )}
         </div>
@@ -581,7 +611,7 @@ export default function CalendarPage() {
                 : 'text-apple-gray-500 dark:text-apple-gray-400 hover:text-apple-gray-700 dark:hover:text-apple-gray-300'
             }`}
           >
-            Mes
+            {t('calendario.mes')}
           </button>
           <button
             onClick={() => { setView('week'); setSelectedDay(null) }}
@@ -591,7 +621,7 @@ export default function CalendarPage() {
                 : 'text-apple-gray-500 dark:text-apple-gray-400 hover:text-apple-gray-700 dark:hover:text-apple-gray-300'
             }`}
           >
-            Semana
+            {t('calendario.semana')}
           </button>
         </div>
       </div>
@@ -622,12 +652,19 @@ export default function CalendarPage() {
                 today={today}
                 selectedDay={selectedDay}
                 onSelectDay={d => setSelectedDay(prev => prev && sameDay(prev, d) ? null : d)}
+                daysShort={daysShort}
+                locale={locale}
+                t={t}
               />
               {selectedDay && (
                 <DayPanel
                   day={selectedDay}
                   fixtures={selectedDayFixtures}
                   onClose={() => setSelectedDay(null)}
+                  daysFull={daysFull}
+                  monthNames={monthNames}
+                  locale={locale}
+                  t={t}
                 />
               )}
             </>
@@ -636,6 +673,9 @@ export default function CalendarPage() {
               baseDate={currentDate}
               fixturesByDate={fixturesByDate}
               today={today}
+              daysFull={daysFull}
+              locale={locale}
+              t={t}
             />
           )}
         </>
