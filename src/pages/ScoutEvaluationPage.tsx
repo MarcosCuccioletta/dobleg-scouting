@@ -1,40 +1,44 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { useData } from '@/context/DataContext'
+import { useLanguage } from '@/context/LanguageContext'
+import { LANGUAGE_LOCALES } from '@/constants/translations'
 import { createEvaluation, fetchRecentEvaluations, type ScoutEvaluation, type PlayerSource } from '@/services/scoutEvaluationService'
 import { setPlayerStatus, fetchAllStatuses } from '@/services/monitoringService'
 import { addScoutPlayer } from '@/services/scoutPlayersService'
 import { smartSearch } from '@/lib/search'
 
-// Position options
+// Position options — value stays in Spanish (stored in DB, matched elsewhere e.g.
+// EvaluationsAdminPage's sharedMatchScore against player.position); only the
+// display label is translated via the paired 'evaluar.*' key.
 const POSITIONS = [
-  'Arquero',
-  'Lateral derecho',
-  'Defensor central',
-  'Lateral izquierdo',
-  'Volante central',
-  'Volante interno',
-  'Extremo',
-  'Delantero',
+  { value: 'Arquero', key: 'posArquero' },
+  { value: 'Lateral derecho', key: 'posLateralDerecho' },
+  { value: 'Defensor central', key: 'posDefensorCentral' },
+  { value: 'Lateral izquierdo', key: 'posLateralIzquierdo' },
+  { value: 'Volante central', key: 'posVolanteCentral' },
+  { value: 'Volante interno', key: 'posVolanteInterno' },
+  { value: 'Extremo', key: 'posExtremo' },
+  { value: 'Delantero', key: 'posDelantero' },
 ]
 
-// Role options
+// Role options — same value/key split as POSITIONS above.
 const ROLES = [
-  'Arquero',
-  'Defensor central clásico',
-  'Defensor central iniciador',
-  'Lateral ofensivo',
-  'Lateral defensivo',
-  'Lateral completo',
-  'Volante central posicional',
-  'Volante central defensivo',
-  'Volante interno mixto',
-  'Volante interno ofensivo (Enganche)',
-  'Extremo desequilibrante',
-  'Extremo finalizador',
-  'Mediapunta / Segunda punta',
-  'Delantero de area',
-  'Delantero completo / movil',
+  { value: 'Arquero', key: 'posArquero' },
+  { value: 'Defensor central clásico', key: 'rolDefensorCentralClasico' },
+  { value: 'Defensor central iniciador', key: 'rolDefensorCentralIniciador' },
+  { value: 'Lateral ofensivo', key: 'rolLateralOfensivo' },
+  { value: 'Lateral defensivo', key: 'rolLateralDefensivo' },
+  { value: 'Lateral completo', key: 'rolLateralCompleto' },
+  { value: 'Volante central posicional', key: 'rolVolanteCentralPosicional' },
+  { value: 'Volante central defensivo', key: 'rolVolanteCentralDefensivo' },
+  { value: 'Volante interno mixto', key: 'rolVolanteInternoMixto' },
+  { value: 'Volante interno ofensivo (Enganche)', key: 'rolVolanteInternoOfensivo' },
+  { value: 'Extremo desequilibrante', key: 'rolExtremoDesequilibrante' },
+  { value: 'Extremo finalizador', key: 'rolExtremoFinalizador' },
+  { value: 'Mediapunta / Segunda punta', key: 'rolMediapunta' },
+  { value: 'Delantero de area', key: 'rolDelanteroArea' },
+  { value: 'Delantero completo / movil', key: 'rolDelanteroCompleto' },
 ]
 
 // Score selector component - big and touch-friendly
@@ -43,11 +47,15 @@ function ScoreSelector({
   value,
   onChange,
   required,
+  muyMaloLabel,
+  excelenteLabel,
 }: {
   label: string
   value: number | undefined
   onChange: (v: number) => void
   required?: boolean
+  muyMaloLabel: string
+  excelenteLabel: string
 }) {
   return (
     <div className="space-y-4">
@@ -90,8 +98,8 @@ function ScoreSelector({
       </div>
 
       <div className="flex justify-between text-xs text-apple-gray-400">
-        <span>Muy malo</span>
-        <span>Excelente</span>
+        <span>{muyMaloLabel}</span>
+        <span>{excelenteLabel}</span>
       </div>
     </div>
   )
@@ -109,10 +117,13 @@ function Select({
   label: string
   value: string
   onChange: (v: string) => void
-  options: string[]
+  options: string[] | { value: string; label: string }[]
   placeholder?: string
   required?: boolean
 }) {
+  const normalizedOptions = options.map(opt =>
+    typeof opt === 'string' ? { value: opt, label: opt } : opt
+  )
   return (
     <div>
       <label className="block text-sm font-medium text-apple-gray-600 dark:text-apple-gray-400 mb-2">
@@ -130,9 +141,9 @@ function Select({
           backgroundSize: '20px',
         }}
       >
-        <option value="">{placeholder || 'Seleccionar...'}</option>
-        {options.map(opt => (
-          <option key={opt} value={opt}>{opt}</option>
+        <option value="">{placeholder}</option>
+        {normalizedOptions.map(opt => (
+          <option key={opt.value} value={opt.value}>{opt.label}</option>
         ))}
       </select>
     </div>
@@ -175,6 +186,16 @@ function Input({
 export default function ScoutEvaluationPage() {
   const { user, userDisplayName } = useAuth()
   const { external, internal } = useData()
+  const { t, language } = useLanguage()
+
+  const positionOptions = useMemo(
+    () => POSITIONS.map(p => ({ value: p.value, label: t(`evaluar.${p.key}`) })),
+    [t]
+  )
+  const roleOptions = useMemo(
+    () => ROLES.map(r => ({ value: r.value, label: t(`evaluar.${r.key}`) })),
+    [t]
+  )
 
   // Form state
   const [scoutName, setScoutName] = useState(userDisplayName || '')
@@ -403,7 +424,7 @@ export default function ScoutEvaluationPage() {
         setAddedToMonitoring(false)
       }, 5000)
     } else {
-      setError('Error al guardar. Intenta de nuevo.')
+      setError(t('evaluar.errorGuardar'))
     }
   }
 
@@ -422,10 +443,10 @@ export default function ScoutEvaluationPage() {
             </div>
             <div>
               <h1 className="text-xl font-bold text-apple-gray-900 dark:text-white">
-                Reporte
+                {t('evaluar.headerTitulo')}
               </h1>
               <p className="text-sm text-apple-gray-500 dark:text-apple-gray-400">
-                Evaluación post-partido
+                {t('evaluar.headerSubtitulo')}
               </p>
             </div>
           </div>
@@ -442,8 +463,8 @@ export default function ScoutEvaluationPage() {
               </svg>
             </div>
             <div className="text-sm text-apple-gray-600 dark:text-apple-gray-400">
-              <p className="font-medium text-apple-gray-800 dark:text-white mb-1">¿Cómo funciona?</p>
-              <p>Registrá tu evaluación después de ver un partido. Tus reportes se suman al historial del jugador y ayudan al equipo a tomar mejores decisiones de fichaje.</p>
+              <p className="font-medium text-apple-gray-800 dark:text-white mb-1">{t('evaluar.comoFuncionaTitulo')}</p>
+              <p>{t('evaluar.comoFuncionaTexto')}</p>
             </div>
           </div>
         </div>
@@ -455,10 +476,11 @@ export default function ScoutEvaluationPage() {
           {/* Scout selector */}
           <div className="bg-white dark:bg-apple-gray-800 rounded-2xl p-5 shadow-sm border border-apple-gray-100 dark:border-apple-gray-700">
             <Select
-              label="Scout"
+              label={t('evaluar.scout')}
               value={scoutName}
               onChange={setScoutName}
               options={availableScouts.map(s => s.name)}
+              placeholder={t('evaluar.seleccionar')}
               required
             />
           </div>
@@ -466,13 +488,13 @@ export default function ScoutEvaluationPage() {
           {/* Player info */}
           <div className="bg-white dark:bg-apple-gray-800 rounded-2xl p-5 shadow-sm border border-apple-gray-100 dark:border-apple-gray-700 space-y-4">
             <h2 className="text-sm font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider">
-              Jugador
+              {t('evaluar.jugadorSeccion')}
             </h2>
 
             {/* Player search/input */}
             <div className="relative">
               <label className="block text-sm font-medium text-apple-gray-600 dark:text-apple-gray-400 mb-2">
-                Nombre <span className="text-brand-green">*</span>
+                {t('evaluar.nombre')} <span className="text-brand-green">*</span>
               </label>
               <input
                 type="text"
@@ -512,7 +534,7 @@ export default function ScoutEvaluationPage() {
                               ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
                               : 'bg-apple-gray-100 text-apple-gray-600 dark:bg-apple-gray-700 dark:text-apple-gray-400'
                           }`}>
-                            {p.source === 'interno' ? 'Interno' : p.source === 'seguimiento' ? 'Seguimiento' : 'Externo'}
+                            {p.source === 'interno' ? t('evaluar.badgeInterno') : p.source === 'seguimiento' ? t('evaluar.badgeSeguimiento') : t('evaluar.badgeExterno')}
                           </span>
                         </div>
                         <div className="text-xs text-apple-gray-500">{p.team}</div>
@@ -535,17 +557,17 @@ export default function ScoutEvaluationPage() {
                     {playerSource === 'interno' ? (
                       <>
                         <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                        Jugador del plantel interno
+                        {t('evaluar.plantelInterno')}
                       </>
                     ) : playerSource === 'seguimiento' ? (
                       <>
                         <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-                        En seguimiento
+                        {t('evaluar.enSeguimiento')}
                       </>
                     ) : (
                       <>
                         <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9" /></svg>
-                        Jugador externo (se agregara a seguimiento)
+                        {t('evaluar.jugadorExternoNota')}
                       </>
                     )}
                   </span>
@@ -554,23 +576,25 @@ export default function ScoutEvaluationPage() {
             </div>
 
             <Input
-              label="Equipo"
+              label={t('evaluar.equipo')}
               value={team}
               onChange={setTeam}
             />
 
             <div className="grid grid-cols-2 gap-3">
               <Select
-                label="Posición"
+                label={t('evaluar.posicion')}
                 value={position}
                 onChange={setPosition}
-                options={POSITIONS}
+                options={positionOptions}
+                placeholder={t('evaluar.seleccionar')}
               />
               <Select
-                label="Rol"
+                label={t('evaluar.rol')}
                 value={role}
                 onChange={setRole}
-                options={ROLES}
+                options={roleOptions}
+                placeholder={t('evaluar.seleccionar')}
               />
             </div>
           </div>
@@ -578,11 +602,11 @@ export default function ScoutEvaluationPage() {
           {/* Match info */}
           <div className="bg-white dark:bg-apple-gray-800 rounded-2xl p-5 shadow-sm border border-apple-gray-100 dark:border-apple-gray-700 space-y-4">
             <h2 className="text-sm font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider">
-              Partido
+              {t('evaluar.partidoSeccion')}
             </h2>
 
             <Input
-              label="Fecha"
+              label={t('evaluar.fecha')}
               type="date"
               value={matchDate}
               onChange={setMatchDate}
@@ -591,12 +615,12 @@ export default function ScoutEvaluationPage() {
 
             <div className="grid grid-cols-2 gap-3">
               <Input
-                label="Rival"
+                label={t('evaluar.rival')}
                 value={rival}
                 onChange={setRival}
               />
               <Input
-                label="Competencia"
+                label={t('evaluar.competencia')}
                 value={competition}
                 onChange={setCompetition}
               />
@@ -606,26 +630,26 @@ export default function ScoutEvaluationPage() {
           {/* Scores */}
           <div className="bg-white dark:bg-apple-gray-800 rounded-2xl p-5 shadow-sm border border-apple-gray-100 dark:border-apple-gray-700 space-y-6">
             <h2 className="text-sm font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider">
-              Puntuaciones
+              {t('evaluar.puntuacionesSeccion')}
             </h2>
-            <ScoreSelector label="Rendimiento general del jugador" value={score} onChange={setScore} required />
+            <ScoreSelector label={t('evaluar.rendimientoGeneral')} value={score} onChange={setScore} required muyMaloLabel={t('evaluar.muyMalo')} excelenteLabel={t('evaluar.excelente')} />
             <div className="border-t border-apple-gray-100 dark:border-apple-gray-700/60 pt-6">
-              <ScoreSelector label="Valoración táctica" value={tacticalScore} onChange={setTacticalScore} required />
+              <ScoreSelector label={t('evaluar.valoracionTactica')} value={tacticalScore} onChange={setTacticalScore} required muyMaloLabel={t('evaluar.muyMalo')} excelenteLabel={t('evaluar.excelente')} />
             </div>
             <div className="border-t border-apple-gray-100 dark:border-apple-gray-700/60 pt-6">
-              <ScoreSelector label="Valoración mental" value={mentalScore} onChange={setMentalScore} required />
+              <ScoreSelector label={t('evaluar.valoracionMental')} value={mentalScore} onChange={setMentalScore} required muyMaloLabel={t('evaluar.muyMalo')} excelenteLabel={t('evaluar.excelente')} />
             </div>
           </div>
 
           {/* Observations */}
           <div className="bg-white dark:bg-apple-gray-800 rounded-2xl p-5 shadow-sm border border-apple-gray-100 dark:border-apple-gray-700 space-y-4">
             <h2 className="text-sm font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider">
-              Observaciones
+              {t('evaluar.observacionesSeccion')}
             </h2>
 
             <div>
               <label className="block text-sm font-medium text-apple-gray-600 dark:text-apple-gray-400 mb-2">
-                Notas del partido
+                {t('evaluar.notasPartido')}
               </label>
               <textarea
                 value={notes}
@@ -638,13 +662,13 @@ export default function ScoutEvaluationPage() {
             {/* Recommendation */}
             <div>
               <label className="block text-sm font-medium text-apple-gray-600 dark:text-apple-gray-400 mb-3">
-                Recomendación
+                {t('evaluar.recomendacion')}
               </label>
               <div className="grid grid-cols-3 gap-2">
                 {[
-                  { value: 'fichar', label: 'Fichar', color: 'brand-green', icon: 'M5 13l4 4L19 7' },
-                  { value: 'seguir_observando', label: 'Seguir', color: 'amber-500', icon: 'M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z' },
-                  { value: 'descartar', label: 'Descartar', color: 'red-500', icon: 'M6 18L18 6M6 6l12 12' },
+                  { value: 'fichar', label: t('evaluar.fichar'), color: 'brand-green', icon: 'M5 13l4 4L19 7' },
+                  { value: 'seguir_observando', label: t('evaluar.seguir'), color: 'amber-500', icon: 'M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z' },
+                  { value: 'descartar', label: t('evaluar.descartar'), color: 'red-500', icon: 'M6 18L18 6M6 6l12 12' },
                 ].map(opt => (
                   <button
                     key={opt.value}
@@ -684,7 +708,7 @@ export default function ScoutEvaluationPage() {
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
-                <span className="font-medium">Evaluación guardada</span>
+                <span className="font-medium">{t('evaluar.evaluacionGuardada')}</span>
               </div>
             </div>
           )}
@@ -706,10 +730,10 @@ export default function ScoutEvaluationPage() {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                 </svg>
-                Guardando...
+                {t('evaluar.guardando')}
               </span>
             ) : (
-              'Guardar Evaluación'
+              t('evaluar.guardarEvaluacion')
             )}
           </button>
         </div>
@@ -720,7 +744,7 @@ export default function ScoutEvaluationPage() {
         <div className="hidden xl:block fixed right-6 top-32 w-72">
           <div className="bg-white dark:bg-apple-gray-800 rounded-2xl p-5 shadow-sm border border-apple-gray-100 dark:border-apple-gray-700">
             <h3 className="text-sm font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider mb-4">
-              Ultimas evaluaciones
+              {t('evaluar.ultimasEvaluaciones')}
             </h3>
             <div className="space-y-3">
               {recentEvaluations.slice(0, 5).map(ev => (
@@ -734,7 +758,7 @@ export default function ScoutEvaluationPage() {
                         {ev.player_name}
                       </div>
                       <div className="text-xs text-apple-gray-500 truncate">
-                        {ev.team} - {new Date(ev.match_date).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })}
+                        {ev.team} - {new Date(ev.match_date).toLocaleDateString(LANGUAGE_LOCALES[language], { day: '2-digit', month: 'short' })}
                       </div>
                     </div>
                     {ev.technical_score && (
