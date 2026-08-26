@@ -94,7 +94,12 @@ export default function NewNegotiationForm({ open, onClose, onCreated }: { open:
             placeholder={t('mercado.nombreJugadorPlaceholder')}
             className="input-apple text-sm w-full mb-2"
           />
-          <PlayerLinkField playerName={playerName} playerApiId={playerApiId} onChange={setPlayerApiId} />
+          <PlayerLinkField
+            playerName={playerName}
+            playerApiId={playerApiId}
+            onChange={setPlayerApiId}
+            onResolved={identity => { if (identity) setPlayerName(identity.name) }}
+          />
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>

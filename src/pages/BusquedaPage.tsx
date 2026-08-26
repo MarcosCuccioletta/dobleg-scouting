@@ -18,13 +18,13 @@ import {
   type ApiMetricKey,
 } from '@/constants/apiMetrics'
 import { getScoreColorClass, getScoreBgClass } from '@/components/ui/ScoreBar'
-import { formatMarketValue } from '@/utils/scoring'
-import { useCurrency } from '@/context/CurrencyContext'
+import { formatMarketValueInCurrency } from '@/utils/scoring'
+import { useCurrency, type Currency } from '@/context/CurrencyContext'
 import type { EnrichedPlayer } from '@/types'
 
 // ─── Helper: adapt PlayerWithScore → EnrichedPlayer (for PDF export) ─────────
 
-function playerToEnriched(p: PlayerWithScore): EnrichedPlayer {
+function playerToEnriched(p: PlayerWithScore, currency: Currency, rate: number): EnrichedPlayer {
   const score = p.season_scores[0]
   const age = p.birth_date
     ? Math.floor((Date.now() - new Date(p.birth_date).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
@@ -42,7 +42,7 @@ function playerToEnriched(p: PlayerWithScore): EnrichedPlayer {
     'País de nacimiento': p.nationality ?? '',
     Pie: p.preferred_foot ?? '',
     Altura: p.height_cm != null ? String(p.height_cm) : '',
-    'Valor de mercado (Transfermarkt)': mv == null ? '—' : formatMarketValue(mv),
+    'Valor de mercado (Transfermarkt)': mv == null ? '—' : formatMarketValueInCurrency(mv, currency, rate),
     'Vencimiento contrato': p.contract_end_date ?? '',
     'Partidos jugados': score ? String(score.matches_played) : '',
     'Minutos jugados': '',
@@ -647,7 +647,7 @@ export default function BusquedaPage() {
       const AnalisisCompletoPDF = pdfMod.default
       const { createElement } = await import('react')
 
-      const enriched = playerToEnriched(selectedPlayer)
+      const enriched = playerToEnriched(selectedPlayer, currency, rate)
 
       // Build bar data for PDF (use activeMetrics or position defaults)
       const pos = selectedPlayer.primary_position

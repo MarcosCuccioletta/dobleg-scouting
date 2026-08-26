@@ -1,14 +1,14 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import MobileSheet from '@/components/ui/MobileSheet'
 import MarketNotesPanel from './MarketNotesPanel'
 import AssigneeSelect from './AssigneeSelect'
-import PlayerLinkField from './PlayerLinkField'
+import PlayerLinkField, { type ResolvedPlayerIdentity } from './PlayerLinkField'
 import { NEGOTIATION_STATUS_LABEL_KEY } from './NegotiationCard'
-import { updateNegotiationStatus, reassignNegotiation, linkNegotiationPlayer } from '@/services/marketService'
+import { updateNegotiationStatus, reassignNegotiation, linkNegotiationPlayer, fetchPlayerIdentity } from '@/services/marketService'
 import { useAuth } from '@/context/AuthContext'
 import { useLanguage } from '@/context/LanguageContext'
 import { TeamLogo, PlayerPhoto } from '@/components/ui/PlayerPhoto'
-import { buildPlayerPhotoUrl } from '@/utils/marketAlerts'
+import { buildPlayerPhotoUrl, computeAge } from '@/utils/marketAlerts'
 import type { Negotiation, NegotiationStatus } from '@/types/market'
 
 export default function NegotiationDetailSheet({
@@ -27,7 +27,22 @@ export default function NegotiationDetailSheet({
   const [reassigning, setReassigning] = useState(false)
   const [linking, setLinking] = useState(false)
   const [pendingApiId, setPendingApiId] = useState<number | null>(null)
+  const [pendingIdentity, setPendingIdentity] = useState<ResolvedPlayerIdentity | null>(null)
   const [notesRefreshSignal, setNotesRefreshSignal] = useState(0)
+  const [headerAge, setHeaderAge] = useState<number | null>(null)
+
+  // Edad del jugador ya vinculado — se muestra siempre en el encabezado, no
+  // sólo mientras se edita el vínculo (a diferencia de la resolución dentro
+  // de PlayerLinkField, que sólo corre cuando la sección "Vincular jugador"
+  // está abierta).
+  useEffect(() => {
+    if (!negotiation?.player_api_id) { setHeaderAge(null); return }
+    let active = true
+    fetchPlayerIdentity(negotiation.player_api_id).then(identity => {
+      if (active) setHeaderAge(identity ? computeAge(identity.birth_date) : null)
+    })
+    return () => { active = false }
+  }, [negotiation?.player_api_id])
 
   if (!negotiation) return null
 
@@ -45,11 +60,22 @@ export default function NegotiationDetailSheet({
     }
   }
 
+  const openLinking = () => {
+    setPendingApiId(negotiation.player_api_id)
+    setPendingIdentity(null)
+    setLinking(l => !l)
+  }
+
   const handleSaveLink = async () => {
     if (pendingApiId == null) return
-    const ok = await linkNegotiationPlayer(negotiation.id, pendingApiId, 'externo')
+    const ok = await linkNegotiationPlayer(negotiation.id, pendingApiId, 'externo', pendingIdentity?.name)
     if (ok) {
-      onUpdated({ ...negotiation, player_api_id: pendingApiId, player_source: 'externo' })
+      onUpdated({
+        ...negotiation,
+        player_api_id: pendingApiId,
+        player_source: 'externo',
+        player_name: pendingIdentity?.name ?? negotiation.player_name,
+      })
       setLinking(false)
     }
   }
@@ -65,7 +91,9 @@ export default function NegotiationDetailSheet({
             <p className="font-semibold text-apple-gray-800 dark:text-white truncate">{negotiation.team_name}</p>
             <div className="flex items-center gap-2 mt-1">
               <PlayerPhoto src={photoUrl} name={negotiation.player_name} size="sm" />
-              <span className="text-sm text-apple-gray-600 dark:text-apple-gray-300 truncate">{negotiation.player_name}</span>
+              <span className="text-sm text-apple-gray-600 dark:text-apple-gray-300 truncate">
+                {negotiation.player_name}{headerAge != null && ` · ${headerAge} ${t('externo.anios')}`}
+              </span>
             </div>
           </div>
         </div>
@@ -104,13 +132,18 @@ export default function NegotiationDetailSheet({
           <p className="text-2xs text-apple-gray-400">
             {negotiation.player_api_id ? t('mercado.vinculadoApi').replace('{id}', String(negotiation.player_api_id)) : t('mercado.sinVincularApi')}
           </p>
-          <button onClick={() => setLinking(l => !l)} className="text-xs font-medium text-brand-green hover:text-emerald-600 flex-shrink-0">
+          <button onClick={openLinking} className="text-xs font-medium text-brand-green hover:text-emerald-600 flex-shrink-0">
             {t('mercado.vincularJugador')}
           </button>
         </div>
         {linking && (
           <div className="space-y-2">
-            <PlayerLinkField playerName={negotiation.player_name} playerApiId={negotiation.player_api_id} onChange={setPendingApiId} />
+            <PlayerLinkField
+              playerName={negotiation.player_name}
+              playerApiId={pendingApiId}
+              onChange={setPendingApiId}
+              onResolved={setPendingIdentity}
+            />
             <button
               onClick={handleSaveLink}
               disabled={pendingApiId == null}

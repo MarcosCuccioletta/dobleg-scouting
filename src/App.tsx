@@ -31,6 +31,7 @@ const ScoutTrackingGGPage = lazy(() => import('@/pages/ScoutTrackingGGPage'))
 const BusquedaPage = lazy(() => import('@/pages/BusquedaPage'))
 const InformesPage = lazy(() => import('@/pages/InformesPage'))
 const ProfilePage = lazy(() => import('@/pages/ProfilePage'))
+const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'))
 
 export default function App() {
   return (
@@ -63,6 +64,7 @@ export default function App() {
             <Route path="/analisis-completo" element={<BusquedaPage />} />
             <Route path="/informes" element={<InformesPage />} />
             <Route path="/perfil" element={<ProfilePage />} />
+            <Route path="*" element={<NotFoundPage />} />
           </Route>
         </Routes>
         <Suspense fallback={null}>

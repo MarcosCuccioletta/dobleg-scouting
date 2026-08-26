@@ -97,10 +97,41 @@ export async function updateNegotiationStatus(id: number, status: NegotiationSta
   return true
 }
 
-export async function linkNegotiationPlayer(id: number, playerApiId: number, playerSource: 'interno' | 'externo' | null): Promise<boolean> {
+export interface PlayerIdentity {
+  name: string
+  birth_date: string | null
+  photo: string | null
+}
+
+/**
+ * Busca nombre/fecha de nacimiento/foto reales por id de la API — fuente de
+ * verdad única para "arreglar" el nombre de una negociación cuando se la
+ * vincula a un jugador real. Los jefes que cargan negociaciones suelen
+ * escribir mal nombres/apellidos; el nombre correcto sólo se sabe con certeza
+ * acá, no en lo que se tipeó al crear la negociación.
+ */
+export async function fetchPlayerIdentity(playerApiId: number): Promise<PlayerIdentity | null> {
+  const { data, error } = await supabase
+    .from('players')
+    .select('name, birth_date, photo')
+    .eq('id', playerApiId)
+    .maybeSingle()
+  if (error) { console.error('fetchPlayerIdentity error:', error); return null }
+  return data
+}
+
+/**
+ * Vincula el jugador y, si se resuelve su identidad real, corrige
+ * `player_name` en el mismo paso — así el nombre prolijo del jugador de la
+ * API reemplaza lo que se haya tipeado (con errores u otros) al crear la
+ * negociación.
+ */
+export async function linkNegotiationPlayer(id: number, playerApiId: number, playerSource: 'interno' | 'externo' | null, correctedName?: string | null): Promise<boolean> {
+  const update: Record<string, unknown> = { player_api_id: playerApiId, player_source: playerSource, updated_at: new Date().toISOString() }
+  if (correctedName) update.player_name = correctedName
   const { error } = await supabase
     .from('market_negotiations')
-    .update({ player_api_id: playerApiId, player_source: playerSource, updated_at: new Date().toISOString() })
+    .update(update)
     .eq('id', id)
   if (error) { console.error('linkNegotiationPlayer error:', error); return false }
   return true

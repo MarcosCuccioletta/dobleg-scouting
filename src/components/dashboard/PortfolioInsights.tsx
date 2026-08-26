@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import type { EnrichedPlayer, MarketValueHistoryEntry } from '@/types'
-import { formatMarketValue } from '@/utils/scoring'
+import { formatMarketValueInCurrency } from '@/utils/scoring'
+import { useCurrency } from '@/context/CurrencyContext'
 
 export interface PortfolioInsightsData {
   totalValue: number
@@ -92,6 +93,7 @@ function InsightCard({ label, icon, tone, children }: { label: string; icon: Rea
 const iconClass = 'w-4.5 h-4.5 text-white'
 
 export default function PortfolioInsights({ players, history }: { players: EnrichedPlayer[]; history: MarketValueHistoryEntry[] }) {
+  const { currency, rate } = useCurrency()
   const data = useMemo(() => computePortfolioInsights(players, history), [players, history])
 
   if (data.totalValue === 0) return null
@@ -130,7 +132,7 @@ export default function PortfolioInsights({ players, history }: { players: Enric
       >
         {data.atRiskCount > 0 ? (
           <p className="text-sm text-apple-gray-700 dark:text-apple-gray-200">
-            <span className="font-bold text-amber-600 dark:text-amber-400">{formatMarketValue(data.atRiskValue)}</span> en {data.atRiskCount} jugador{data.atRiskCount !== 1 ? 'es' : ''} con contrato venciendo
+            <span className="font-bold text-amber-600 dark:text-amber-400">{formatMarketValueInCurrency(data.atRiskValue, currency, rate)}</span> en {data.atRiskCount} jugador{data.atRiskCount !== 1 ? 'es' : ''} con contrato venciendo
           </p>
         ) : (
           <p className="text-sm text-apple-gray-500">Sin contratos críticos</p>

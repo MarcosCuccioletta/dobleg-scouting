@@ -61,6 +61,11 @@ export function buildPlayerPhotoUrl(playerApiId: number | null): string | null {
   return `https://media.api-sports.io/football/players/${playerApiId}.png`
 }
 
+export function computeAge(birthDate: string | null): number | null {
+  if (!birthDate) return null
+  return Math.floor((Date.now() - new Date(birthDate).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
+}
+
 /**
  * Valida que un string de fecha de un `<input type="date">` sea una fecha
  * real razonable antes de guardarla. El input nativo normalmente sólo emite
