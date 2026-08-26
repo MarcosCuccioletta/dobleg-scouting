@@ -6,6 +6,7 @@ import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, LabelList,
 } from 'recharts'
 import { fuzzyMatch } from '@/lib/search'
+import { useLanguage } from '@/context/LanguageContext'
 import { PlayerPhoto } from '@/components/ui/PlayerPhoto'
 import { usePlayersList, usePositionMetricAverages } from '@/hooks/usePlayerStats'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
@@ -68,6 +69,7 @@ function playerToEnriched(p: PlayerWithScore, currency: Currency, rate: number):
 // ─── Copy-as-PNG button ───────────────────────────────────────────────────────
 
 function CopyBtn({ targetId, filename = 'grafico' }: { targetId: string; filename?: string }) {
+  const { t } = useLanguage()
   const [st, setSt] = useState<'idle' | 'busy' | 'done'>('idle')
 
   async function handle() {
@@ -107,7 +109,7 @@ function CopyBtn({ targetId, filename = 'grafico' }: { targetId: string; filenam
     <button
       onClick={handle}
       disabled={st === 'busy'}
-      title="Copiar gráfico como PNG (para pegar en Canva u otros)"
+      title={t('analisisCompleto.copiarComoPNGTitle')}
       className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-apple-gray-100 dark:bg-apple-gray-700 text-apple-gray-500 dark:text-apple-gray-400 hover:bg-apple-gray-200 dark:hover:bg-apple-gray-600 transition-colors disabled:opacity-40 select-none"
     >
       {st === 'busy' ? (
@@ -117,7 +119,7 @@ function CopyBtn({ targetId, filename = 'grafico' }: { targetId: string; filenam
       ) : (
         <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
       )}
-      <span>{st === 'done' ? 'Copiado' : 'Copiar PNG'}</span>
+      <span>{st === 'done' ? t('analisisCompleto.copiado') : t('analisisCompleto.copiarPNG')}</span>
     </button>
   )
 }
@@ -172,35 +174,36 @@ function getAvgMetricValue(avg: PositionMetricAverages | null, key: ApiMetricKey
 // Metric info lookup
 const METRIC_BY_KEY = new Map(API_METRICS.map(m => [m.key, m]))
 
-// Grouped metrics for dropdown UI  (reuse API_METRICS split into categories)
+// Grouped metrics for dropdown UI (reuse API_METRICS split into categories).
+// labelKey reuses the 'dispersion.grupo*' translations — same category set as ScatterChartPage.
 interface MetricGroup {
-  label: string
+  labelKey: string
   keys: ApiMetricKey[]
 }
 
 const METRIC_GROUPS: MetricGroup[] = [
   {
-    label: 'Gol & Creación',
+    labelKey: 'dispersion.grupoGolCreacion',
     keys: ['goals_p90', 'assists_p90', 'shots_on_p90', 'shots_pct'],
   },
   {
-    label: 'Pases',
+    labelKey: 'dispersion.grupoPases',
     keys: ['passes_accuracy', 'passes_key_p90', 'passes_total_p90'],
   },
   {
-    label: 'Regates & Conducción',
+    labelKey: 'dispersion.grupoRegates',
     keys: ['dribbles_success_p90', 'dribbles_pct', 'fouls_drawn_p90'],
   },
   {
-    label: 'Duelos',
+    labelKey: 'dispersion.grupoDuelos',
     keys: ['duels_won_pct'],
   },
   {
-    label: 'Defensiva',
+    labelKey: 'dispersion.grupoDefensiva',
     keys: ['tackles_p90', 'interceptions_p90', 'blocks_p90'],
   },
   {
-    label: 'Rating & Portero',
+    labelKey: 'dispersion.grupoRating',
     keys: ['avg_rating', 'saves_p90', 'goals_conceded_p90', 'penalty_saved_avg', 'clean_sheet_pct'],
   },
 ]
@@ -208,12 +211,13 @@ const METRIC_GROUPS: MetricGroup[] = [
 // ─── Tooltip for Scatter ──────────────────────────────────────────────────────
 
 function ScatterTooltip({ active, payload }: { active?: boolean; payload?: Array<{ payload: { name: string; x: number } }> }) {
+  const { t } = useLanguage()
   if (!active || !payload?.length) return null
   const d = payload[0].payload
   return (
     <div className="bg-white dark:bg-apple-gray-800 border border-apple-gray-200 dark:border-apple-gray-700 rounded-lg px-3 py-2 shadow-lg text-xs">
       <p className="font-semibold text-apple-gray-900 dark:text-white">{d.name}</p>
-      <p className="text-apple-gray-500 dark:text-apple-gray-400">Valor: {d.x?.toFixed(2)}</p>
+      <p className="text-apple-gray-500 dark:text-apple-gray-400">{t('analisisCompleto.valorTooltip')}{d.x?.toFixed(2)}</p>
     </div>
   )
 }
@@ -232,6 +236,7 @@ interface SearchCandidate {
 
 export default function BusquedaPage() {
   const navigate = useNavigate()
+  const { t } = useLanguage()
 
   // ─── Data sources ─────────────────────────────────────────────────────────
   // Pool chico (500 de un total de ~8600 con score) sólo para poblar los
@@ -581,19 +586,19 @@ export default function BusquedaPage() {
     let recommendation = '', recommendationLevel: 'green' | 'amber' | 'red' | 'neutral' = 'neutral'
     if (playerScore != null && avgScore != null) {
       const diff = playerScore - avgScore
-      if (playerScore >= 7.5 && top1.length >= 1) { recommendation = 'Perfil de alto valor dentro del grupo. Recomendamos avanzar con el proceso de scouting.'; recommendationLevel = 'green' }
-      else if (playerScore >= 6.5 && top3.length >= 2) { recommendation = 'Jugador competitivo con métricas destacadas. Vale la pena profundizar el seguimiento.'; recommendationLevel = 'green' }
-      else if (diff > 0.5 && top3.length >= 1) { recommendation = 'Por encima del promedio del grupo. Puede ser una opción interesante según el contexto.'; recommendationLevel = 'amber' }
-      else if (diff < -1.5 || (playerScore < 5 && below.length > above.length)) { recommendation = 'Por debajo del nivel del grupo en varios aspectos. Considerar con cautela.'; recommendationLevel = 'red' }
-      else { recommendation = 'Perfil dentro del promedio del grupo. Se recomienda evaluar métricas clave para el puesto.'; recommendationLevel = 'neutral' }
+      if (playerScore >= 7.5 && top1.length >= 1) { recommendation = t('analisisCompleto.recAltoValor'); recommendationLevel = 'green' }
+      else if (playerScore >= 6.5 && top3.length >= 2) { recommendation = t('analisisCompleto.recCompetitivo'); recommendationLevel = 'green' }
+      else if (diff > 0.5 && top3.length >= 1) { recommendation = t('analisisCompleto.recPorEncima'); recommendationLevel = 'amber' }
+      else if (diff < -1.5 || (playerScore < 5 && below.length > above.length)) { recommendation = t('analisisCompleto.recPorDebajo'); recommendationLevel = 'red' }
+      else { recommendation = t('analisisCompleto.recPromedio'); recommendationLevel = 'neutral' }
     }
 
     const sampleWarning = pool.length < 5
-      ? `Muestra pequeña (${pool.length} jugador${pool.length !== 1 ? 'es' : ''}). Los datos son referenciales.`
+      ? t(pool.length === 1 ? 'analisisCompleto.muestraPequenaUno' : 'analisisCompleto.muestraPequenaVarios').replace('{count}', String(pool.length))
       : null
 
     return { playerScore, avgScore, scoreRank, scorePct, poolSize: pool.length, top1, top3, above, below, recommendation, recommendationLevel, sampleWarning }
-  }, [selectedPlayer, pool, rankings])
+  }, [selectedPlayer, pool, rankings, t])
 
   // ─── Actions ─────────────────────────────────────────────────────────────
 
@@ -681,8 +686,8 @@ export default function BusquedaPage() {
         .filter(d => d.jugadorRaw !== null)
 
       const poolLabelStr = leagueIdFilter != null
-        ? (allLeagues.find(l => l.id === leagueIdFilter)?.name ?? 'Pool general')
-        : 'Pool general'
+        ? (allLeagues.find(l => l.id === leagueIdFilter)?.name ?? t('analisisCompleto.poolGeneral'))
+        : t('analisisCompleto.poolGeneral')
 
       const props = {
         player: enriched,
@@ -733,7 +738,7 @@ export default function BusquedaPage() {
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="flex flex-col items-center gap-3">
           <div className="w-8 h-8 border-2 border-brand-green border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm text-apple-gray-500 dark:text-apple-gray-400">Cargando datos...</p>
+          <p className="text-sm text-apple-gray-500 dark:text-apple-gray-400">{t('analisisCompleto.cargandoDatos')}</p>
         </div>
       </div>
     )
@@ -747,9 +752,9 @@ export default function BusquedaPage() {
       {/* Header row */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-apple-gray-900 dark:text-white tracking-tight">Análisis Completo</h1>
+          <h1 className="text-2xl font-semibold text-apple-gray-900 dark:text-white tracking-tight">{t('analisisCompleto.titulo')}</h1>
           <p className="text-sm text-apple-gray-500 dark:text-apple-gray-400 mt-1">
-            Buscá un jugador para analizar su rendimiento en contexto.
+            {t('analisisCompleto.subtitulo')}
           </p>
         </div>
         {selectedPlayer && (
@@ -767,7 +772,7 @@ export default function BusquedaPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
               )}
-              {exporting ? 'Generando...' : 'Exportar PDF'}
+              {exporting ? t('analisisCompleto.generando') : t('analisisCompleto.exportarPDF')}
             </button>
           </div>
         )}
@@ -781,7 +786,7 @@ export default function BusquedaPage() {
             onChange={e => { setSearchLeagueFilter(e.target.value); setSearchTeamFilter(''); setSearchPositionFilter(''); setShowDropdown(true) }}
             className="px-3 py-2 rounded-xl text-sm border border-apple-gray-200 dark:border-apple-gray-700 bg-apple-gray-50 dark:bg-apple-gray-700 text-apple-gray-700 dark:text-apple-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-green/40 focus:border-brand-green"
           >
-            <option value="">Todas las ligas</option>
+            <option value="">{t('analisisCompleto.todasLigas')}</option>
             {allLeagues.map(l => <option key={l.id} value={l.name}>{l.name}</option>)}
           </select>
           <select
@@ -789,20 +794,20 @@ export default function BusquedaPage() {
             onChange={e => { setSearchTeamFilter(e.target.value); setSearchPositionFilter(''); setShowDropdown(true) }}
             className="px-3 py-2 rounded-xl text-sm border border-apple-gray-200 dark:border-apple-gray-700 bg-apple-gray-50 dark:bg-apple-gray-700 text-apple-gray-700 dark:text-apple-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-green/40 focus:border-brand-green"
           >
-            <option value="">Todos los equipos</option>
-            {teamsByLeague.map(t => <option key={t.name} value={t.name}>{t.name}</option>)}
+            <option value="">{t('analisisCompleto.todosEquipos')}</option>
+            {teamsByLeague.map(tm => <option key={tm.name} value={tm.name}>{tm.name}</option>)}
           </select>
           <select
             value={searchPositionFilter}
             onChange={e => { setSearchPositionFilter(e.target.value); setShowDropdown(true) }}
             className="px-3 py-2 rounded-xl text-sm border border-apple-gray-200 dark:border-apple-gray-700 bg-apple-gray-50 dark:bg-apple-gray-700 text-apple-gray-700 dark:text-apple-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-green/40 focus:border-brand-green"
           >
-            <option value="">Todas las posiciones</option>
+            <option value="">{t('analisisCompleto.todasPosiciones')}</option>
             {positionsByFilters.map(p => <option key={p} value={p}>{p}</option>)}
           </select>
           {(searchLeagueFilter || searchTeamFilter || searchPositionFilter) && (
             <button onClick={() => { setSearchLeagueFilter(''); setSearchTeamFilter(''); setSearchPositionFilter('') }} className="px-3 py-2 rounded-xl text-sm text-apple-gray-500 hover:text-apple-gray-700 dark:hover:text-white transition-colors">
-              Limpiar
+              {t('analisisCompleto.limpiar')}
             </button>
           )}
         </div>
@@ -813,7 +818,7 @@ export default function BusquedaPage() {
           <input
             ref={inputRef}
             type="text"
-            placeholder={searchTeamFilter ? `Buscar en ${searchTeamFilter}...` : searchLeagueFilter ? `Buscar en ${searchLeagueFilter}...` : 'Buscar jugador por nombre...'}
+            placeholder={searchTeamFilter ? t('analisisCompleto.buscarEnX').replace('{x}', searchTeamFilter) : searchLeagueFilter ? t('analisisCompleto.buscarEnX').replace('{x}', searchLeagueFilter) : t('analisisCompleto.buscarJugadorPorNombre')}
             value={query}
             onChange={e => { setQuery(e.target.value); setShowDropdown(true); if (!e.target.value) setSelectedPlayer(null) }}
             onFocus={() => setShowDropdown(true)}
@@ -840,7 +845,7 @@ export default function BusquedaPage() {
           )}
           {showDropdown && (query.trim().length > 1 || searchLeagueFilter || searchTeamFilter || searchPositionFilter) && filteredCandidates.length === 0 && (
             <div ref={dropdownRef} className="absolute z-50 left-0 right-0 top-full mt-1 bg-white dark:bg-apple-gray-800 border border-apple-gray-200 dark:border-apple-gray-700 rounded-xl shadow-xl px-4 py-3">
-              <p className="text-sm text-apple-gray-500 dark:text-apple-gray-400">Sin resultados</p>
+              <p className="text-sm text-apple-gray-500 dark:text-apple-gray-400">{t('analisisCompleto.sinResultados')}</p>
             </div>
           )}
         </div>
@@ -861,7 +866,7 @@ export default function BusquedaPage() {
                     </button>
                   </div>
                   <p className="text-sm text-apple-gray-500 dark:text-apple-gray-400 mt-0.5">
-                    {selectedPlayer.team?.name}{selectedPlayer.league?.name ? ` · ${selectedPlayer.league.name}` : ''}{selectedPlayer.primary_position ? ` · ${displayPosition(selectedPlayer.primary_position)}` : ''}{getAge(selectedPlayer.birth_date) ? ` · ${getAge(selectedPlayer.birth_date)} años` : ''}
+                    {selectedPlayer.team?.name}{selectedPlayer.league?.name ? ` · ${selectedPlayer.league.name}` : ''}{selectedPlayer.primary_position ? ` · ${displayPosition(selectedPlayer.primary_position)}` : ''}{getAge(selectedPlayer.birth_date) ? ` · ${getAge(selectedPlayer.birth_date)} ${t('externo.anios')}` : ''}
                   </p>
                 </div>
                 {selectedPlayer.primary_score != null && (
@@ -879,15 +884,15 @@ export default function BusquedaPage() {
               {/* League score comparison */}
               {leagueScoreContext && selectedPlayer.primary_score != null && (
                 <div className="mt-3 pt-3 border-t border-apple-gray-100 dark:border-apple-gray-700/50 flex items-center gap-3 flex-wrap">
-                  <span className="text-xs text-apple-gray-400 dark:text-apple-gray-500">Score en {leagueScoreContext.liga}:</span>
+                  <span className="text-xs text-apple-gray-400 dark:text-apple-gray-500">{t('analisisCompleto.scoreEnLiga').replace('{liga}', leagueScoreContext.liga)}</span>
                   {leagueScoreContext.rank && (
                     <span className={`text-xs font-semibold ${leagueScoreContext.rank <= 5 ? 'text-brand-green' : leagueScoreContext.rank <= 15 ? 'text-amber-500' : 'text-apple-gray-500'}`}>
-                      {leagueScoreContext.rank}° de {leagueScoreContext.total}
+                      {t('analisisCompleto.rankDeTotal').replace('{rank}', String(leagueScoreContext.rank)).replace('{total}', String(leagueScoreContext.total))}
                     </span>
                   )}
                   <span className="text-xs text-apple-gray-400 dark:text-apple-gray-500">
-                    · prom. liga: {leagueScoreContext.avg.toFixed(1)}
-                    · diferencia: {selectedPlayer.primary_score > leagueScoreContext.avg ? '+' : ''}{(selectedPlayer.primary_score - leagueScoreContext.avg).toFixed(1)}
+                    · {t('analisisCompleto.promLiga').replace('{avg}', leagueScoreContext.avg.toFixed(1))}
+                    · {t('analisisCompleto.diferencia').replace('{diff}', `${selectedPlayer.primary_score > leagueScoreContext.avg ? '+' : ''}${(selectedPlayer.primary_score - leagueScoreContext.avg).toFixed(1)}`)}
                   </span>
                 </div>
               )}
@@ -895,23 +900,23 @@ export default function BusquedaPage() {
 
             {/* Context filters */}
             <div className="mt-6 bg-white dark:bg-apple-gray-800 rounded-2xl border border-apple-gray-200 dark:border-apple-gray-700 p-4 shadow-sm">
-              <h2 className="text-xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider mb-3">Contexto de análisis</h2>
+              <h2 className="text-xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider mb-3">{t('analisisCompleto.contextoAnalisis')}</h2>
               <div className="flex flex-wrap gap-4 items-end">
                 <div className="space-y-1">
-                  <label className="text-xs text-apple-gray-500 dark:text-apple-gray-400">Liga principal</label>
+                  <label className="text-xs text-apple-gray-500 dark:text-apple-gray-400">{t('analisisCompleto.ligaPrincipal')}</label>
                   <select
                     value={leagueIdFilter ?? ''}
                     onChange={e => setLeagueIdFilter(e.target.value ? Number(e.target.value) : null)}
                     className="px-3 py-1.5 rounded-lg text-xs border border-apple-gray-200 dark:border-apple-gray-700 bg-white dark:bg-apple-gray-800 text-apple-gray-700 dark:text-apple-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-green/40 focus:border-brand-green"
                   >
-                    <option value="">Todas las ligas</option>
+                    <option value="">{t('analisisCompleto.todasLigas')}</option>
                     {availableLeagues.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
                   </select>
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs text-apple-gray-500 dark:text-apple-gray-400">
-                    Comparar también vs
-                    <span className="ml-1 text-blue-400">(2ª liga)</span>
+                    {t('analisisCompleto.compararTambienVs')}
+                    <span className="ml-1 text-blue-400">{t('analisisCompleto.segundaLiga')}</span>
                   </label>
                   <div className="flex items-center gap-1.5">
                     <select
@@ -919,7 +924,7 @@ export default function BusquedaPage() {
                       onChange={e => setCompareLeagueId2(e.target.value ? Number(e.target.value) : null)}
                       className="px-3 py-1.5 rounded-lg text-xs border border-apple-gray-200 dark:border-apple-gray-700 bg-white dark:bg-apple-gray-800 text-apple-gray-700 dark:text-apple-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-400/40 focus:border-blue-400"
                     >
-                      <option value="">Sin comparación extra</option>
+                      <option value="">{t('analisisCompleto.sinComparacionExtra')}</option>
                       {availableLeagues.filter(l => l.id !== leagueIdFilter).map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
                     </select>
                     {compareLeagueId2 != null && (
@@ -931,11 +936,11 @@ export default function BusquedaPage() {
                 </div>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input type="checkbox" checked={samePosition} onChange={e => setSamePosition(e.target.checked)} className="w-4 h-4 rounded border-apple-gray-300 text-brand-green focus:ring-brand-green" />
-                  <span className="text-xs text-apple-gray-700 dark:text-apple-gray-300">Solo misma posición</span>
+                  <span className="text-xs text-apple-gray-700 dark:text-apple-gray-300">{t('analisisCompleto.soloMismaPosicion')}</span>
                 </label>
                 <div className="ml-auto text-xs text-apple-gray-400 dark:text-apple-gray-500 text-right">
-                  <div>{pool.length} jugadores en pool</div>
-                  {compareLeagueId2 != null && pool2Label && <div className="text-blue-400 mt-0.5">{pool2.length} en {pool2Label}</div>}
+                  <div>{t('analisisCompleto.jugadoresEnPool').replace('{count}', String(pool.length))}</div>
+                  {compareLeagueId2 != null && pool2Label && <div className="text-blue-400 mt-0.5">{t('analisisCompleto.enPool2').replace('{count}', String(pool2.length)).replace('{label}', pool2Label)}</div>}
                 </div>
               </div>
             </div>
@@ -944,13 +949,13 @@ export default function BusquedaPage() {
             <div id="chart-rankings-section" className="mt-6 bg-white dark:bg-apple-gray-800 rounded-2xl border border-apple-gray-200 dark:border-apple-gray-700 p-6 shadow-sm">
               <div className="flex items-start justify-between gap-2 mb-1">
                 <div className="flex items-baseline gap-2">
-                  <h2 className="text-base font-semibold text-apple-gray-900 dark:text-white">Posicionamiento en el grupo</h2>
-                  <span className="text-xs text-apple-gray-400 dark:text-apple-gray-500">entre {pool.length} jugadores</span>
+                  <h2 className="text-base font-semibold text-apple-gray-900 dark:text-white">{t('analisisCompleto.posicionamientoGrupo')}</h2>
+                  <span className="text-xs text-apple-gray-400 dark:text-apple-gray-500">{t('analisisCompleto.entreJugadores').replace('{count}', String(pool.length))}</span>
                 </div>
                 <CopyBtn targetId="chart-rankings-section" filename={`rankings_${selectedPlayer.name.replace(/\s+/g,'_')}`} />
               </div>
               <p className="text-xs text-apple-gray-500 dark:text-apple-gray-400 mb-5">
-                Métricas donde {selectedPlayer.name} se ubica en los primeros puestos. Incluye su valor real y el promedio del grupo.
+                {t('analisisCompleto.metricasDondeSeUbica').replace('{name}', selectedPlayer.name)}
               </p>
 
               {rankings.length > 0 ? (
@@ -978,7 +983,7 @@ export default function BusquedaPage() {
                             {r.playerVal.toFixed(2)}
                           </p>
                           <p className="text-[10px] text-apple-gray-400 dark:text-apple-gray-500">
-                            prom: {r.avg.toFixed(2)}
+                            {t('analisisCompleto.promAbrev').replace('{avg}', r.avg.toFixed(2))}
                           </p>
                         </div>
                       )
@@ -987,23 +992,28 @@ export default function BusquedaPage() {
                   <div className="mt-4 pt-4 border-t border-apple-gray-100 dark:border-apple-gray-700/50">
                     <p className="text-sm text-apple-gray-500 dark:text-apple-gray-400 leading-relaxed">
                       {rankings.filter(r => r.rank === 1).length > 0
-                        ? `${selectedPlayer.name} lidera el grupo en ${rankings.filter(r => r.rank === 1).map(r => r.label).join(' y ')}${rankings.filter(r => r.rank === 1).length === 1 ? ` con ${rankings.find(r => r.rank === 1)!.playerVal.toFixed(2)} (prom. ${rankings.find(r => r.rank === 1)!.avg.toFixed(2)})` : ''}.`
-                        : `${selectedPlayer.name} aparece en el top 8 en ${rankings.length} métricas dentro del grupo.`
+                        ? t('analisisCompleto.lideraGrupoEn')
+                            .replace('{name}', selectedPlayer.name)
+                            .replace('{metrics}', rankings.filter(r => r.rank === 1).map(r => r.label).join(', '))
+                            .replace('{extra}', rankings.filter(r => r.rank === 1).length === 1
+                              ? t('analisisCompleto.conValorProm').replace('{val}', rankings.find(r => r.rank === 1)!.playerVal.toFixed(2)).replace('{avg}', rankings.find(r => r.rank === 1)!.avg.toFixed(2))
+                              : '')
+                        : t('analisisCompleto.apareceTop8').replace('{name}', selectedPlayer.name).replace('{count}', String(rankings.length))
                       }
-                      {rankings.length > 1 && ` Figura en el top 8 en ${rankings.length} métricas en total.`}
+                      {rankings.length > 1 && t('analisisCompleto.figuraTop8Total').replace('{count}', String(rankings.length))}
                     </p>
                   </div>
                 </>
               ) : (
-                <p className="text-sm text-apple-gray-400 dark:text-apple-gray-500 italic">Sin métricas destacadas en este contexto</p>
+                <p className="text-sm text-apple-gray-400 dark:text-apple-gray-500 italic">{t('analisisCompleto.sinMetricasDestacadas')}</p>
               )}
             </div>
 
             {/* Comparación vs promedio */}
             <div className="mt-6 bg-white dark:bg-apple-gray-800 rounded-2xl border border-apple-gray-200 dark:border-apple-gray-700 p-6 shadow-sm">
-              <h2 className="text-base font-semibold text-apple-gray-900 dark:text-white mb-1">Comparación vs promedio del grupo</h2>
+              <h2 className="text-base font-semibold text-apple-gray-900 dark:text-white mb-1">{t('analisisCompleto.comparacionVsPromedio')}</h2>
               <p className="text-xs text-apple-gray-400 dark:text-apple-gray-500 mb-5">
-                Seleccioná métricas con los menús de categoría. Podés agregar hasta {MAX_METRICS}.
+                {t('analisisCompleto.seleccionaMetricasMax').replace('{max}', String(MAX_METRICS))}
               </p>
 
               {/* Active chips */}
@@ -1021,7 +1031,7 @@ export default function BusquedaPage() {
                     )
                   })}
                   <button onClick={() => setActiveMetrics([])} className="text-xs text-apple-gray-400 hover:text-apple-gray-600 dark:hover:text-apple-gray-200 px-2 transition-colors">
-                    Limpiar
+                    {t('analisisCompleto.limpiar')}
                   </button>
                 </div>
               )}
@@ -1032,13 +1042,13 @@ export default function BusquedaPage() {
                   const available = group.keys.filter(k => !activeMetrics.includes(k) && getPlayerMetricValue(selectedPlayer, k) !== null)
                   return (
                     <select
-                      key={group.label}
+                      key={group.labelKey}
                       value=""
                       onChange={e => { if (e.target.value) addMetric(e.target.value as ApiMetricKey) }}
                       disabled={activeMetrics.length >= MAX_METRICS || available.length === 0}
                       className="w-full px-3 py-2 rounded-xl text-xs border border-apple-gray-200 dark:border-apple-gray-700 bg-apple-gray-50 dark:bg-apple-gray-700/60 text-apple-gray-600 dark:text-apple-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-green/40 focus:border-brand-green font-medium disabled:opacity-40 disabled:cursor-not-allowed"
                     >
-                      <option value="">+ {group.label}</option>
+                      <option value="">{t('analisisCompleto.masGrupo').replace('{label}', t(group.labelKey))}</option>
                       {available.map(k => {
                         const m = METRIC_BY_KEY.get(k)
                         return <option key={k} value={k}>{m?.label ?? k}</option>
@@ -1050,7 +1060,7 @@ export default function BusquedaPage() {
 
               {activeMetrics.length === 0 ? (
                 <p className="text-sm text-apple-gray-400 dark:text-apple-gray-500 italic py-8 text-center">
-                  Seleccioná al menos una métrica del menú de arriba para ver los gráficos.
+                  {t('analisisCompleto.seleccionaAlMenosUna')}
                 </p>
               ) : (
                 <>
@@ -1058,7 +1068,7 @@ export default function BusquedaPage() {
                   {activeMetrics.length >= 3 && (
                     <div className="mb-10" id="chart-radar-section">
                       <div className="flex items-center justify-between mb-1">
-                        <h3 className="text-sm font-semibold text-apple-gray-700 dark:text-apple-gray-200">Radar vs promedio</h3>
+                        <h3 className="text-sm font-semibold text-apple-gray-700 dark:text-apple-gray-200">{t('analisisCompleto.radarVsPromedio')}</h3>
                         <CopyBtn targetId="chart-radar-section" filename={`radar_${selectedPlayer.name.replace(/\s+/g,'_')}`} />
                       </div>
                       <div className="flex items-center gap-5 mb-4">
@@ -1069,7 +1079,7 @@ export default function BusquedaPage() {
                         <div className="flex items-center gap-2">
                           <svg width="24" height="8"><line x1="0" y1="4" x2="24" y2="4" stroke="#94A3B8" strokeWidth="2.5" strokeDasharray="5 4" /></svg>
                           <span className="text-sm text-apple-gray-500 dark:text-apple-gray-400">
-                            Promedio {currentLeagueName || 'del grupo'}
+                            {t('analisisCompleto.promedioDeLigaOGrupo').replace('{label}', currentLeagueName || t('analisisCompleto.delGrupo'))}
                           </span>
                         </div>
                       </div>
@@ -1085,7 +1095,7 @@ export default function BusquedaPage() {
                         </ResponsiveContainer>
                       </div>
                       <p className="text-xs text-apple-gray-400 dark:text-apple-gray-500 mt-2 text-center">
-                        Cada eje normalizado 0-100. Verde = jugador · Punteado gris = promedio {currentLeagueName || 'del grupo'}.
+                        {t('analisisCompleto.radarLeyenda').replace('{label}', currentLeagueName || t('analisisCompleto.delGrupo'))}
                       </p>
                     </div>
                   )}
@@ -1093,7 +1103,7 @@ export default function BusquedaPage() {
                   {/* Bar chart */}
                   <div id="chart-bars-section">
                     <div className="flex items-center justify-between mb-1">
-                      <h3 className="text-sm font-semibold text-apple-gray-700 dark:text-apple-gray-200">Barras comparativas</h3>
+                      <h3 className="text-sm font-semibold text-apple-gray-700 dark:text-apple-gray-200">{t('analisisCompleto.barrasComparativas')}</h3>
                       <CopyBtn targetId="chart-bars-section" filename={`barras_${selectedPlayer.name.replace(/\s+/g,'_')}`} />
                     </div>
                     <div className="flex items-center gap-4 mb-4 flex-wrap">
@@ -1103,7 +1113,7 @@ export default function BusquedaPage() {
                       </div>
                       <div className="flex items-center gap-2">
                         <div className="w-3 h-3 rounded bg-apple-gray-400/50" />
-                        <span className="text-sm text-apple-gray-500 dark:text-apple-gray-400">{currentLeagueName || 'Pool general'}</span>
+                        <span className="text-sm text-apple-gray-500 dark:text-apple-gray-400">{currentLeagueName || t('analisisCompleto.poolGeneral')}</span>
                       </div>
                       {compareLeagueId2 != null && pool2Label && (
                         <div className="flex items-center gap-2">
@@ -1127,7 +1137,7 @@ export default function BusquedaPage() {
                                 <div className="bg-white dark:bg-apple-gray-800 border border-apple-gray-200 dark:border-apple-gray-700 rounded-lg px-3 py-2.5 shadow-lg text-sm">
                                   <p className="font-semibold text-apple-gray-700 dark:text-apple-gray-200 mb-1.5">{d.name}</p>
                                   <p className="text-brand-green font-medium">{selectedPlayer.name}: <strong>{d.jugadorRaw?.toFixed(2) ?? '—'}</strong></p>
-                                  <p className="text-apple-gray-500 dark:text-apple-gray-400">{currentLeagueName || 'Pool'}: <strong>{d.promedioRaw?.toFixed(2) ?? '—'}</strong></p>
+                                  <p className="text-apple-gray-500 dark:text-apple-gray-400">{currentLeagueName || t('analisisCompleto.poolGeneral')}: <strong>{d.promedioRaw?.toFixed(2) ?? '—'}</strong></p>
                                   {compareLeagueId2 != null && d.promedio2Raw != null && (
                                     <p className="text-blue-500 dark:text-blue-400">{pool2Label}: <strong>{d.promedio2Raw.toFixed(2)}</strong></p>
                                   )}
@@ -1153,19 +1163,19 @@ export default function BusquedaPage() {
                       <div className="mt-4 flex items-center gap-4 flex-wrap">
                         <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-brand-green/10 border border-brand-green/20">
                           <span className="text-xl font-black text-brand-green">{barWins}</span>
-                          <span className="text-xs text-apple-gray-600 dark:text-apple-gray-400">por encima del promedio</span>
+                          <span className="text-xs text-apple-gray-600 dark:text-apple-gray-400">{t('analisisCompleto.porEncimaPromedio')}</span>
                         </div>
                         <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-apple-gray-100 dark:bg-apple-gray-700/50 border border-apple-gray-200 dark:border-apple-gray-600">
                           <span className="text-xl font-black text-apple-gray-500 dark:text-apple-gray-400">{barLosses}</span>
-                          <span className="text-xs text-apple-gray-600 dark:text-apple-gray-400">por debajo del promedio</span>
+                          <span className="text-xs text-apple-gray-600 dark:text-apple-gray-400">{t('analisisCompleto.porDebajoPromedio')}</span>
                         </div>
                         {barData.length - barWins - barLosses > 0 && (
-                          <span className="text-xs text-apple-gray-400">en línea: {barData.length - barWins - barLosses}</span>
+                          <span className="text-xs text-apple-gray-400">{t('analisisCompleto.enLinea').replace('{count}', String(barData.length - barWins - barLosses))}</span>
                         )}
                       </div>
                     )}
                     <p className="text-xs text-apple-gray-400 dark:text-apple-gray-500 mt-3">
-                      Barras normalizadas (0–100) para comparación visual. Número a la derecha = valor real.
+                      {t('analisisCompleto.barrasLeyenda')}
                     </p>
                   </div>
                 </>
@@ -1174,9 +1184,9 @@ export default function BusquedaPage() {
 
             {/* Scatter */}
             <div className="mt-6 bg-white dark:bg-apple-gray-800 rounded-2xl border border-apple-gray-200 dark:border-apple-gray-700 p-6 shadow-sm">
-              <h2 className="text-base font-semibold text-apple-gray-900 dark:text-white mb-1">Dispersión en el contexto</h2>
+              <h2 className="text-base font-semibold text-apple-gray-900 dark:text-white mb-1">{t('analisisCompleto.dispersionContexto')}</h2>
               <p className="text-xs text-apple-gray-400 dark:text-apple-gray-500 mb-4">
-                Cada punto es un jugador del pool. El verde es siempre {selectedPlayer.name}, aunque esté en otra liga. Agregá varios gráficos para distintas métricas.
+                {t('analisisCompleto.dispersionDescripcion').replace('{name}', selectedPlayer.name)}
               </p>
               <div className="flex items-center gap-5 mb-4">
                 <div className="flex items-center gap-2">
@@ -1185,13 +1195,13 @@ export default function BusquedaPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-3.5 h-3.5 rounded-full bg-slate-300 dark:bg-slate-500" />
-                  <span className="text-sm text-apple-gray-500 dark:text-apple-gray-400">Resto del pool</span>
+                  <span className="text-sm text-apple-gray-500 dark:text-apple-gray-400">{t('analisisCompleto.restoDelPool')}</span>
                 </div>
               </div>
 
               {scatterMetrics.length === 0 && (
                 <p className="text-sm text-apple-gray-400 dark:text-apple-gray-500 italic py-4 text-center">
-                  Hacé click en "+ Agregar gráfico" para visualizar una métrica en contexto.
+                  {t('analisisCompleto.clickAgregarGrafico')}
                 </p>
               )}
 
@@ -1212,7 +1222,7 @@ export default function BusquedaPage() {
                           className="flex-1 px-3 py-1.5 rounded-lg text-sm border border-apple-gray-200 dark:border-apple-gray-700 bg-white dark:bg-apple-gray-800 text-apple-gray-700 dark:text-apple-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-green/40 focus:border-brand-green"
                         >
                           {METRIC_GROUPS.map(group => (
-                            <optgroup key={group.label} label={group.label}>
+                            <optgroup key={group.labelKey} label={t(group.labelKey)}>
                               {group.keys.map(k => {
                                 const m = METRIC_BY_KEY.get(k)
                                 return <option key={k} value={k}>{m?.label ?? k}</option>
@@ -1222,12 +1232,12 @@ export default function BusquedaPage() {
                         </select>
                         <CopyBtn targetId={scatterId} filename={`dispersion_${metricMeta?.label?.replace(/\s+/g,'_') ?? idx}`} />
                         <button onClick={() => removeScatterMetric(idx)} className="px-3 py-1.5 rounded-lg text-xs text-apple-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
-                          Quitar
+                          {t('analisisCompleto.quitar')}
                         </button>
                       </div>
 
                       {!playerPoint && poolPoints.length === 0 ? (
-                        <div className="flex items-center justify-center h-24 text-sm text-apple-gray-400 italic">Sin datos disponibles</div>
+                        <div className="flex items-center justify-center h-24 text-sm text-apple-gray-400 italic">{t('analisisCompleto.sinDatosDisponibles')}</div>
                       ) : (
                         <>
                           <div style={{ height: 170 }}>
@@ -1238,7 +1248,7 @@ export default function BusquedaPage() {
                                 <YAxis type="number" dataKey="y" domain={[0, 1]} tick={false} axisLine={false} tickLine={false} width={0} />
                                 <Tooltip content={<ScatterTooltip />} />
                                 {allX.length > 1 && (
-                                  <ReferenceLine x={avgX} stroke="rgba(156,163,175,0.5)" strokeDasharray="4 4" label={{ value: `prom: ${avgX.toFixed(2)}`, position: 'top', fontSize: 10, fill: '#9CA3AF' }} />
+                                  <ReferenceLine x={avgX} stroke="rgba(156,163,175,0.5)" strokeDasharray="4 4" label={{ value: t('analisisCompleto.promAbrev').replace('{avg}', avgX.toFixed(2)), position: 'top', fontSize: 10, fill: '#9CA3AF' }} />
                                 )}
                                 {poolPoints.length > 0 && (
                                   <Scatter name="Pool" data={poolPoints} shape={(props: { cx?: number; cy?: number }) => (
@@ -1255,10 +1265,19 @@ export default function BusquedaPage() {
                           </div>
                           <p className="text-xs text-apple-gray-400 dark:text-apple-gray-500 mt-1">
                             {playerPoint
-                              ? `${selectedPlayer.name} registra ${playerPoint.x.toFixed(2)} en ${metricMeta?.label ?? metricKey}${allX.length > 1 ? `, ${playerPoint.x > avgX ? 'por encima' : 'por debajo'} del promedio (${avgX.toFixed(2)})` : ''}.`
-                              : `No hay dato para esta métrica.`
+                              ? t('analisisCompleto.jugadorRegistra')
+                                  .replace('{name}', selectedPlayer.name)
+                                  .replace('{val}', playerPoint.x.toFixed(2))
+                                  .replace('{metric}', metricMeta?.label ?? metricKey)
+                                + (allX.length > 1
+                                    ? t('analisisCompleto.comparadoPromedio')
+                                        .replace('{dir}', playerPoint.x > avgX ? t('analisisCompleto.porEncima') : t('analisisCompleto.porDebajo'))
+                                        .replace('{avg}', avgX.toFixed(2))
+                                    : '')
+                                + '.'
+                              : t('analisisCompleto.noHayDatoMetrica')
                             }
-                            {poolPoints.length === 0 && playerPoint && ' No hay otros jugadores en el pool para comparar.'}
+                            {poolPoints.length === 0 && playerPoint && t('analisisCompleto.noHayOtrosPool')}
                           </p>
                         </>
                       )}
@@ -1272,14 +1291,14 @@ export default function BusquedaPage() {
                 disabled={scatterMetrics.length >= API_METRICS.length}
                 className="mt-4 w-full py-2.5 rounded-xl text-sm font-medium border-2 border-dashed border-apple-gray-300 dark:border-apple-gray-600 text-apple-gray-500 dark:text-apple-gray-400 hover:border-brand-green hover:text-brand-green transition-all disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                + Agregar gráfico
+                {t('analisisCompleto.agregarGrafico')}
               </button>
             </div>
 
             {/* Analysis */}
             {conclusions && (
               <div className="mt-6 bg-white dark:bg-apple-gray-800 rounded-2xl border border-apple-gray-200 dark:border-apple-gray-700 p-6 shadow-sm">
-                <h2 className="text-base font-semibold text-apple-gray-900 dark:text-white mb-4">Análisis automático</h2>
+                <h2 className="text-base font-semibold text-apple-gray-900 dark:text-white mb-4">{t('analisisCompleto.analisisAutomatico')}</h2>
                 {conclusions.sampleWarning && (
                   <div className="mb-4 px-3 py-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg">
                     <p className="text-xs text-amber-700 dark:text-amber-300">{conclusions.sampleWarning}</p>
@@ -1295,12 +1314,14 @@ export default function BusquedaPage() {
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-semibold text-apple-gray-800 dark:text-white">Score GG</p>
                         <p className="text-sm text-apple-gray-500 dark:text-apple-gray-400 mt-0.5">
-                          {conclusions.scorePct != null ? `Percentil ${conclusions.scorePct} del grupo (${conclusions.scoreRank}° de ${conclusions.poolSize}).` : `Promedio del grupo: ${conclusions.avgScore.toFixed(1)}.`}
+                          {conclusions.scorePct != null
+                            ? t('analisisCompleto.percentilDelGrupo').replace('{pct}', String(conclusions.scorePct)).replace('{rank}', String(conclusions.scoreRank)).replace('{total}', String(conclusions.poolSize))
+                            : t('analisisCompleto.promedioDelGrupoPunto').replace('{avg}', conclusions.avgScore.toFixed(1))}
                           {' '}{Math.abs(conclusions.playerScore - conclusions.avgScore) > 0.3
                             ? conclusions.playerScore > conclusions.avgScore
-                              ? `Supera el promedio por ${(conclusions.playerScore - conclusions.avgScore).toFixed(1)} puntos.`
-                              : `Está ${Math.abs(conclusions.playerScore - conclusions.avgScore).toFixed(1)} puntos por debajo.`
-                            : 'En línea con el promedio del grupo.'
+                              ? t('analisisCompleto.superaPromedioPor').replace('{diff}', (conclusions.playerScore - conclusions.avgScore).toFixed(1))
+                              : t('analisisCompleto.estaPorDebajo').replace('{diff}', Math.abs(conclusions.playerScore - conclusions.avgScore).toFixed(1))
+                            : t('analisisCompleto.enLineaConPromedio')
                           }
                         </p>
                       </div>
@@ -1314,10 +1335,10 @@ export default function BusquedaPage() {
                         <svg className="w-5 h-5 text-brand-green" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" /></svg>
                       </div>
                       <div>
-                        <p className="text-sm font-semibold text-brand-green">Lidera en {conclusions.top1.length} métrica{conclusions.top1.length > 1 ? 's' : ''}</p>
+                        <p className="text-sm font-semibold text-brand-green">{t(conclusions.top1.length > 1 ? 'analisisCompleto.lideraEnMetricasVarios' : 'analisisCompleto.lideraEnMetricasUno').replace('{count}', String(conclusions.top1.length))}</p>
                         <p className="text-sm text-apple-gray-600 dark:text-apple-gray-300 mt-0.5">
                           {conclusions.top1.map(r => `${r.label} (${r.playerVal.toFixed(2)})`).join(', ')}.
-                          {conclusions.top3.length > conclusions.top1.length && ` Top 3 también en: ${conclusions.top3.filter(r => r.rank > 1).map(r => r.label).join(', ')}.`}
+                          {conclusions.top3.length > conclusions.top1.length && t('analisisCompleto.top3Tambien').replace('{list}', conclusions.top3.filter(r => r.rank > 1).map(r => r.label).join(', '))}
                         </p>
                       </div>
                     </div>
@@ -1328,14 +1349,14 @@ export default function BusquedaPage() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {conclusions.above.length > 0 && (
                         <div className="p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-900/15 border border-emerald-200 dark:border-emerald-800">
-                          <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 mb-1.5">Supera el promedio ({conclusions.above.length})</p>
-                          <p className="text-xs text-emerald-600 dark:text-emerald-500">{conclusions.above.slice(0, 5).join(', ')}{conclusions.above.length > 5 ? ` y ${conclusions.above.length - 5} más` : ''}.</p>
+                          <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 mb-1.5">{t('analisisCompleto.superaPromedioCount').replace('{count}', String(conclusions.above.length))}</p>
+                          <p className="text-xs text-emerald-600 dark:text-emerald-500">{conclusions.above.slice(0, 5).join(', ')}{conclusions.above.length > 5 ? t('analisisCompleto.yMasCount').replace('{count}', String(conclusions.above.length - 5)) : ''}.</p>
                         </div>
                       )}
                       {conclusions.below.length > 0 && (
                         <div className="p-3.5 rounded-xl bg-apple-gray-50 dark:bg-apple-gray-700/30 border border-apple-gray-200 dark:border-apple-gray-600">
-                          <p className="text-xs font-semibold text-apple-gray-600 dark:text-apple-gray-400 mb-1.5">Por debajo del promedio ({conclusions.below.length})</p>
-                          <p className="text-xs text-apple-gray-500 dark:text-apple-gray-400">{conclusions.below.slice(0, 4).join(', ')}{conclusions.below.length > 4 ? ` y ${conclusions.below.length - 4} más` : ''}.</p>
+                          <p className="text-xs font-semibold text-apple-gray-600 dark:text-apple-gray-400 mb-1.5">{t('analisisCompleto.porDebajoPromedioCount').replace('{count}', String(conclusions.below.length))}</p>
+                          <p className="text-xs text-apple-gray-500 dark:text-apple-gray-400">{conclusions.below.slice(0, 4).join(', ')}{conclusions.below.length > 4 ? t('analisisCompleto.yMasCount').replace('{count}', String(conclusions.below.length - 4)) : ''}.</p>
                         </div>
                       )}
                     </div>
@@ -1380,9 +1401,9 @@ export default function BusquedaPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
           </div>
-          <p className="text-base font-medium text-apple-gray-700 dark:text-apple-gray-300">Buscá un jugador para comenzar</p>
+          <p className="text-base font-medium text-apple-gray-700 dark:text-apple-gray-300">{t('analisisCompleto.buscaJugadorComenzar')}</p>
           <p className="text-sm text-apple-gray-400 dark:text-apple-gray-500 mt-1 max-w-sm">
-            Filtrá por liga, equipo y posición, o escribí el nombre directamente.
+            {t('analisisCompleto.filtraLigaEquipoPosicion')}
           </p>
         </div>
       )}
