@@ -28,9 +28,10 @@ export default function CurrencyToggle() {
         className="relative p-2 rounded-lg bg-apple-gray-100 dark:bg-apple-gray-800 hover:bg-apple-gray-200 dark:hover:bg-apple-gray-700 transition-all duration-200 ease-apple group"
       >
         <svg className="w-5 h-5 text-apple-gray-600 dark:text-apple-gray-300 group-hover:text-apple-gray-800 dark:group-hover:text-white transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-          <ellipse cx="12" cy="7" rx="7" ry="3" strokeWidth="1.6" />
-          <path d="M5 7v10c0 1.66 3.13 3 7 3s7-1.34 7-3V7" strokeWidth="1.6" strokeLinecap="round" />
-          <path d="M5 12c0 1.66 3.13 3 7 3s7-1.34 7-3" strokeWidth="1.6" strokeLinecap="round" />
+          <circle cx="12" cy="12" r="9" strokeWidth="1.6" />
+          <circle cx="12" cy="12" r="6.4" strokeWidth="1" strokeDasharray="1.4 1.8" opacity="0.6" />
+          <path d="M12 6.8v10.4" strokeWidth="1.6" strokeLinecap="round" />
+          <path d="M14.6 9.3c0-1.1-1.2-2-2.6-2s-2.6.9-2.6 2 1.2 1.7 2.6 2 2.6.9 2.6 2-1.2 2-2.6 2-2.6-.9-2.6-2" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </button>
 
