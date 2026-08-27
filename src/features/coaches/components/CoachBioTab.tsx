@@ -1,20 +1,22 @@
 import { useEffect, useState } from 'react'
 import { fetchCoachProfile, type CoachProfile } from '@/services/footballApiService'
 import type { AgencyCoach } from '@/constants/agencyCoaches'
+import { useLanguage } from '@/context/LanguageContext'
+import { LANGUAGE_LOCALES } from '@/constants/translations'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 
-function formatMonthYear(iso: string | null): string {
+function formatMonthYear(iso: string | null, locale: string): string {
   if (!iso) return '—'
   const [y, m] = iso.split('-').map(Number)
   if (Number.isNaN(y) || Number.isNaN(m)) return '—'
   const date = new Date(y, m - 1, 1)
   if (Number.isNaN(date.getTime())) return '—'
-  return date.toLocaleDateString('es-AR', { month: 'short', year: 'numeric' })
+  return date.toLocaleDateString(locale, { month: 'short', year: 'numeric' })
 }
 
-function formatCareerEnd(iso: string | null): string {
-  if (!iso) return 'Actualidad'
-  return formatMonthYear(iso)
+function formatCareerEnd(iso: string | null, locale: string, actualidad: string): string {
+  if (!iso) return actualidad
+  return formatMonthYear(iso, locale)
 }
 
 function EmptyState({ message }: { message: string }) {
@@ -26,6 +28,8 @@ function EmptyState({ message }: { message: string }) {
 }
 
 export default function CoachBioTab({ coach }: { coach: AgencyCoach }) {
+  const { t, language } = useLanguage()
+  const locale = LANGUAGE_LOCALES[language]
   const [profile, setProfile] = useState<CoachProfile | null | undefined>(undefined)
 
   useEffect(() => {
@@ -38,16 +42,16 @@ export default function CoachBioTab({ coach }: { coach: AgencyCoach }) {
     }
   }, [coach.key, coach.fullName, coach.coachApiId])
 
-  if (profile === undefined) return <LoadingSpinner message="Cargando perfil..." />
+  if (profile === undefined) return <LoadingSpinner message={t('coachDetail.bioCargandoPerfil')} />
 
   if (profile === null) {
-    return <EmptyState message="No encontramos el perfil de este entrenador en la base de datos." />
+    return <EmptyState message={t('coachDetail.bioNoEncontrado')} />
   }
 
   const bioFacts = [
-    profile.age !== null && { label: 'Edad', value: `${profile.age} años` },
-    profile.nationality && { label: 'Nacionalidad', value: profile.nationality },
-    profile.birthPlace && { label: 'Lugar de nacimiento', value: `${profile.birthPlace}${profile.birthCountry ? `, ${profile.birthCountry}` : ''}` },
+    profile.age !== null && { label: t('coachDetail.bioEdad'), value: `${profile.age} ${t('externo.anios')}` },
+    profile.nationality && { label: t('coachDetail.bioNacionalidad'), value: profile.nationality },
+    profile.birthPlace && { label: t('coachDetail.bioLugarNacimiento'), value: `${profile.birthPlace}${profile.birthCountry ? `, ${profile.birthCountry}` : ''}` },
   ].filter((f): f is { label: string; value: string } => Boolean(f))
 
   return (
@@ -64,8 +68,8 @@ export default function CoachBioTab({ coach }: { coach: AgencyCoach }) {
       )}
 
       <div className="space-y-2">
-        <h2 className="text-sm font-semibold text-apple-gray-800 dark:text-white">Trayectoria</h2>
-        {profile.career.length === 0 && <EmptyState message="No hay trayectoria registrada para este entrenador." />}
+        <h2 className="text-sm font-semibold text-apple-gray-800 dark:text-white">{t('coachDetail.bioTrayectoria')}</h2>
+        {profile.career.length === 0 && <EmptyState message={t('coachDetail.bioSinTrayectoria')} />}
         {profile.career.map((entry, i) => (
           <div
             key={`${entry.teamId}-${entry.start ?? i}`}
@@ -80,7 +84,7 @@ export default function CoachBioTab({ coach }: { coach: AgencyCoach }) {
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold text-apple-gray-800 dark:text-white truncate">{entry.teamName}</p>
               <p className="text-xs text-apple-gray-400">
-                {formatMonthYear(entry.start)} — {formatCareerEnd(entry.end)}
+                {formatMonthYear(entry.start, locale)} — {formatCareerEnd(entry.end, locale, t('coachDetail.bioActualidad'))}
               </p>
             </div>
           </div>
