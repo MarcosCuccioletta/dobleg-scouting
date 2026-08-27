@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react'
 import type { StandingRow } from '@/services/footballApiService'
+import { useLanguage } from '@/context/LanguageContext'
 
 export type SortKey = 'points' | 'goalsFor' | 'goalsAgainst'
 
-const SORT_LABEL: Record<SortKey, string> = {
-  points: 'Ordenar por puntos',
-  goalsFor: 'Ordenar por goles a favor',
-  goalsAgainst: 'Ordenar por goles en contra',
+const SORT_LABEL_KEY: Record<SortKey, string> = {
+  points: 'standings.ordenarPuntos',
+  goalsFor: 'standings.ordenarGolesFavor',
+  goalsAgainst: 'standings.ordenarGolesContra',
 }
 
 // Paleta alineada con Task 11 (RESULT_STYLES): verde = ganado, gris = empate, rojo = perdido.
@@ -19,8 +20,8 @@ const FORM_COLOR: Record<string, string> = {
 /** La API de Primera Nacional devuelve `group` como "Group 1" / "Group 2" (sin
  *  traducir), así que el label mostrado se arma directamente por posición en el
  *  array: Zona A, Zona B, Zona C... */
-function zoneLabel(index: number): string {
-  return `Zona ${String.fromCharCode(65 + index)}`
+function zoneLabel(t: (key: string) => string, index: number): string {
+  return t('standings.zona').replace('{letter}', String.fromCharCode(65 + index))
 }
 
 export function sortStandingRows(rows: StandingRow[], sortKey: SortKey): StandingRow[] {
@@ -36,6 +37,7 @@ export interface StandingsTableProps {
 }
 
 export default function StandingsTable({ groups, highlightTeamId = null }: StandingsTableProps) {
+  const { t } = useLanguage()
   const [activeGroup, setActiveGroup] = useState(() => {
     if (highlightTeamId == null) return 0
     const idx = groups.findIndex(group => group.some(row => row.teamId === highlightTeamId))
@@ -62,7 +64,7 @@ export default function StandingsTable({ groups, highlightTeamId = null }: Stand
                   : 'bg-apple-gray-100 dark:bg-apple-gray-800 text-apple-gray-500 dark:text-apple-gray-400 hover:text-apple-gray-700 dark:hover:text-apple-gray-200'
               }`}
             >
-              {zoneLabel(i)}
+              {zoneLabel(t, i)}
             </button>
           ))}
         </div>
@@ -71,9 +73,9 @@ export default function StandingsTable({ groups, highlightTeamId = null }: Stand
           onChange={e => setSortKey(e.target.value as SortKey)}
           className="min-h-[40px] text-xs font-medium rounded-lg border border-apple-gray-200 dark:border-apple-gray-700 bg-white dark:bg-apple-gray-800 px-2.5 py-2 text-apple-gray-700 dark:text-apple-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-green/40 focus:border-brand-green"
         >
-          {(Object.keys(SORT_LABEL) as SortKey[]).map(key => (
+          {(Object.keys(SORT_LABEL_KEY) as SortKey[]).map(key => (
             <option key={key} value={key}>
-              {SORT_LABEL[key]}
+              {t(SORT_LABEL_KEY[key])}
             </option>
           ))}
         </select>
@@ -84,16 +86,16 @@ export default function StandingsTable({ groups, highlightTeamId = null }: Stand
           <thead>
             <tr className="text-left text-2xs uppercase tracking-wide text-apple-gray-400 bg-apple-gray-50 dark:bg-apple-gray-800/50 border-b border-apple-gray-200 dark:border-apple-gray-700">
               <th className="py-2.5 pl-3 pr-2 font-semibold">#</th>
-              <th className="py-2.5 pr-2 font-semibold">Equipo</th>
-              <th className="py-2.5 px-1 text-center font-semibold">PJ</th>
-              <th className="py-2.5 px-1 text-center font-semibold">PG</th>
-              <th className="py-2.5 px-1 text-center font-semibold">PE</th>
-              <th className="py-2.5 px-1 text-center font-semibold">PP</th>
-              <th className="py-2.5 px-1 text-center font-semibold">GF</th>
-              <th className="py-2.5 px-1 text-center font-semibold">GC</th>
-              <th className="py-2.5 px-1 text-center font-semibold">DG</th>
-              <th className="py-2.5 px-1 text-center font-semibold">Pts</th>
-              <th className="py-2.5 pl-2 pr-3 font-semibold">Racha</th>
+              <th className="py-2.5 pr-2 font-semibold">{t('standings.equipo')}</th>
+              <th className="py-2.5 px-1 text-center font-semibold">{t('standings.pj')}</th>
+              <th className="py-2.5 px-1 text-center font-semibold">{t('standings.pg')}</th>
+              <th className="py-2.5 px-1 text-center font-semibold">{t('standings.pe')}</th>
+              <th className="py-2.5 px-1 text-center font-semibold">{t('standings.pp')}</th>
+              <th className="py-2.5 px-1 text-center font-semibold">{t('standings.gf')}</th>
+              <th className="py-2.5 px-1 text-center font-semibold">{t('standings.gc')}</th>
+              <th className="py-2.5 px-1 text-center font-semibold">{t('standings.dg')}</th>
+              <th className="py-2.5 px-1 text-center font-semibold">{t('standings.pts')}</th>
+              <th className="py-2.5 pl-2 pr-3 font-semibold">{t('standings.racha')}</th>
             </tr>
           </thead>
           <tbody>

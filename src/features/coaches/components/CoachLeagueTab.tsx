@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { fetchLeagueStandings, type StandingRow } from '@/services/footballApiService'
 import type { AgencyCoach } from '@/constants/agencyCoaches'
+import { useLanguage } from '@/context/LanguageContext'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import StandingsTable from '@/components/shared/StandingsTable'
 
@@ -13,6 +14,7 @@ function EmptyState({ message }: { message: string }) {
 }
 
 export default function CoachLeagueTab({ coach }: { coach: AgencyCoach }) {
+  const { t } = useLanguage()
   const [groups, setGroups] = useState<StandingRow[][] | null>(null)
 
   useEffect(() => {
@@ -31,11 +33,11 @@ export default function CoachLeagueTab({ coach }: { coach: AgencyCoach }) {
   }, [coach.leagueApiId, coach.leagueSeason])
 
   if (!coach.leagueApiId || !coach.leagueSeason) {
-    return <EmptyState message="No hay datos de liga disponibles para este entrenador todavía." />
+    return <EmptyState message={t('coachDetail.ligaSinDatos')} />
   }
 
-  if (groups === null) return <LoadingSpinner message="Cargando tabla de posiciones..." />
-  if (groups.length === 0) return <EmptyState message="No se pudo cargar la tabla de posiciones." />
+  if (groups === null) return <LoadingSpinner message={t('coachDetail.ligaCargando')} />
+  if (groups.length === 0) return <EmptyState message={t('coachDetail.ligaError')} />
 
   return <StandingsTable groups={groups} highlightTeamId={coach.apiTeamId} />
 }
