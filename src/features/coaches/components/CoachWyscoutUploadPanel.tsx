@@ -5,6 +5,7 @@ import { matchFixtureForRow, verifyCoachForFixture } from '@/features/coaches/wy
 import { upsertCoachMatchTeamStats } from '@/services/coachService'
 import type { AgencyCoach } from '@/constants/agencyCoaches'
 import type { AgencyFixture } from '@/types/footballApi'
+import { useLanguage } from '@/context/LanguageContext'
 
 interface ReviewRow {
   wyscout: WyscoutMatch
@@ -23,6 +24,7 @@ export default function CoachWyscoutUploadPanel({
   fixtures: AgencyFixture[]
   onSaved: () => void
 }) {
+  const { t } = useLanguage()
   const [rows, setRows] = useState<ReviewRow[] | null>(null)
   const [parsing, setParsing] = useState(false)
   const [fileName, setFileName] = useState<string | null>(null)
@@ -50,7 +52,7 @@ export default function CoachWyscoutUploadPanel({
       )
       setRows(withFixtures)
     } catch {
-      setParseError('No pudimos leer este archivo. Verificá que sea el Excel de Wyscout.')
+      setParseError(t('coachDetail.wyscoutErrorLectura'))
       setFileName(null)
     } finally {
       setParsing(false)
@@ -85,7 +87,7 @@ export default function CoachWyscoutUploadPanel({
         if (!result.success) failedCount += 1
       }
       if (failedCount > 0) {
-        setSaveError(`No se pudieron guardar ${failedCount} ${failedCount === 1 ? 'partido' : 'partidos'}, probá de nuevo`)
+        setSaveError(t(failedCount === 1 ? 'coachDetail.wyscoutErrorGuardarUno' : 'coachDetail.wyscoutErrorGuardarVarios').replace('{count}', String(failedCount)))
         return
       }
       setRows(null)
@@ -108,8 +110,8 @@ export default function CoachWyscoutUploadPanel({
           onFile={file => void handleFile(file)}
           disabled={parsing}
           accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
-          label={parsing ? 'Leyendo el Excel…' : 'Arrastrá el Excel de Wyscout o tocá para elegirlo'}
-          hint="Export 'Team Stats' de Wyscout. Se revisa antes de guardar."
+          label={parsing ? t('coachDetail.wyscoutLeyendo') : t('coachDetail.wyscoutArrastra')}
+          hint={t('coachDetail.wyscoutHint')}
         />
       </div>
     )
@@ -119,14 +121,14 @@ export default function CoachWyscoutUploadPanel({
     return (
       <div className="space-y-3">
         <div className="rounded-apple-lg border border-apple-gray-200/60 dark:border-apple-gray-700/40 bg-apple-gray-50 dark:bg-apple-gray-900/40 px-3 sm:px-4 py-4 text-sm text-apple-gray-500 dark:text-apple-gray-400 text-center">
-          No se detectó ningún partido de {coach.club} en este archivo. Revisá que sea el export correcto.
+          {t('coachDetail.wyscoutSinPartidos').replace('{club}', coach.club ?? '')}
         </div>
         <button
           type="button"
           onClick={resetUpload}
           className="text-sm text-apple-gray-500 hover:text-apple-gray-700 dark:hover:text-apple-gray-300"
         >
-          Probar con otro archivo
+          {t('coachDetail.wyscoutProbarOtro')}
         </button>
       </div>
     )
@@ -151,22 +153,22 @@ export default function CoachWyscoutUploadPanel({
               <p className="text-sm font-medium text-apple-gray-800 dark:text-white truncate">
                 vs {row.wyscout.equipoRival} · {row.wyscout.fecha}
               </p>
-              {!row.fixture && <p className="text-2xs text-brand-red">No se encontró el partido en la agenda</p>}
+              {!row.fixture && <p className="text-2xs text-brand-red">{t('coachDetail.wyscoutSinAgenda')}</p>}
               {row.fixture && row.coachVerified === true && (
-                <p className="text-2xs text-brand-green">DT confirmado por la API: {row.coachNameFromApi}</p>
+                <p className="text-2xs text-brand-green">{t('coachDetail.wyscoutDtConfirmado').replace('{name}', row.coachNameFromApi ?? '')}</p>
               )}
               {row.fixture && row.coachVerified === false && (
                 <p className="text-2xs text-amber-500">
                   {row.coachNameFromApi
-                    ? `La API dice que dirigió ${row.coachNameFromApi}, no ${coach.fullName}`
-                    : 'No se pudo verificar quién dirigió este partido'}
+                    ? t('coachDetail.wyscoutDtDiscrepancia').replace('{name}', row.coachNameFromApi).replace('{coach}', coach.fullName)
+                    : t('coachDetail.wyscoutNoVerificado')}
                 </p>
               )}
             </div>
             {row.fixture && (
               <label className="flex items-center gap-1.5 text-2xs text-apple-gray-500 flex-shrink-0">
                 <input type="checkbox" checked={row.included} onChange={() => toggleIncluded(i)} />
-                Incluir
+                {t('coachDetail.incluir')}
               </label>
             )}
           </div>
@@ -179,7 +181,7 @@ export default function CoachWyscoutUploadPanel({
           disabled={saving || includedCount === 0}
           className="min-h-[40px] px-4 rounded-full bg-brand-green text-apple-gray-900 text-sm font-semibold disabled:opacity-50"
         >
-          {saving ? 'Guardando…' : `Guardar ${includedCount} ${includedCount === 1 ? 'partido' : 'partidos'}`}
+          {saving ? t('coachDetail.guardando') : t(includedCount === 1 ? 'coachDetail.guardarUno' : 'coachDetail.guardarVarios').replace('{count}', String(includedCount))}
         </button>
         <button
           type="button"
@@ -187,7 +189,7 @@ export default function CoachWyscoutUploadPanel({
           disabled={saving}
           className="text-sm text-apple-gray-500 hover:text-apple-gray-700 dark:hover:text-apple-gray-300 disabled:opacity-50"
         >
-          Cancelar
+          {t('coachDetail.cancelar')}
         </button>
       </div>
     </div>

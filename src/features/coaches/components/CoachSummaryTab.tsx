@@ -9,6 +9,8 @@ import CoachSeasonStatsCard from './CoachSeasonStatsCard'
 import type { AgencyFixture } from '@/types/footballApi'
 import type { AgencyCoach } from '@/constants/agencyCoaches'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
+import { useLanguage } from '@/context/LanguageContext'
+import { LANGUAGE_LOCALES } from '@/constants/translations'
 
 function EmptyState({ message }: { message: string }) {
   return (
@@ -19,6 +21,8 @@ function EmptyState({ message }: { message: string }) {
 }
 
 export default function CoachSummaryTab({ coach }: { coach: AgencyCoach }) {
+  const { t, language } = useLanguage()
+  const locale = LANGUAGE_LOCALES[language]
   const [fixtures, setFixtures] = useState<AgencyFixture[] | null>(null)
   const [showRival, setShowRival] = useState(false)
 
@@ -34,10 +38,10 @@ export default function CoachSummaryTab({ coach }: { coach: AgencyCoach }) {
   }, [coach.apiTeamId])
 
   if (!coach.apiTeamId) {
-    return <EmptyState message="No hay datos de equipo disponibles para este entrenador todavía." />
+    return <EmptyState message={t('coachDetail.resumenSinEquipo')} />
   }
 
-  if (fixtures === null) return <LoadingSpinner message="Cargando resumen..." />
+  if (fixtures === null) return <LoadingSpinner message={t('coachDetail.resumenCargando')} />
 
   const sorted = [...fixtures].sort((a, b) => a.timestamp - b.timestamp)
   const next = sorted.find(f => !isMatchFinished(f.statusShort))
@@ -54,7 +58,7 @@ export default function CoachSummaryTab({ coach }: { coach: AgencyCoach }) {
           <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
             <span className="inline-flex items-center gap-1.5 text-2xs sm:text-xs font-bold uppercase tracking-wide text-brand-green">
               <span className="w-1.5 h-1.5 rounded-full bg-brand-green animate-pulse-soft flex-shrink-0" />
-              Próximo partido
+              {t('coachDetail.proximoPartido')}
             </span>
             {next.leagueName && (
               <span className="text-2xs sm:text-xs font-medium text-apple-gray-400 truncate max-w-[60%] text-right">
@@ -82,7 +86,7 @@ export default function CoachSummaryTab({ coach }: { coach: AgencyCoach }) {
           </div>
 
           <p className="text-xs sm:text-sm text-apple-gray-500 dark:text-apple-gray-400 text-center mt-4">
-            {new Date(next.date).toLocaleDateString('es-AR', {
+            {new Date(next.date).toLocaleDateString(locale, {
               day: 'numeric',
               month: 'long',
               hour: '2-digit',
@@ -96,7 +100,7 @@ export default function CoachSummaryTab({ coach }: { coach: AgencyCoach }) {
               onClick={() => setShowRival(v => !v)}
               className="inline-flex items-center gap-1.5 min-h-[40px] px-4 rounded-full bg-brand-green text-apple-gray-900 text-sm font-semibold transition-transform duration-200 ease-apple hover:-translate-y-0.5"
             >
-              {showRival ? 'Ocultar rival' : 'Ver rival'}
+              {showRival ? t('coachDetail.ocultarRival') : t('coachDetail.verRival')}
               <svg
                 className={`w-4 h-4 transition-transform ${showRival ? 'rotate-180' : ''}`}
                 fill="none"
@@ -115,7 +119,7 @@ export default function CoachSummaryTab({ coach }: { coach: AgencyCoach }) {
           )}
         </div>
       ) : (
-        <EmptyState message="No hay partidos programados por el momento." />
+        <EmptyState message={t('coachDetail.resumenSinPartidos')} />
       )}
 
       <div>
@@ -125,10 +129,10 @@ export default function CoachSummaryTab({ coach }: { coach: AgencyCoach }) {
           </div>
         )}
         <p className="text-xs font-semibold text-apple-gray-400 uppercase tracking-wide mb-3">
-          Últimos 10 resultados
+          {t('coachDetail.ultimos10Resultados')}
         </p>
         {lastTen.length === 0 ? (
-          <EmptyState message="Todavía no hay resultados recientes." />
+          <EmptyState message={t('coachDetail.resumenSinResultados')} />
         ) : (
           <div className="space-y-2">
             {lastTen.map(f => {
@@ -151,12 +155,12 @@ export default function CoachSummaryTab({ coach }: { coach: AgencyCoach }) {
                     <p className="text-sm font-semibold text-apple-gray-800 dark:text-white truncate">
                       {opponent.name}
                     </p>
-                    <p className="text-2xs text-apple-gray-400">{f.isHome ? 'Local' : 'Visitante'}</p>
+                    <p className="text-2xs text-apple-gray-400">{f.isHome ? t('coachDetail.local') : t('coachDetail.visitante')}</p>
                   </div>
                   <div className="text-right flex-shrink-0">
                     <p className="text-sm font-bold text-apple-gray-800 dark:text-white">{scoreLabel}</p>
                     <p className="text-2xs text-apple-gray-400">
-                      {new Date(f.date).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })}
+                      {new Date(f.date).toLocaleDateString(locale, { day: 'numeric', month: 'short' })}
                     </p>
                   </div>
                 </Link>

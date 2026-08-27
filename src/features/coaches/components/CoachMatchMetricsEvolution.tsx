@@ -6,6 +6,7 @@ import type { CoachMatchTeamStats } from '@/services/coachService'
 import type { AgencyFixture } from '@/types/footballApi'
 import { matchOutcome, RESULT_STYLES, type MatchResult } from '@/features/coaches/matchResult'
 import { formatWyscoutMetricLabel, groupWyscoutMetricKeys } from '@/features/coaches/wyscoutTeamStats/metricLabels'
+import { useLanguage } from '@/context/LanguageContext'
 
 export interface EnrichedMatchRow {
   fixtureId: number
@@ -85,6 +86,7 @@ function SingleMetricChart({
   onRemove?: () => void
   metricGroups: { category: string; options: { key: string; label: string }[] }[]
 }) {
+  const { t } = useLanguage()
   const { chartData, avg } = useMemo(() => {
     const data = rows.map(r => ({
       date: r.date,
@@ -117,7 +119,7 @@ function SingleMetricChart({
           {avg !== null && (
             <span className="text-2xs text-apple-gray-400 flex items-center gap-1.5">
               <span className="w-3 border-t border-dashed border-brand-green" />
-              Prom: <span className="font-semibold text-apple-gray-700 dark:text-apple-gray-300">{avg.toFixed(1)}</span>
+              {t('coachDetail.promDosPuntos')} <span className="font-semibold text-apple-gray-700 dark:text-apple-gray-300">{avg.toFixed(1)}</span>
             </span>
           )}
           {onRemove && (
@@ -163,15 +165,16 @@ function SingleMetricChart({
         </ResponsiveContainer>
       </div>
       <div className="flex items-center gap-3 mt-1 text-2xs text-apple-gray-400">
-        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-brand-green" /> Victoria</span>
-        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-apple-gray-400" /> Empate</span>
-        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-brand-red" /> Derrota</span>
+        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-brand-green" /> {t('coachDetail.victoria')}</span>
+        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-apple-gray-400" /> {t('coachDetail.empate')}</span>
+        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-brand-red" /> {t('coachDetail.derrota')}</span>
       </div>
     </div>
   )
 }
 
 export default function CoachMatchMetricsEvolution({ rows }: { rows: EnrichedMatchRow[] }) {
+  const { t } = useLanguage()
   const [metrics, setMetrics] = useState<string[]>(DEFAULT_METRICS)
 
   const metricGroups = useMemo(() => {
@@ -202,14 +205,14 @@ export default function CoachMatchMetricsEvolution({ rows }: { rows: EnrichedMat
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-apple-gray-800 dark:text-white">Evolución de métricas</h3>
+        <h3 className="text-sm font-semibold text-apple-gray-800 dark:text-white">{t('coachDetail.evolucionMetricas')}</h3>
         {metrics.length < 8 && (
           <button
             type="button"
             onClick={addChart}
             className="text-2xs font-semibold text-brand-green hover:underline"
           >
-            + Agregar métrica ({metrics.length}/8)
+            {t('coachDetail.agregarMetrica').replace('{count}', String(metrics.length))}
           </button>
         )}
       </div>

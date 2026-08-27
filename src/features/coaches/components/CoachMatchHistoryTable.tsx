@@ -1,16 +1,18 @@
 import type { EnrichedMatchRow } from './CoachMatchMetricsEvolution'
 import { metricValue } from './CoachMatchMetricsEvolution'
 import { RESULT_STYLES } from '@/features/coaches/matchResult'
+import { useLanguage } from '@/context/LanguageContext'
+import { LANGUAGE_LOCALES } from '@/constants/translations'
 
 function fmt(v: number | null, digits = 1): string {
   return v === null ? '—' : v.toFixed(digits)
 }
 
-const COLUMNS: { key: string; label: string; digits?: number }[] = [
-  { key: 'tiros_/_a_la_porteria_2', label: 'Tiros a puerta', digits: 0 },
-  { key: 'corneres_/_con_remate', label: 'Córners', digits: 0 },
-  { key: 'faltas', label: 'Faltas', digits: 0 },
-  { key: 'tarjetas_amarillas', label: 'TA', digits: 0 },
+const COLUMNS: { key: string; labelKey: string; digits?: number }[] = [
+  { key: 'tiros_/_a_la_porteria_2', labelKey: 'coachDetail.colTirosPuerta', digits: 0 },
+  { key: 'corneres_/_con_remate', labelKey: 'coachDetail.colCorners', digits: 0 },
+  { key: 'faltas', labelKey: 'coachDetail.colFaltas', digits: 0 },
+  { key: 'tarjetas_amarillas', labelKey: 'coachDetail.colTA', digits: 0 },
 ]
 
 /** Barra horizontal de posesion: verde si domina el partido (>50%), gris/rojizo
@@ -53,23 +55,24 @@ function XgCell({ own, against }: { own: number | null; against: number | null }
 }
 
 export default function CoachMatchHistoryTable({ rows }: { rows: EnrichedMatchRow[] }) {
+  const { t, language } = useLanguage()
   if (rows.length === 0) return null
   const sorted = [...rows].sort((a, b) => b.date.localeCompare(a.date))
 
   return (
     <div className="space-y-3">
-      <h3 className="text-sm font-semibold text-apple-gray-800 dark:text-white">Partido por partido</h3>
+      <h3 className="text-sm font-semibold text-apple-gray-800 dark:text-white">{t('coachDetail.partidoPorPartido')}</h3>
       <div className="overflow-x-auto rounded-apple-lg border border-apple-gray-200/60 dark:border-apple-gray-700/40">
         <table className="w-full text-xs">
           <thead>
             <tr className="bg-apple-gray-50 dark:bg-apple-gray-900/40 text-apple-gray-400 uppercase tracking-wide">
-              <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Fecha</th>
-              <th className="text-left font-semibold px-3 py-2">Rival</th>
-              <th className="text-center font-semibold px-3 py-2">Res.</th>
-              <th className="text-right font-semibold px-3 py-2">Posesión</th>
+              <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">{t('coachDetail.colFecha')}</th>
+              <th className="text-left font-semibold px-3 py-2">{t('evaluar.rival')}</th>
+              <th className="text-center font-semibold px-3 py-2">{t('coachDetail.colRes')}</th>
+              <th className="text-right font-semibold px-3 py-2">{t('coachDetail.colPosesion')}</th>
               <th className="text-right font-semibold px-3 py-2">xG</th>
               {COLUMNS.map(col => (
-                <th key={col.key} className="text-right font-semibold px-3 py-2 whitespace-nowrap">{col.label}</th>
+                <th key={col.key} className="text-right font-semibold px-3 py-2 whitespace-nowrap">{t(col.labelKey)}</th>
               ))}
             </tr>
           </thead>
@@ -80,7 +83,7 @@ export default function CoachMatchHistoryTable({ rows }: { rows: EnrichedMatchRo
                 className="border-t border-apple-gray-100 dark:border-apple-gray-800 hover:bg-apple-gray-50 dark:hover:bg-apple-gray-800/40"
               >
                 <td className="px-3 py-2 text-apple-gray-500 dark:text-apple-gray-400 whitespace-nowrap">
-                  {new Date(row.date).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })}
+                  {new Date(row.date).toLocaleDateString(LANGUAGE_LOCALES[language], { day: 'numeric', month: 'short' })}
                 </td>
                 <td className="px-3 py-2">
                   <div className="flex items-center gap-2">

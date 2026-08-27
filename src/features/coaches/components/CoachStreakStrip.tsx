@@ -1,12 +1,14 @@
 import { buildStreak, RESULT_STYLES } from '../matchResult'
 import type { AgencyFixture } from '@/types/footballApi'
+import { useLanguage } from '@/context/LanguageContext'
 
 export default function CoachStreakStrip({ fixtures }: { fixtures: AgencyFixture[] }) {
+  const { t } = useLanguage()
   const streak = buildStreak(fixtures)
   if (streak.length === 0) return null
 
   return (
-    <div className="flex items-center gap-1" aria-label="Racha de los últimos partidos, de más viejo a más nuevo">
+    <div className="flex items-center gap-1" aria-label={t('coachDetail.rachaAriaLabel')}>
       {streak.map(s => (
         <span
           key={s.fixtureId}

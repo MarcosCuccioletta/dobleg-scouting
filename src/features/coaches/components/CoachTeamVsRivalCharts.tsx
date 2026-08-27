@@ -3,28 +3,29 @@ import {
 } from 'recharts'
 import type { EnrichedMatchRow } from './CoachMatchMetricsEvolution'
 import { metricValue } from './CoachMatchMetricsEvolution'
+import { useLanguage } from '@/context/LanguageContext'
 
 const OWN_COLOR = '#22C55E'
 const RIVAL_COLOR = '#DC2626'
 
 interface Comparison {
-  title: string
+  titleKey: string
   ownKey: string
   rivalKey: string | ((row: EnrichedMatchRow) => number | null)
   digits: number
 }
 
 const COMPARISONS: Comparison[] = [
-  { title: 'xG por partido', ownKey: 'xg_for', rivalKey: 'xg_against', digits: 2 },
+  { titleKey: 'coachDetail.vsRivalXg', ownKey: 'xg_for', rivalKey: 'xg_against', digits: 2 },
   {
-    title: 'Posesión (%)',
+    titleKey: 'coachDetail.vsRivalPosesion',
     ownKey: 'possession_pct',
     rivalKey: row => (row.stats.possession_pct === null ? null : 100 - row.stats.possession_pct),
     digits: 0,
   },
-  { title: 'Tiros a la portería', ownKey: 'tiros_/_a_la_porteria_2', rivalKey: 'tiros_en_contra_/_a_la_porteria_2', digits: 0 },
+  { titleKey: 'coachDetail.vsRivalTiros', ownKey: 'tiros_/_a_la_porteria_2', rivalKey: 'tiros_en_contra_/_a_la_porteria_2', digits: 0 },
   {
-    title: 'Duelos ganados (%)',
+    titleKey: 'coachDetail.vsRivalDuelos',
     ownKey: 'duelos_/_ganados_3',
     rivalKey: row => {
       const own = metricValue(row, 'duelos_/_ganados_3')
@@ -33,7 +34,7 @@ const COMPARISONS: Comparison[] = [
     digits: 0,
   },
   {
-    title: 'Duelos aéreos ganados (%)',
+    titleKey: 'coachDetail.vsRivalDuelosAereos',
     ownKey: 'duelos_aereos_/_ganados_3',
     rivalKey: row => {
       const own = metricValue(row, 'duelos_aereos_/_ganados_3')
@@ -47,7 +48,8 @@ function rivalValue(row: EnrichedMatchRow, rivalKey: Comparison['rivalKey']): nu
   return typeof rivalKey === 'function' ? rivalKey(row) : metricValue(row, rivalKey)
 }
 
-function ComparisonChart({ title, ownKey, rivalKey, digits, rows }: Comparison & { rows: EnrichedMatchRow[] }) {
+function ComparisonChart({ titleKey, ownKey, rivalKey, digits, rows }: Comparison & { rows: EnrichedMatchRow[] }) {
+  const { t } = useLanguage()
   const data = rows.map(r => ({
     date: r.date,
     opponent: r.opponent,
@@ -57,7 +59,7 @@ function ComparisonChart({ title, ownKey, rivalKey, digits, rows }: Comparison &
 
   return (
     <div className="bg-apple-gray-50 dark:bg-apple-gray-900/40 rounded-apple-lg p-4">
-      <h4 className="text-xs font-semibold text-apple-gray-800 dark:text-white mb-2">{title}</h4>
+      <h4 className="text-xs font-semibold text-apple-gray-800 dark:text-white mb-2">{t(titleKey)}</h4>
       <div className="h-52">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
@@ -85,8 +87,8 @@ function ComparisonChart({ title, ownKey, rivalKey, digits, rows }: Comparison &
               wrapperStyle={{ fontSize: '10px' }}
               formatter={(value: string) => <span className="text-apple-gray-500 dark:text-apple-gray-400">{value}</span>}
             />
-            <Line type="monotone" dataKey="nosotros" name="Nosotros" stroke={OWN_COLOR} strokeWidth={2} dot={{ r: 2.5, fill: OWN_COLOR, strokeWidth: 0 }} activeDot={{ r: 4 }} connectNulls />
-            <Line type="monotone" dataKey="rival" name="Rival" stroke={RIVAL_COLOR} strokeWidth={2} strokeDasharray="5 3" dot={{ r: 2.5, fill: RIVAL_COLOR, strokeWidth: 0 }} activeDot={{ r: 4 }} connectNulls />
+            <Line type="monotone" dataKey="nosotros" name={t('coachDetail.nosotros')} stroke={OWN_COLOR} strokeWidth={2} dot={{ r: 2.5, fill: OWN_COLOR, strokeWidth: 0 }} activeDot={{ r: 4 }} connectNulls />
+            <Line type="monotone" dataKey="rival" name={t('evaluar.rival')} stroke={RIVAL_COLOR} strokeWidth={2} strokeDasharray="5 3" dot={{ r: 2.5, fill: RIVAL_COLOR, strokeWidth: 0 }} activeDot={{ r: 4 }} connectNulls />
           </LineChart>
         </ResponsiveContainer>
       </div>
@@ -95,16 +97,17 @@ function ComparisonChart({ title, ownKey, rivalKey, digits, rows }: Comparison &
 }
 
 export default function CoachTeamVsRivalCharts({ rows }: { rows: EnrichedMatchRow[] }) {
+  const { t } = useLanguage()
   if (rows.length === 0) return null
   return (
     <div className="space-y-3">
       <div>
-        <h3 className="text-sm font-semibold text-apple-gray-800 dark:text-white">Nosotros vs. rival</h3>
-        <p className="text-2xs text-apple-gray-400 mt-0.5">Posesión y duelos ganados del rival son el complemento (100 − propio); Wyscout no exporta esos valores directamente para el rival.</p>
+        <h3 className="text-sm font-semibold text-apple-gray-800 dark:text-white">{t('coachDetail.nosotrosVsRival')}</h3>
+        <p className="text-2xs text-apple-gray-400 mt-0.5">{t('coachDetail.vsRivalDescripcion')}</p>
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         {COMPARISONS.map(c => (
-          <ComparisonChart key={c.title} {...c} rows={rows} />
+          <ComparisonChart key={c.titleKey} {...c} rows={rows} />
         ))}
       </div>
     </div>

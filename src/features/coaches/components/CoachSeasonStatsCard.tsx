@@ -10,6 +10,7 @@ import CoachDtEfficiencyPanel from './CoachDtEfficiencyPanel'
 import CoachMatchHistoryTable from './CoachMatchHistoryTable'
 import type { AgencyCoach } from '@/constants/agencyCoaches'
 import type { AgencyFixture } from '@/types/footballApi'
+import { useLanguage } from '@/context/LanguageContext'
 
 function StatTile({ label, value }: { label: string; value: string }) {
   return (
@@ -29,6 +30,7 @@ function fmtDecimal(v: number | null): string {
 }
 
 export default function CoachSeasonStatsCard({ coach }: { coach: AgencyCoach }) {
+  const { t } = useLanguage()
   const [statsRows, setStatsRows] = useState<CoachMatchTeamStats[] | null>(null)
   const [fixtures, setFixtures] = useState<AgencyFixture[] | null>(null)
   const [showUpload, setShowUpload] = useState(false)
@@ -66,21 +68,21 @@ export default function CoachSeasonStatsCard({ coach }: { coach: AgencyCoach }) 
     <div className="bg-white dark:bg-apple-gray-800/60 rounded-apple-lg border border-apple-gray-200/60 dark:border-apple-gray-700/40 shadow-apple dark:shadow-apple-dark p-5 sm:p-6 mb-6">
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <p className="text-xs font-semibold text-apple-gray-400 uppercase tracking-wide">
-          Temporada con {coach.fullName.split(' ')[0]}
+          {t('coachDetail.temporadaCon').replace('{name}', coach.fullName.split(' ')[0])}
         </p>
         <button
           type="button"
           onClick={() => setShowUpload(v => !v)}
           className="text-2xs font-semibold text-brand-green hover:underline"
         >
-          {showUpload ? 'Cerrar' : 'Cargar Excel de Wyscout'}
+          {showUpload ? t('coachDetail.cerrar') : t('coachDetail.cargarExcelWyscout')}
         </button>
       </div>
 
       {missingCount > 0 && (
         <div className="flex items-center gap-2 bg-brand-red/10 text-brand-red rounded-apple-lg px-3 py-2 mb-4 text-xs font-medium">
           <span className="w-1.5 h-1.5 rounded-full bg-brand-red flex-shrink-0" />
-          Faltan cargar {missingCount} {missingCount === 1 ? 'partido' : 'partidos'} — subí el Excel actualizado.
+          {t(missingCount === 1 ? 'coachDetail.faltanCargarUno' : 'coachDetail.faltanCargarVarios').replace('{count}', String(missingCount))}
         </div>
       )}
 
@@ -92,18 +94,18 @@ export default function CoachSeasonStatsCard({ coach }: { coach: AgencyCoach }) 
 
       {stats.played === 0 ? (
         <p className="text-sm text-apple-gray-400 text-center py-6">
-          Todavía no cargaste ningún partido. Subí el primer Excel de Wyscout para ver las estadísticas acá.
+          {t('coachDetail.temporadaSinPartidos')}
         </p>
       ) : (
         <div className="space-y-6">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
-            <StatTile label="PJ" value={String(stats.played)} />
-            <StatTile label="PG - PE - PP" value={`${stats.won}-${stats.drawn}-${stats.lost}`} />
-            <StatTile label="Puntos" value={`${stats.points}/${stats.possiblePoints}`} />
-            <StatTile label="GF - GC" value={`${stats.goalsFor}-${stats.goalsAgainst}`} />
-            <StatTile label="Posesión prom." value={fmtPct(stats.avgPossession)} />
-            <StatTile label="xG a favor" value={fmtDecimal(stats.avgXgFor)} />
-            <StatTile label="xG en contra" value={fmtDecimal(stats.avgXgAgainst)} />
+            <StatTile label={t('coachDetail.statPJ')} value={String(stats.played)} />
+            <StatTile label={t('coachDetail.statPGPEPP')} value={`${stats.won}-${stats.drawn}-${stats.lost}`} />
+            <StatTile label={t('coachDetail.statPuntos')} value={`${stats.points}/${stats.possiblePoints}`} />
+            <StatTile label={t('coachDetail.statGFGC')} value={`${stats.goalsFor}-${stats.goalsAgainst}`} />
+            <StatTile label={t('coachDetail.statPosesionProm')} value={fmtPct(stats.avgPossession)} />
+            <StatTile label={t('coachDetail.statXgFavor')} value={fmtDecimal(stats.avgXgFor)} />
+            <StatTile label={t('coachDetail.statXgContra')} value={fmtDecimal(stats.avgXgAgainst)} />
           </div>
 
           <CoachDtEfficiencyPanel rows={enrichedRows} stats={stats} />
