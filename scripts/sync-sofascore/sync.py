@@ -53,7 +53,12 @@ def sb_upsert(table, data, on_conflict="id", ignore_duplicates=False):
     try:
         with urllib.request.urlopen(req) as resp:
             return resp.status
-    except urllib.error.HTTPError:
+    except urllib.error.HTTPError as e:
+        try:
+            detail = e.read().decode(errors="replace")[:300]
+        except Exception:
+            detail = ""
+        print(f"  sb_upsert FAILED table={table} status={e.code} detail={detail}")
         return 0
 
 
@@ -683,7 +688,10 @@ def main():
                     for r in all_rows:
                         seen[f"{r['player_id']}_{r['fixture_id']}"] = r
                     deduped = list(seen.values())
-                    sb_upsert("player_match_stats", deduped, on_conflict="player_id,fixture_id")
+                    status = sb_upsert("player_match_stats", deduped, on_conflict="player_id,fixture_id")
+                    if status not in (200, 201, 204):
+                        results["errors"].append(f"Fixture {fixture['id']}: player_match_stats upsert failed (status {status}), leaving unsynced for retry")
+                        continue
                     results["players_inserted"] += len(deduped)
 
                 sb_update("fixtures", {"stats_synced": True}, f"id=eq.{fixture['id']}")
@@ -730,13 +738,24 @@ def main():
                 latest_date[pid] = fdate
                 latest_team[pid] = row["team_id"]
 
-        batch = []
+        # Group by destination team so each PATCH targets many players at once.
+        # A plain UPDATE (not upsert) is required here: Postgres validates NOT NULL
+        # columns while building the candidate row for INSERT ... ON CONFLICT DO
+        # UPDATE, even when the row will end up merged into an existing one — so a
+        # partial upsert (only id + current_team_id) always fails with a NOT NULL
+        # violation on "name", regardless of whether the player already exists.
+        by_team = {}
         for pid, tid in latest_team.items():
-            batch.append({"id": pid, "current_team_id": tid})
-        if batch:
-            for i in range(0, len(batch), 50):
-                sb_upsert("players", batch[i:i+50])
-            print(f"Updated current_team_id for {len(batch)} players")
+            by_team.setdefault(tid, []).append(pid)
+
+        updated = 0
+        for tid, pids in by_team.items():
+            for i in range(0, len(pids), 200):
+                sub = pids[i:i+200]
+                ids_param = urllib.parse.quote(f"({','.join(str(p) for p in sub)})")
+                sb_update("players", {"current_team_id": tid}, f"id=in.{ids_param}")
+                updated += len(sub)
+        print(f"Updated current_team_id for {updated} players")
 
     sb_insert("sync_log", {
         "function_name": "sync-sofascore-py",
