@@ -463,7 +463,10 @@ function buildTrophyGrid(titulos: TituloJugador[]): string {
 
 // ── Función principal ────────────────────────────────────────────────────
 
-export function buildInformeDTHtml(informe: InformeDT): string {
+export function buildInformeDTHtml(
+  informe: InformeDT,
+  share?: { url: string; imageUrl: string | null },
+): string {
   const { content, matches } = informe
   const wdlTotal = content.record.pj || 1
   const wPct = (content.record.ganados / wdlTotal) * 100
@@ -529,12 +532,12 @@ export function buildInformeDTHtml(informe: InformeDT): string {
         </section>` : ''
 
   const tabButtons = [
-    '<button class="dg-tab active" data-tab="general">General</button>',
-    '<button class="dg-tab" data-tab="rivales">Comparativa vs rivales</button>',
-    '<button class="dg-tab" data-tab="sistemas">Sistemas</button>',
-    '<button class="dg-tab" data-tab="racha">Racha</button>',
-    '<button class="dg-tab" data-tab="carreradt">Carrera como DT</button>',
-    jugadorIncluir ? '<button class="dg-tab" data-tab="jugador">Experiencia como jugador</button>' : '',
+    '<button type="button" class="dg-tab active" data-tab="general" aria-selected="true">General</button>',
+    '<button type="button" class="dg-tab" data-tab="rivales" aria-selected="false">Comparativa vs rivales</button>',
+    '<button type="button" class="dg-tab" data-tab="sistemas" aria-selected="false">Sistemas</button>',
+    '<button type="button" class="dg-tab" data-tab="racha" aria-selected="false">Racha</button>',
+    '<button type="button" class="dg-tab" data-tab="carreradt" aria-selected="false">Carrera como DT</button>',
+    jugadorIncluir ? '<button type="button" class="dg-tab" data-tab="jugador" aria-selected="false">Experiencia como jugador</button>' : '',
   ].join('\n      ')
 
   const carreraCiclosSubtitle = content.carreraDT.length <= 1
@@ -543,16 +546,37 @@ export function buildInformeDTHtml(informe: InformeDT): string {
 
   const ogTitle = `Informe de Entrenador — ${content.nombre}`
   const ogDescription = [content.club, content.liga].filter(Boolean).join(' · ') || 'Informe de entrenador — Doble G Sports Group'
+  const ogTags = share?.url
+    ? `
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="Doble G Sports Group" />
+<meta property="og:title" content="${esc(ogTitle)}" />
+<meta property="og:description" content="${esc(ogDescription)}" />
+<meta property="og:url" content="${esc(share.url)}" />${
+        share.imageUrl
+          ? `
+<meta property="og:image" content="${esc(share.imageUrl)}" />
+<meta property="og:image:type" content="image/jpeg" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:image:alt" content="${esc(ogTitle)}" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:image" content="${esc(share.imageUrl)}" />`
+          : ''
+      }
+<meta name="twitter:title" content="${esc(ogTitle)}" />
+<meta name="twitter:description" content="${esc(ogDescription)}" />`
+    : `
+<meta property="og:title" content="${esc(ogTitle)}" />
+<meta property="og:description" content="${esc(ogDescription)}" />
+<meta property="og:type" content="website" />`
 
   return `<!doctype html>
 <html lang="es">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>${esc(ogTitle)}</title>
-<meta property="og:title" content="${esc(ogTitle)}" />
-<meta property="og:description" content="${esc(ogDescription)}" />
-<meta property="og:type" content="website" />
+<title>${esc(ogTitle)}</title>${ogTags}
 <style>
   :root { color-scheme: dark; }
   * { box-sizing: border-box; }
@@ -571,16 +595,40 @@ export function buildInformeDTHtml(informe: InformeDT): string {
     pointer-events: none;
     z-index: 0;
   }
-  .dg-container { position: relative; z-index: 1; max-width: 1240px; margin: 0 auto; padding: 24px 24px 48px; }
+  .dg-container { position: relative; z-index: 1; max-width: 1240px; margin: 0 auto; padding: 24px 24px 48px; overflow-x: hidden; }
   .dg-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
   .dg-mark { flex-shrink: 0; }
   .dg-header-badge { font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #8A9099; }
   .dg-header-agency { margin-inline-start: auto; font-size: 12.5px; font-weight: 600; color: #8A9099; }
 
   .dg-layout { display: grid; grid-template-columns: 280px 1fr; gap: 20px; }
+  /* Tablet / pantallas medianas: apila la barra lateral sobre el contenido y la
+     centra, para que no quede un panel angosto al costado. */
   @media (max-width: 900px) {
     .dg-layout { grid-template-columns: 1fr; }
     .dg-rail { width: 100%; max-width: 560px; margin: 0 auto; }
+  }
+  /* Celular/tablet en HORIZONTAL: usa dos columnas a lo ancho de la pantalla,
+     como en desktop (no la vista angosta apilada). Va DESPUÉS del bloque 900px
+     para ganarle cuando ambos aplican. */
+  @media (orientation: landscape) and (min-width: 640px) and (max-width: 1024px) {
+    .dg-layout { grid-template-columns: 232px 1fr; }
+    .dg-rail { width: auto; max-width: none; margin: 0; }
+  }
+  /* Mobile: menos padding, tipografía y tabs más compactas, tarjetas en 1 columna. */
+  @media (max-width: 560px) {
+    body { font-size: 14px; }
+    .dg-container { padding: 16px 14px 40px; }
+    .dg-panel-card { padding: 16px 14px; }
+    .dg-rail { padding: 16px; }
+    .dg-rail-head h2 { font-size: 15.5px; }
+    .dg-photo-fallback { font-size: 22px; }
+    .dg-header { margin-bottom: 14px; gap: 10px; }
+    .dg-tabbar-wrap { margin: 0 -14px 14px; padding: 8px 14px 10px; }
+    .dg-tab { padding: 8px 12px; font-size: 12.5px; }
+    .dg-wins { grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 8px; }
+    .dg-mainstats-grid { gap: 8px; }
+    .trophy-grid { grid-template-columns: 1fr; }
   }
 
   .dg-rail, .dg-panel-card { background: #0F1114; border: 1px solid rgba(255,255,255,0.08); border-radius: 18px; }
@@ -611,11 +659,23 @@ export function buildInformeDTHtml(informe: InformeDT): string {
 
   .dg-panel-card { padding: 20px; min-width: 0; }
   .dg-tabbar-wrap { position: sticky; top: 0; z-index: 30; margin: 0 -24px 16px; padding: 10px 24px 12px; }
-  .dg-tabbar { display: flex; align-items: center; gap: 2px; padding: 4px; border-radius: 13px; background: rgba(20,22,26,0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.08); overflow-x: auto; scrollbar-width: none; }
+  .dg-tabbar-frame { position: relative; }
+  .dg-tabbar { display: flex; align-items: center; gap: 2px; padding: 4px; border-radius: 13px; background: rgba(20,22,26,0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.08); overflow-x: auto; scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
   .dg-tabbar::-webkit-scrollbar { display: none; }
-  .dg-tab { appearance: none; flex: 0 0 auto; padding: 8px 14px; border-radius: 9px; border: none; background: transparent; font: inherit; font-size: 13px; font-weight: 600; line-height: 1; color: #A8AEB6; cursor: pointer; white-space: nowrap; transition: background .16s ease, color .16s ease; }
+  /* Señal de que la fila sigue: una flecha sobre un degradé, en el borde del
+     riel. Aparece SOLO del lado que quedó contenido afuera y se apaga al llegar
+     al final, así nunca tapa una sección que ya se ve entera. */
+  .dg-tabbar-more { position: absolute; top: 1px; bottom: 1px; width: 42px; display: flex; align-items: center; pointer-events: none; color: #C3C9D1; opacity: 0; transition: opacity .2s ease; }
+  .dg-more-right { right: 1px; justify-content: flex-end; padding-right: 7px; border-radius: 0 12px 12px 0; background: linear-gradient(90deg, rgba(20,22,26,0), rgba(20,22,26,0.92) 55%, rgba(20,22,26,0.97)); }
+  .dg-more-left { left: 1px; justify-content: flex-start; padding-left: 7px; border-radius: 12px 0 0 12px; background: linear-gradient(270deg, rgba(20,22,26,0), rgba(20,22,26,0.92) 55%, rgba(20,22,26,0.97)); }
+  .dg-tabbar-frame.can-right .dg-more-right, .dg-tabbar-frame.can-left .dg-more-left { opacity: 1; }
+  @media (prefers-reduced-motion: reduce) { .dg-tabbar-more { transition: none; } }
+  .dg-tab { appearance: none; flex: 0 0 auto; scroll-snap-align: center; padding: 8px 14px; border-radius: 9px; border: none; background: transparent; font: inherit; font-size: 13px; font-weight: 600; line-height: 1; color: #A8AEB6; cursor: pointer; white-space: nowrap; transition: background .16s ease, color .16s ease; }
   .dg-tab:hover { color: #F5F7FA; background: rgba(255,255,255,0.07); }
+  .dg-tab:focus-visible { outline: 2px solid rgba(34,197,94,0.7); outline-offset: -2px; }
   .dg-tab.active { background: #22C55E; color: #08090B; font-weight: 700; box-shadow: 0 2px 10px rgba(34,197,94,0.25); }
+  .dg-tab.active:hover { background: #22C55E; color: #08090B; }
+  @media (prefers-reduced-motion: reduce) { .dg-tab { transition: none; } }
   .dg-panel { display: none; }
   .dg-panel.active { display: block; }
   .dg-panel-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #8A9099; margin: 0 0 6px; }
@@ -742,9 +802,13 @@ export function buildInformeDTHtml(informe: InformeDT): string {
   </header>
 
   <div class="dg-tabbar-wrap">
-    <nav class="dg-tabbar" aria-label="Secciones del informe">
-      ${tabButtons}
-    </nav>
+    <div class="dg-tabbar-frame">
+      <nav class="dg-tabbar" aria-label="Secciones del informe">
+        ${tabButtons}
+      </nav>
+      <span class="dg-tabbar-more dg-more-left" aria-hidden="true"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></span>
+      <span class="dg-tabbar-more dg-more-right" aria-hidden="true"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>
+    </div>
   </div>
 
   <div class="dg-layout">
@@ -875,14 +939,66 @@ ${jugadorTab}
 </div>
 
 <script>
-  document.querySelectorAll('.dg-tab').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.dg-tab').forEach(b => b.classList.remove('active'));
-      document.querySelectorAll('.dg-panel').forEach(p => p.classList.remove('active'));
-      btn.classList.add('active');
-      document.querySelector('.dg-panel[data-panel="' + btn.dataset.tab + '"]').classList.add('active');
+(function () {
+  var tabs = document.querySelectorAll('.dg-tab');
+  var panels = document.querySelectorAll('.dg-panel');
+  var card = document.querySelector('.dg-panel-card');
+  var bar = document.querySelector('.dg-tabbar-wrap');
+  var rail = document.querySelector('.dg-tabbar');
+  var frame = document.querySelector('.dg-tabbar-frame');
+  var smooth = !window.matchMedia || !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // Flechas a los costados del riel: sólo del lado donde quedó sección afuera.
+  // Sin esto, en el celular no entran todas y no hay forma de darse cuenta de
+  // que la fila se desliza.
+  function updateArrows() {
+    if (!rail || !frame) return;
+    var max = rail.scrollWidth - rail.clientWidth;
+    var x = rail.scrollLeft;
+    frame.classList.toggle('can-left', x > 4);
+    frame.classList.toggle('can-right', x < max - 4);
+  }
+  if (rail && frame) {
+    rail.addEventListener('scroll', updateArrows, { passive: true });
+    window.addEventListener('resize', updateArrows);
+    updateArrows();
+    if (smooth && rail.scrollWidth > rail.clientWidth + 8) {
+      setTimeout(function () {
+        rail.scrollTo({ left: 30, behavior: 'smooth' });
+        setTimeout(function () { rail.scrollTo({ left: 0, behavior: 'smooth' }); }, 520);
+      }, 650);
+    }
+  }
+
+  tabs.forEach(function (tab) {
+    tab.addEventListener('click', function () {
+      var id = tab.getAttribute('data-tab');
+      tabs.forEach(function (t) { t.classList.remove('active'); t.setAttribute('aria-selected', 'false'); });
+      panels.forEach(function (p) { p.classList.remove('active'); });
+      tab.classList.add('active');
+      tab.setAttribute('aria-selected', 'true');
+      var panel = document.querySelector('.dg-panel[data-panel="' + id + '"]');
+      if (panel) panel.classList.add('active');
+
+      // La pestaña elegida se centra en la fila: así se ve que hay más a los
+      // lados. 'nearest' evita que además salte la página hacia arriba.
+      if (tab.scrollIntoView) {
+        try { tab.scrollIntoView({ block: 'nearest', inline: 'center', behavior: smooth ? 'smooth' : 'auto' }); }
+        catch (e) { tab.scrollIntoView(); }
+        setTimeout(updateArrows, 350);
+      }
+
+      // Lleva al contenido de la sección elegida, justo debajo de la barra. Sin
+      // esto, en el celular tocabas una pestaña y te quedabas mirando la ficha,
+      // porque el contenido está más abajo.
+      if (card) {
+        var barH = bar ? bar.getBoundingClientRect().height : 0;
+        var delta = card.getBoundingClientRect().top - barH - 8;
+        if (Math.abs(delta) > 2) window.scrollBy({ top: delta, behavior: smooth ? 'smooth' : 'auto' });
+      }
     });
   });
+})();
 </script>
 </body>
 </html>`

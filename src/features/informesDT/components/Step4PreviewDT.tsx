@@ -2,7 +2,23 @@ import { useState } from 'react'
 import type { InformeDT } from '../types'
 import { buildInformeDTHtml } from '../buildInformeDTHtml'
 import { exportInformeDTHTML } from '../exportInformeDTHTML'
-import { uploadInformeHtml, informeShareUrl, shareVersionToken } from '@/features/informes/shareInforme'
+import { uploadInformeHtml, uploadInformeOgImage, informeShareUrl, shareVersionToken } from '@/features/informes/shareInforme'
+import { buildOgImageBlob } from '@/features/informes/ogImage'
+
+async function loadLogoDataUrl(path: string): Promise<string | undefined> {
+  try {
+    const res = await fetch(path)
+    const blob = await res.blob()
+    return await new Promise<string>((resolve, reject) => {
+      const fr = new FileReader()
+      fr.onload = () => resolve(fr.result as string)
+      fr.onerror = () => reject(fr.error)
+      fr.readAsDataURL(blob)
+    })
+  } catch {
+    return undefined
+  }
+}
 
 export default function Step4PreviewDT({
   informe,
@@ -22,12 +38,37 @@ export default function Step4PreviewDT({
     setSharing(true)
     setShareError(null)
     try {
-      // Mismo token de versión para el link y el HTML subido: si difirieran,
+      const nombreKey = informe.content.nombre || 'informe'
+
+      // Mismo token de versión para el link, la imagen y el og:url. Si difirieran,
       // WhatsApp podría canonicalizar al link sin versión y servir la preview
       // vieja que tenía cacheada (ver shareUrl.ts).
       const version = shareVersionToken(Date.now())
-      await uploadInformeHtml(html, informe.id, informe.content.nombre, version)
-      setShareUrl(informeShareUrl(informe.id, informe.content.nombre, version))
+      const link = informeShareUrl(informe.id, nombreKey, version)
+
+      // La tarjeta se sube primero: su URL tiene que estar adentro del HTML
+      // como og:image antes de subir el HTML.
+      let imageUrl: string | null = null
+      try {
+        const logoDataUrl = await loadLogoDataUrl('/brand/logo-white.png')
+        const og = await buildOgImageBlob({
+          nombre: informe.content.nombre,
+          club: informe.content.club,
+          posicion: informe.content.cargo,
+          edad: informe.content.edad,
+          liga: informe.content.liga,
+          fotoDataUrl: informe.content.fotoDataUrl,
+          logoDataUrl,
+        })
+        if (og) imageUrl = await uploadInformeOgImage(og, informe.id, nombreKey, version)
+      } catch (e) {
+        // Sin imagen se comparte igual: el link sigue mostrando título y descripción.
+        console.warn('No se pudo generar la imagen de preview:', e)
+      }
+
+      const htmlToShare = buildInformeDTHtml(informe, { url: link, imageUrl })
+      await uploadInformeHtml(htmlToShare, informe.id, nombreKey, version)
+      setShareUrl(link)
     } catch (e) {
       console.error('Error al compartir informe de entrenador:', e)
       setShareError('No se pudo generar el link. Probá de nuevo.')
