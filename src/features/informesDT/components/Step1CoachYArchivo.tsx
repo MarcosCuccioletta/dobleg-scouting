@@ -51,8 +51,12 @@ export default function Step1CoachYArchivo({
             <button
               key={coach.key}
               type="button"
-              onClick={() => setSelected(coach)}
-              className={`flex items-center gap-3 p-3 rounded-xl border text-left ${
+              disabled={parsing}
+              onClick={() => {
+                setError(null)
+                setSelected(coach)
+              }}
+              className={`flex items-center gap-3 p-3 rounded-xl border text-left disabled:opacity-50 disabled:cursor-not-allowed ${
                 selected?.key === coach.key
                   ? 'border-brand-green bg-brand-green/5'
                   : 'border-apple-gray-200 dark:border-apple-gray-700'
