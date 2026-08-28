@@ -6,6 +6,7 @@ import Step2Metricas from '@/features/informes/components/Step2Metricas'
 import Step3Contenido from '@/features/informes/components/Step3Contenido'
 import Step4Preview from '@/features/informes/components/Step4Preview'
 import InformesList from '@/features/informes/components/InformesList'
+import InformeDTWizard from '@/features/informesDT/components/InformeDTWizard'
 import type { ParsedFile, Informe, MetricStat } from '@/features/informes/types'
 import { buildColumnMap } from '@/features/informes/metricRegistry'
 import { buildMatrix, computeStats } from '@/features/informes/computeStats'
@@ -18,6 +19,7 @@ type SaveFeedback = { type: 'success' | 'error'; message: string }
 export default function InformesPage() {
   const { t } = useLanguage()
   const [view, setView] = useState<View>('list')
+  const [tipoWizard, setTipoWizard] = useState<'jugador' | 'dt' | null>(null)
   const [step, setStep] = useState(0)
   const [parsed, setParsed] = useState<ParsedFile | null>(null)
   const [informe, setInforme] = useState<Informe | null>(null)
@@ -75,6 +77,12 @@ export default function InformesPage() {
     setInforme(null)
     setStep(0)
     setSaveFeedback(null)
+    setTipoWizard('jugador')
+    setView('wizard')
+  }
+
+  const handleNewDT = () => {
+    setTipoWizard('dt')
     setView('wizard')
   }
 
@@ -109,7 +117,20 @@ export default function InformesPage() {
       </div>
 
       {view === 'list' ? (
-        <InformesList onOpen={handleOpen} onNew={handleNew} />
+        <div className="space-y-3">
+          <InformesList onOpen={handleOpen} onNew={handleNew} />
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={handleNewDT}
+              className="px-4 py-2.5 rounded-xl bg-apple-gray-100 dark:bg-apple-gray-800 text-apple-gray-700 dark:text-apple-gray-200 text-sm font-semibold hover:bg-apple-gray-200 dark:hover:bg-apple-gray-700 transition-colors flex-shrink-0"
+            >
+              + Informe de DT
+            </button>
+          </div>
+        </div>
+      ) : tipoWizard === 'dt' ? (
+        <InformeDTWizard onExit={() => { setView('list'); setTipoWizard(null) }} />
       ) : (
         <>
           {saveFeedback && (
