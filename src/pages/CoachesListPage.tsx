@@ -4,6 +4,7 @@ import { listAgencyCoaches } from '@/services/agencyCoachesService'
 import type { AgencyCoach } from '@/constants/agencyCoaches'
 import { useLanguage } from '@/context/LanguageContext'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
+import AddCoachModal from '@/features/coaches/components/AddCoachModal'
 
 function initialsOf(fullName: string): string {
   return fullName
@@ -17,6 +18,7 @@ function initialsOf(fullName: string): string {
 export default function CoachesListPage() {
   const { t } = useLanguage()
   const [coaches, setCoaches] = useState<AgencyCoach[] | null>(null)
+  const [showAdd, setShowAdd] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -28,14 +30,33 @@ export default function CoachesListPage() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6">
-      <div className="mb-6">
-        <h1 className="text-xl sm:text-2xl font-bold text-apple-gray-800 dark:text-white tracking-tight">
-          {t('nav.entrenadores')}
-        </h1>
-        <p className="text-sm text-apple-gray-500 dark:text-apple-gray-400 mt-0.5">
-          {t('coachesList.subtitulo')}
-        </p>
+      <div className="mb-6 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold text-apple-gray-800 dark:text-white tracking-tight">
+            {t('nav.entrenadores')}
+          </h1>
+          <p className="text-sm text-apple-gray-500 dark:text-apple-gray-400 mt-0.5">
+            {t('coachesList.subtitulo')}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setShowAdd(true)}
+          className="flex-shrink-0 px-4 py-2 rounded-full bg-brand-green text-apple-gray-900 text-sm font-semibold shadow-apple dark:shadow-apple-dark transition-transform duration-200 ease-apple hover:-translate-y-0.5"
+        >
+          + Agregar entrenador
+        </button>
       </div>
+
+      {showAdd && (
+        <AddCoachModal
+          onClose={() => setShowAdd(false)}
+          onCreated={coach => {
+            setCoaches(prev => prev ? [...prev, coach] : [coach])
+            setShowAdd(false)
+          }}
+        />
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
         {coaches.map(coach => {
