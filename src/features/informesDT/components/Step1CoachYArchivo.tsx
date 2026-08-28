@@ -13,21 +13,25 @@ export default function Step1CoachYArchivo({
 }) {
   const [coaches, setCoaches] = useState<AgencyCoach[] | null>(null)
   const [selected, setSelected] = useState<AgencyCoach | null>(null)
+  const [teamName, setTeamName] = useState('')
   const [showAdd, setShowAdd] = useState(false)
   const [parsing, setParsing] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    listAgencyCoaches().then(setCoaches)
+    // listAgencyCoaches() puede devolver null si falla la carga (ver
+    // agencyCoachesService.listAgencyCoaches): acá no hace falta un estado de
+    // error dedicado, alcanza con tratarlo como "todavía no hay entrenadores".
+    listAgencyCoaches().then(list => setCoaches(list ?? []))
   }, [])
 
   const handleFile = async (file: File) => {
-    if (!selected) return
+    if (!selected || !teamName.trim()) return
     setError(null)
     setParsing(true)
     try {
       const buffer = await file.arrayBuffer()
-      const matches = await parseWyscoutTeamStatsXlsx(buffer, selected.club ?? selected.fullName)
+      const matches = await parseWyscoutTeamStatsXlsx(buffer, teamName.trim())
       if (matches.length === 0) {
         setError('No se encontraron partidos de este equipo en el archivo. Revisá que sea el export "Team Stats" correcto.')
         return
@@ -55,6 +59,7 @@ export default function Step1CoachYArchivo({
               onClick={() => {
                 setError(null)
                 setSelected(coach)
+                setTeamName(coach.club ?? '')
               }}
               className={`flex items-center gap-3 p-3 rounded-xl border text-left disabled:opacity-50 disabled:cursor-not-allowed ${
                 selected?.key === coach.key
@@ -81,12 +86,28 @@ export default function Step1CoachYArchivo({
       {selected && (
         <div>
           <h3 className="text-sm font-semibold text-apple-gray-800 dark:text-white mb-2">
-            Subí el export "Team Stats" de Wyscout de {selected.club ?? selected.fullName}
+            Nombre del equipo en Wyscout
+          </h3>
+          <input
+            type="text"
+            value={teamName}
+            onChange={e => setTeamName(e.target.value)}
+            placeholder="Ej: Temperley"
+            disabled={parsing}
+            className="w-full px-3 py-2 rounded-xl border border-apple-gray-200 dark:border-apple-gray-700 bg-transparent text-sm mb-1"
+          />
+          <p className="text-xs text-apple-gray-400 mb-4">
+            Tiene que coincidir con el nombre del equipo tal cual aparece en el archivo de Wyscout
+            (puede ser distinto al club del entrenador, sobre todo si está sin club).
+          </p>
+
+          <h3 className="text-sm font-semibold text-apple-gray-800 dark:text-white mb-2">
+            Subí el export "Team Stats" de Wyscout
           </h3>
           <input
             type="file"
             accept=".xlsx"
-            disabled={parsing}
+            disabled={parsing || !teamName.trim()}
             onChange={e => e.target.files?.[0] && handleFile(e.target.files[0])}
             className="text-sm"
           />
@@ -101,6 +122,7 @@ export default function Step1CoachYArchivo({
           onCreated={coach => {
             setCoaches(prev => (prev ? [...prev, coach] : [coach]))
             setSelected(coach)
+            setTeamName(coach.club ?? '')
             setShowAdd(false)
           }}
         />

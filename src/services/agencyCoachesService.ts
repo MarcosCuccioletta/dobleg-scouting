@@ -33,13 +33,18 @@ function mapRow(row: AgencyCoachRow): AgencyCoach {
   }
 }
 
-export async function listAgencyCoaches(): Promise<AgencyCoach[]> {
+// `null` = falla real de Supabase (distinto de una consulta exitosa con 0 filas,
+// que devuelve `[]`). Los consumidores usan esto para distinguir "todavía no hay
+// entrenadores cargados" de "no se pudo cargar la lista" y mostrar un mensaje
+// acorde en vez de una grilla vacía silenciosa.
+export async function listAgencyCoaches(): Promise<AgencyCoach[] | null> {
   const { data, error } = await supabase
     .from('agency_coaches')
     .select('*')
     .eq('active', true)
     .order('full_name')
-  if (error || !data) return []
+  if (error) return null
+  if (!data) return []
   return (data as AgencyCoachRow[]).map(mapRow)
 }
 

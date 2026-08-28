@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { InformeDT } from '../types'
 import { buildInformeDTHtml } from '../buildInformeDTHtml'
 import { exportInformeDTHTML } from '../exportInformeDTHTML'
-import { uploadInformeHtml, informeShareUrl } from '@/features/informes/shareInforme'
+import { uploadInformeHtml, informeShareUrl, shareVersionToken } from '@/features/informes/shareInforme'
 
 export default function Step4PreviewDT({
   informe,
@@ -22,8 +22,12 @@ export default function Step4PreviewDT({
     setSharing(true)
     setShareError(null)
     try {
-      await uploadInformeHtml(html, informe.id, informe.content.nombre)
-      setShareUrl(informeShareUrl(informe.id, informe.content.nombre))
+      // Mismo token de versión para el link y el HTML subido: si difirieran,
+      // WhatsApp podría canonicalizar al link sin versión y servir la preview
+      // vieja que tenía cacheada (ver shareUrl.ts).
+      const version = shareVersionToken(Date.now())
+      await uploadInformeHtml(html, informe.id, informe.content.nombre, version)
+      setShareUrl(informeShareUrl(informe.id, informe.content.nombre, version))
     } catch (e) {
       console.error('Error al compartir informe de entrenador:', e)
       setShareError('No se pudo generar el link. Probá de nuevo.')

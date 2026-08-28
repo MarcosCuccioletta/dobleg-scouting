@@ -12,10 +12,16 @@ import Step3ContenidoDT from './Step3ContenidoDT'
 import Step4PreviewDT from './Step4PreviewDT'
 
 function buildContentFromMatches(coach: AgencyCoach, matches: WyscoutMatch[]): InformeDTContent {
+  // El nombre de equipo que efectivamente matcheó en el archivo de Wyscout
+  // (`matches[0].equipoPropio`) es más confiable que `coach.club` para lo que se
+  // muestra en el informe: existe siempre que haya matches, y es el que corresponde
+  // exactamente a los datos cargados — a diferencia de `coach.club`, que puede estar
+  // vacío (entrenador sin club) o escrito distinto al nombre usado por Wyscout.
+  const club = matches[0]?.equipoPropio ?? coach.club ?? ''
   return {
     nombre: coach.fullName,
     cargo: 'Director Técnico',
-    club: coach.club ?? '',
+    club,
     liga: coach.leagueName ?? '',
     sistemaHabitual: computeSistemas(matches)[0]?.formacion ?? '',
     edad: '',
@@ -31,13 +37,17 @@ function buildContentFromMatches(coach: AgencyCoach, matches: WyscoutMatch[]): I
       incluir: false, edad: '', lugarNacimiento: '', altura: '', posicion: '', pieHabil: '', seleccion: '',
       titulos: [], trayectoria: [],
     },
-    carreraDT: coach.club ? [{ club: coach.club, periodo: 'Actualidad', liga: coach.leagueName ?? null, logoUrl: coach.photo }] : [],
+    // logoUrl: null — no hay una fuente de escudos de club en este codebase todavía;
+    // coach.photo es la foto de la PERSONA (headshot), no un escudo, y buildInformeDTHtml
+    // la renderiza en un <img> de 20x20 al lado del nombre del club como si lo fuera.
+    carreraDT: coach.club ? [{ club, periodo: 'Actualidad', liga: coach.leagueName ?? null, logoUrl: null }] : [],
   }
 }
 
 export default function InformeDTWizard({ onExit }: { onExit: () => void }) {
   const [step, setStep] = useState(0)
   const [informe, setInforme] = useState<InformeDT | null>(null)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   if (step === 0) {
     return (
@@ -82,13 +92,21 @@ export default function InformeDTWizard({ onExit }: { onExit: () => void }) {
   }
 
   return (
-    <Step4PreviewDT
-      informe={informe}
-      onBack={() => setStep(2)}
-      onSave={() => {
-        saveInformeDT({ ...informe, updatedAt: new Date().toISOString() })
-        onExit()
-      }}
-    />
+    <div className="space-y-2">
+      <Step4PreviewDT
+        informe={informe}
+        onBack={() => setStep(2)}
+        onSave={() => {
+          setSaveError(null)
+          try {
+            saveInformeDT({ ...informe, updatedAt: new Date().toISOString() })
+            onExit()
+          } catch (e) {
+            setSaveError(e instanceof Error ? e.message : 'No se pudo guardar el informe.')
+          }
+        }}
+      />
+      {saveError && <p className="text-sm text-red-500 text-center">{saveError}</p>}
+    </div>
   )
 }

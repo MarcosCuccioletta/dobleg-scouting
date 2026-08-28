@@ -122,7 +122,7 @@ export default function Step3ContenidoDT({
             <div>
               <p className="text-xs text-apple-gray-400 mb-2">Títulos como jugador</p>
               {content.experienciaJugador.titulos.map((t, i) => (
-                <div key={i} className="flex items-center gap-2 mb-2">
+                <div key={i} className="flex flex-wrap items-center gap-2 mb-2">
                   <input
                     value={t.nombre}
                     onChange={e => {
@@ -131,7 +131,27 @@ export default function Step3ContenidoDT({
                       onChange({ ...content, experienciaJugador: { ...content.experienciaJugador, titulos } })
                     }}
                     placeholder="Nombre del título"
-                    className="flex-1 px-2 py-1 rounded-lg border border-apple-gray-200 dark:border-apple-gray-700 bg-transparent text-sm"
+                    className="flex-1 min-w-[140px] px-2 py-1 rounded-lg border border-apple-gray-200 dark:border-apple-gray-700 bg-transparent text-sm"
+                  />
+                  <input
+                    value={t.temporada}
+                    onChange={e => {
+                      const titulos = [...content.experienciaJugador.titulos]
+                      titulos[i] = { ...t, temporada: e.target.value }
+                      onChange({ ...content, experienciaJugador: { ...content.experienciaJugador, titulos } })
+                    }}
+                    placeholder="Temporada (ej. 16/17)"
+                    className="w-32 px-2 py-1 rounded-lg border border-apple-gray-200 dark:border-apple-gray-700 bg-transparent text-sm"
+                  />
+                  <input
+                    value={t.club}
+                    onChange={e => {
+                      const titulos = [...content.experienciaJugador.titulos]
+                      titulos[i] = { ...t, club: e.target.value }
+                      onChange({ ...content, experienciaJugador: { ...content.experienciaJugador, titulos } })
+                    }}
+                    placeholder="Club (ej. CA Independiente)"
+                    className="flex-1 min-w-[140px] px-2 py-1 rounded-lg border border-apple-gray-200 dark:border-apple-gray-700 bg-transparent text-sm"
                   />
                   <select
                     value={t.trofeoKey}

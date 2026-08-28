@@ -15,7 +15,14 @@ function readAll(): InformeDT[] {
 }
 
 function writeAll(all: InformeDT[]): void {
-  localStorage.setItem(KEY, LZString.compressToUTF16(JSON.stringify(all)))
+  try {
+    localStorage.setItem(KEY, LZString.compressToUTF16(JSON.stringify(all)))
+  } catch (e) {
+    if (e instanceof DOMException && (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED')) {
+      throw new Error('No se pudo guardar: hay demasiados informes de entrenador guardados. Borrá alguno viejo y probá de nuevo.')
+    }
+    throw e
+  }
 }
 
 export function saveInformeDT(informe: InformeDT): void {

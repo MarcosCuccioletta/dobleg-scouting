@@ -43,9 +43,9 @@ describe('listAgencyCoaches', () => {
     }])
   })
 
-  it('devuelve [] si Supabase devuelve error', async () => {
+  it('devuelve null si Supabase devuelve error', async () => {
     mockFrom.mockReturnValue(chain({ data: null, error: new Error('boom') }))
-    expect(await listAgencyCoaches()).toEqual([])
+    expect(await listAgencyCoaches()).toBeNull()
   })
 })
 

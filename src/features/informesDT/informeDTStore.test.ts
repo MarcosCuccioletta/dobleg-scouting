@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { saveInformeDT, listInformesDT, loadInformeDT, deleteInformeDT, newInformeDTId } from './informeDTStore'
 import type { InformeDT } from './types'
 
@@ -45,5 +45,13 @@ describe('informeDTStore', () => {
 
   it('newInformeDTId genera ids distintos', () => {
     expect(newInformeDTId()).not.toBe(newInformeDTId())
+  })
+
+  it('saveInformeDT lanza un error claro cuando se excede la cuota', () => {
+    const spy = vi.spyOn(Storage.prototype, 'setItem').mockImplementationOnce(() => {
+      throw new DOMException('quota', 'QuotaExceededError')
+    })
+    expect(() => saveInformeDT(fakeInforme('q'))).toThrow(/demasiados informes/)
+    spy.mockRestore()
   })
 })

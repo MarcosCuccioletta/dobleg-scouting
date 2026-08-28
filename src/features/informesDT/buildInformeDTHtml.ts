@@ -447,11 +447,18 @@ function buildTrayectoriaRows(clubs: ClubJugador[]): string {
 
 function buildTrophyGrid(titulos: TituloJugador[]): string {
   if (titulos.length === 0) return '<p class="dg-muted" style="font-size:12px;">Sin títulos cargados.</p>'
-  return titulos.map(t => `
+  return titulos.map(t => {
+    // temporada/club pueden venir vacíos (título cargado sin completarlos): si se
+    // concatenaran siempre con " · " quedaría un separador colgado sin nada de un
+    // lado. Se arma solo con las partes presentes, y se omite la línea si no hay
+    // ninguna.
+    const meta = [t.temporada, t.club].filter(Boolean).join(' · ')
+    return `
           <div class="trophy-card">
             <img class="trophy-icon" src="${esc(trophyImageUrl(t.trofeoKey))}" alt="">
-            <div><p class="t-name">${esc(t.nombre)}</p><p class="t-meta">${esc(t.temporada)} · ${esc(t.club)}</p></div>
-          </div>`).join('')
+            <div><p class="t-name">${esc(t.nombre)}</p>${meta ? `<p class="t-meta">${esc(meta)}</p>` : ''}</div>
+          </div>`
+  }).join('')
 }
 
 // ── Función principal ────────────────────────────────────────────────────
@@ -479,18 +486,36 @@ export function buildInformeDTHtml(informe: InformeDT): string {
     ? 'Sin trayectoria cargada.'
     : `${trayectoria.length} club${trayectoria.length === 1 ? '' : 'es'} en la trayectoria registrada${nCedidos > 0 ? ` — incluye ${nCedidos} cesión${nCedidos === 1 ? '' : 'es'} a préstamo.` : '.'}`
 
+  // lugarNacimiento/altura/pieHabil/seleccion no tienen input en Step3ContenidoDT
+  // todavía (a diferencia de edad/posicion, que sí): sin dato quedaban siempre en
+  // "—"/"Sin convocatorias" para TODOS los informes. Se omiten del todo si están
+  // vacíos en vez de mostrar un placeholder fijo.
+  const ej = content.experienciaJugador
+  const lugarNacimientoCell = ej.lugarNacimiento
+    ? `<div class="dg-kpi" style="grid-column: span 2;"><div class="v" style="font-size:15px;">${esc(ej.lugarNacimiento)}</div><div class="l">Lugar de nacimiento</div></div>`
+    : ''
+  const alturaCell = ej.altura
+    ? `<div class="dg-kpi"><div class="v" style="font-size:15px;">${esc(ej.altura)}</div><div class="l">Altura</div></div>`
+    : ''
+  const pieHabilCell = ej.pieHabil
+    ? `<div class="dg-kpi"><div class="v" style="font-size:15px;">${esc(ej.pieHabil)}</div><div class="l">Pie hábil</div></div>`
+    : ''
+  const seleccionCell = ej.seleccion
+    ? `<div class="dg-kpi"><div class="v" style="font-size:13px; color:#8A9099;">${esc(ej.seleccion)}</div><div class="l">Selección</div></div>`
+    : ''
+
   const jugadorTab = jugadorIncluir ? `
         <section class="dg-panel" data-panel="jugador">
           <p class="dg-panel-title">Datos del jugador</p>
           <div class="dg-kpi-grid">
             <div class="dg-kpi"><div class="v">${esc(content.experienciaJugador.edad)}</div><div class="l">Edad</div></div>
-            <div class="dg-kpi" style="grid-column: span 2;"><div class="v" style="font-size:15px;">${esc(content.experienciaJugador.lugarNacimiento) || '—'}</div><div class="l">Lugar de nacimiento</div></div>
-            <div class="dg-kpi"><div class="v" style="font-size:15px;">${esc(content.experienciaJugador.altura) || '—'}</div><div class="l">Altura</div></div>
+            ${lugarNacimientoCell}
+            ${alturaCell}
           </div>
           <div class="dg-kpi-grid" style="margin-top:10px;">
             <div class="dg-kpi"><div class="v" style="font-size:14px;">${esc(content.experienciaJugador.posicion) || '—'}</div><div class="l">Posición habitual</div></div>
-            <div class="dg-kpi"><div class="v" style="font-size:15px;">${esc(content.experienciaJugador.pieHabil) || '—'}</div><div class="l">Pie hábil</div></div>
-            <div class="dg-kpi"><div class="v" style="font-size:13px; color:#8A9099;">${esc(content.experienciaJugador.seleccion) || 'Sin convocatorias'}</div><div class="l">Selección</div></div>
+            ${pieHabilCell}
+            ${seleccionCell}
           </div>
 
           <p class="dg-panel-title dg-mt">Títulos como jugador</p>
@@ -516,12 +541,18 @@ export function buildInformeDTHtml(informe: InformeDT): string {
     ? 'Primer ciclo como director técnico principal.'
     : `${content.carreraDT.length} ciclos como director técnico.`
 
+  const ogTitle = `Informe de Entrenador — ${content.nombre}`
+  const ogDescription = [content.club, content.liga].filter(Boolean).join(' · ') || 'Informe de entrenador — Doble G Sports Group'
+
   return `<!doctype html>
 <html lang="es">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Informe de Entrenador — ${esc(content.nombre)}</title>
+<title>${esc(ogTitle)}</title>
+<meta property="og:title" content="${esc(ogTitle)}" />
+<meta property="og:description" content="${esc(ogDescription)}" />
+<meta property="og:type" content="website" />
 <style>
   :root { color-scheme: dark; }
   * { box-sizing: border-box; }

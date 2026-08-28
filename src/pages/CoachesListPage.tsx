@@ -17,7 +17,8 @@ function initialsOf(fullName: string): string {
 
 export default function CoachesListPage() {
   const { t } = useLanguage()
-  const [coaches, setCoaches] = useState<AgencyCoach[] | null>(null)
+  // undefined = cargando, null = falló la carga, [] = cargó pero no hay entrenadores.
+  const [coaches, setCoaches] = useState<AgencyCoach[] | null | undefined>(undefined)
   const [showAdd, setShowAdd] = useState(false)
 
   useEffect(() => {
@@ -26,7 +27,7 @@ export default function CoachesListPage() {
     return () => { active = false }
   }, [])
 
-  if (coaches === null) return <LoadingSpinner message="Cargando entrenadores..." />
+  if (coaches === undefined) return <LoadingSpinner message="Cargando entrenadores..." />
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6">
@@ -58,6 +59,35 @@ export default function CoachesListPage() {
         />
       )}
 
+      {coaches === null ? (
+        <div className="max-w-md mx-auto py-12 text-center animate-fade-in">
+          <div className="w-20 h-20 bg-apple-gray-100 dark:bg-apple-gray-800 rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-apple dark:shadow-apple-dark">
+            <svg className="w-10 h-10 text-apple-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+            </svg>
+          </div>
+          <h1 className="text-lg font-semibold text-apple-gray-800 dark:text-white mb-1.5">
+            No se pudieron cargar los entrenadores.
+          </h1>
+          <p className="text-sm text-apple-gray-500 dark:text-apple-gray-400">
+            Probá de nuevo.
+          </p>
+        </div>
+      ) : coaches.length === 0 ? (
+        <div className="max-w-md mx-auto py-12 text-center animate-fade-in">
+          <div className="w-20 h-20 bg-apple-gray-100 dark:bg-apple-gray-800 rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-apple dark:shadow-apple-dark">
+            <svg className="w-10 h-10 text-apple-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-1.13a4 4 0 100-8 4 4 0 000 8zm6 3c0-1.1-.9-2-2-2M7 13c-1.1 0-2 .9-2 2" />
+            </svg>
+          </div>
+          <h1 className="text-lg font-semibold text-apple-gray-800 dark:text-white mb-1.5">
+            Todavía no hay entrenadores cargados.
+          </h1>
+          <p className="text-sm text-apple-gray-500 dark:text-apple-gray-400">
+            Agregá el primero con el botón de arriba.
+          </p>
+        </div>
+      ) : (
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
         {coaches.map(coach => {
           const isActive = coach.status === 'activo'
@@ -117,6 +147,7 @@ export default function CoachesListPage() {
           )
         })}
       </div>
+      )}
     </div>
   )
 }
