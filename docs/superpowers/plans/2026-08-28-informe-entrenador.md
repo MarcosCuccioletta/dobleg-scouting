@@ -1974,7 +1974,7 @@ import type { InformeDT } from '../types'
 import { buildInformeDTHtml } from '../buildInformeDTHtml'
 import { exportInformeDTHTML } from '../exportInformeDTHTML'
 import { uploadInformeHtml } from '@/features/informes/shareInforme'
-import { informeShareUrl } from '@/features/informes/shareUrl'
+import { informeShareUrl } from '@/features/informes/shareInforme'
 
 export default function Step4PreviewDT({
   informe,
