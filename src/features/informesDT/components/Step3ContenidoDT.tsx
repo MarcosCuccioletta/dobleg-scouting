@@ -1,4 +1,4 @@
-import type { InformeDTContent, ComparativaMetric, TituloJugador } from '../types'
+import type { InformeDTContent, ComparativaMetric, TituloJugador, ClubJugador } from '../types'
 import { TROPHY_CATALOG } from '../trophyCatalog'
 
 function updateComparativaValue(
@@ -36,6 +36,30 @@ export default function Step3ContenidoDT({
             value={content.sistemaHabitual}
             onChange={e => onChange({ ...content, sistemaHabitual: e.target.value })}
             placeholder="Sistema habitual (ej. 4-2-3-1)"
+            className="px-3 py-2 rounded-xl border border-apple-gray-200 dark:border-apple-gray-700 bg-transparent text-sm"
+          />
+          <input
+            value={content.edad}
+            onChange={e => onChange({ ...content, edad: e.target.value })}
+            placeholder="Edad"
+            className="px-3 py-2 rounded-xl border border-apple-gray-200 dark:border-apple-gray-700 bg-transparent text-sm"
+          />
+          <input
+            value={content.club}
+            onChange={e => onChange({ ...content, club: e.target.value })}
+            placeholder="Club"
+            className="px-3 py-2 rounded-xl border border-apple-gray-200 dark:border-apple-gray-700 bg-transparent text-sm"
+          />
+          <input
+            value={content.liga}
+            onChange={e => onChange({ ...content, liga: e.target.value })}
+            placeholder="Liga"
+            className="px-3 py-2 rounded-xl border border-apple-gray-200 dark:border-apple-gray-700 bg-transparent text-sm"
+          />
+          <input
+            value={content.cargo}
+            onChange={e => onChange({ ...content, cargo: e.target.value })}
+            placeholder="Cargo (ej. Director Técnico)"
             className="px-3 py-2 rounded-xl border border-apple-gray-200 dark:border-apple-gray-700 bg-transparent text-sm"
           />
         </div>
@@ -183,6 +207,72 @@ export default function Step3ContenidoDT({
                 className="text-xs text-brand-green font-medium"
               >
                 + Agregar título
+              </button>
+            </div>
+
+            <div>
+              <p className="text-xs text-apple-gray-400 mb-2">Trayectoria como jugador</p>
+              {content.experienciaJugador.trayectoria.map((c, i) => (
+                <div key={i} className="flex flex-wrap items-center gap-2 mb-2">
+                  <input
+                    value={c.club}
+                    onChange={e => {
+                      const trayectoria = [...content.experienciaJugador.trayectoria]
+                      trayectoria[i] = { ...c, club: e.target.value }
+                      onChange({ ...content, experienciaJugador: { ...content.experienciaJugador, trayectoria } })
+                    }}
+                    placeholder="Club (ej. River Plate)"
+                    className="flex-1 min-w-[140px] px-2 py-1 rounded-lg border border-apple-gray-200 dark:border-apple-gray-700 bg-transparent text-sm"
+                  />
+                  <input
+                    value={c.periodo}
+                    onChange={e => {
+                      const trayectoria = [...content.experienciaJugador.trayectoria]
+                      trayectoria[i] = { ...c, periodo: e.target.value }
+                      onChange({ ...content, experienciaJugador: { ...content.experienciaJugador, trayectoria } })
+                    }}
+                    placeholder="Período (ej. 2016 — 2017)"
+                    className="w-40 px-2 py-1 rounded-lg border border-apple-gray-200 dark:border-apple-gray-700 bg-transparent text-sm"
+                  />
+                  <label className="flex items-center gap-1.5 text-xs text-apple-gray-400">
+                    <input
+                      type="checkbox"
+                      checked={c.cedido}
+                      onChange={e => {
+                        const trayectoria = [...content.experienciaJugador.trayectoria]
+                        trayectoria[i] = { ...c, cedido: e.target.checked }
+                        onChange({ ...content, experienciaJugador: { ...content.experienciaJugador, trayectoria } })
+                      }}
+                    />
+                    Cedido
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const trayectoria = content.experienciaJugador.trayectoria.filter((_, idx) => idx !== i)
+                      onChange({ ...content, experienciaJugador: { ...content.experienciaJugador, trayectoria } })
+                    }}
+                    className="text-xs text-red-500"
+                  >
+                    Quitar
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => {
+                  const nuevo: ClubJugador = { club: '', periodo: '', cedido: false, logoUrl: null }
+                  onChange({
+                    ...content,
+                    experienciaJugador: {
+                      ...content.experienciaJugador,
+                      trayectoria: [...content.experienciaJugador.trayectoria, nuevo],
+                    },
+                  })
+                }}
+                className="text-xs text-brand-green font-medium"
+              >
+                + Agregar club
               </button>
             </div>
           </div>
