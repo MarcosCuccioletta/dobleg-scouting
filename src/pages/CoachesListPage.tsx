@@ -1,6 +1,9 @@
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { AGENCY_COACHES } from '@/constants/agencyCoaches'
+import { listAgencyCoaches } from '@/services/agencyCoachesService'
+import type { AgencyCoach } from '@/constants/agencyCoaches'
 import { useLanguage } from '@/context/LanguageContext'
+import LoadingSpinner from '@/components/ui/LoadingSpinner'
 
 function initialsOf(fullName: string): string {
   return fullName
@@ -13,6 +16,16 @@ function initialsOf(fullName: string): string {
 
 export default function CoachesListPage() {
   const { t } = useLanguage()
+  const [coaches, setCoaches] = useState<AgencyCoach[] | null>(null)
+
+  useEffect(() => {
+    let active = true
+    listAgencyCoaches().then(list => { if (active) setCoaches(list) })
+    return () => { active = false }
+  }, [])
+
+  if (coaches === null) return <LoadingSpinner message="Cargando entrenadores..." />
+
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6">
       <div className="mb-6">
@@ -25,7 +38,7 @@ export default function CoachesListPage() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
-        {AGENCY_COACHES.map(coach => {
+        {coaches.map(coach => {
           const isActive = coach.status === 'activo'
           return (
             <Link

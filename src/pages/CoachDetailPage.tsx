@@ -1,5 +1,7 @@
+import { useEffect, useState } from 'react'
 import { useParams, Link, useSearchParams } from 'react-router-dom'
-import { getCoachByKey } from '@/constants/agencyCoaches'
+import { getAgencyCoachByKey } from '@/services/agencyCoachesService'
+import type { AgencyCoach } from '@/constants/agencyCoaches'
 import CoachSummaryTab from '@/features/coaches/components/CoachSummaryTab'
 import CoachBioTab from '@/features/coaches/components/CoachBioTab'
 import TeamRosterPanel from '@/features/coaches/components/TeamRosterPanel'
@@ -10,6 +12,7 @@ import CoachNotesTab from '@/features/coaches/components/CoachNotesTab'
 import CoachTacticalBoardTab from '@/features/coaches/components/CoachTacticalBoardTab'
 import CoachFutureSquadTab from '@/features/coaches/components/CoachFutureSquadTab'
 import { useLanguage } from '@/context/LanguageContext'
+import LoadingSpinner from '@/components/ui/LoadingSpinner'
 
 type CoachTab = 'resumen' | 'plantel' | 'liga' | 'calendario' | 'entrenamientos' | 'notas' | 'pizarra' | 'plantel_futuro' | 'reserva'
 
@@ -40,7 +43,15 @@ function initialsOf(fullName: string): string {
 export default function CoachDetailPage() {
   const { t } = useLanguage()
   const { coachKey } = useParams<{ coachKey: string }>()
-  const coach = coachKey ? getCoachByKey(coachKey) : undefined
+  const [coach, setCoach] = useState<AgencyCoach | null | undefined>(undefined) // undefined = cargando, null = no existe
+
+  useEffect(() => {
+    if (!coachKey) { setCoach(null); return }
+    let active = true
+    getAgencyCoachByKey(coachKey).then(c => { if (active) setCoach(c) })
+    return () => { active = false }
+  }, [coachKey])
+
   const [searchParams, setSearchParams] = useSearchParams()
   const tabParam = searchParams.get('tab')
   const isValidTab = (val: string): val is CoachTab =>
@@ -52,7 +63,9 @@ export default function CoachDetailPage() {
     return next
   }, { replace: true })
 
-  if (!coach) {
+  if (coach === undefined) return <LoadingSpinner message="Cargando entrenador..." />
+
+  if (coach === null) {
     return (
       <div className="max-w-2xl mx-auto px-4 sm:px-6 py-12 text-center animate-fade-in">
         <div className="w-20 h-20 bg-apple-gray-100 dark:bg-apple-gray-800 rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-apple dark:shadow-apple-dark">

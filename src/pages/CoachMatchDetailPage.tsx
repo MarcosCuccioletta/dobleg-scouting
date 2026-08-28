@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { getCoachByKey } from '@/constants/agencyCoaches'
+import { getAgencyCoachByKey } from '@/services/agencyCoachesService'
+import type { AgencyCoach } from '@/constants/agencyCoaches'
 import {
   fetchTeamFixtures,
   fetchSeasonFixtures,
@@ -131,7 +132,7 @@ function LineupGroupList({ grouped }: { grouped: ReturnType<typeof groupLineupBy
 
 export default function CoachMatchDetailPage() {
   const { coachKey, fixtureId } = useParams<{ coachKey: string; fixtureId: string }>()
-  const coach = coachKey ? getCoachByKey(coachKey) : undefined
+  const [coach, setCoach] = useState<AgencyCoach | null | undefined>(undefined) // undefined = cargando, null = no existe
   const [fixture, setFixture] = useState<AgencyFixture | null | undefined>(undefined)
   const [lineups, setLineups] = useState<ApiFixtureLineup[] | null>(null)
   const [events, setEvents] = useState<ApiFixtureEvent[] | null>(null)
@@ -139,7 +140,15 @@ export default function CoachMatchDetailPage() {
   const [notePhases, setNotePhases] = useState<MatchNotePhases | null>(null)
 
   useEffect(() => {
+    if (!coachKey) { setCoach(null); return }
+    let active = true
+    getAgencyCoachByKey(coachKey).then(c => { if (active) setCoach(c) })
+    return () => { active = false }
+  }, [coachKey])
+
+  useEffect(() => {
     if (!fixtureId) return
+    if (coach === undefined) return // todavía cargando el coach, no tocar fixture
     if (!coach?.apiTeamId) {
       setFixture(null)
       return
@@ -167,6 +176,8 @@ export default function CoachMatchDetailPage() {
     )
     return () => { active = false }
   }, [lineups])
+
+  if (coach === undefined) return <LoadingSpinner message="Cargando entrenador..." />
 
   if (!coach || !fixtureId) {
     return <EmptyState message="No pudimos encontrar este partido." />
