@@ -93,6 +93,7 @@ export default function InformesPage() {
     setParsed({ headers: inf.headers, rows: inf.rows })
     setStep(3)
     setSaveFeedback(null)
+    setTipoWizard('jugador')
     setView('wizard')
   }
 
@@ -108,7 +109,7 @@ export default function InformesPage() {
         {view === 'wizard' && (
           <button
             type="button"
-            onClick={() => setView('list')}
+            onClick={() => { setView('list'); setTipoWizard(null) }}
             className="px-4 py-2.5 rounded-xl bg-apple-gray-100 dark:bg-apple-gray-800 text-apple-gray-700 dark:text-apple-gray-200 text-sm font-semibold hover:bg-apple-gray-200 dark:hover:bg-apple-gray-700 transition-colors flex-shrink-0"
           >
             ← {t('informes.misInformes')}
