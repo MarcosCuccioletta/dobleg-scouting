@@ -415,10 +415,11 @@ useEffect(() => {
 }, [coachKey])
 
 if (coach === undefined) return <LoadingSpinner message="Cargando entrenador..." />
-if (!coach) return <NotFound /> // usar el mismo componente/mensaje que ya usaba el caso "no encontrado"
 ```
 
-El resto del componente sigue usando `coach.status`, `coach.photo`, etc. sin cambios — a partir de acá `coach` es siempre `AgencyCoach` no-nulo, TypeScript lo va a exigir con este narrowing.
+El bloque `if (!coach) { return (...) }` que ya existe hoy en el archivo (líneas 55-75 aprox., el ícono de lupa + "coachDetail.noEncontrado" + botón "Volver") **no se borra ni se reemplaza por ningún componente nuevo** — se deja tal cual, solo que ahora corre después del `if (coach === undefined) return <LoadingSpinner .../>` de arriba, así que en la práctica sigue significando "no existe" (ya no "todavía no sé"). No inventar un componente `NotFound` que no existe en este archivo.
+
+El resto del componente sigue usando `coach.status`, `coach.photo`, etc. sin cambios — a partir de ese bloque `coach` es siempre `AgencyCoach` no-nulo, TypeScript lo va a exigir con este narrowing.
 
 - [ ] **Step 3: `CoachMatchDetailPage.tsx` — mismo patrón que Step 2**
 
@@ -598,6 +599,7 @@ export interface RecordStats {
 export interface ComparativaMetric {
   key: string
   label: string
+  category: 'metrica' | 'via_generacion' // 'metrica' = sección "Comparación por métrica", 'via_generacion' = sección "Vías de generación de juego" del mockup
   ownValue: number
   rivalValue: number
   unit: '%' | ''
@@ -694,14 +696,44 @@ git commit -m "feat(informe-dt): tipos del informe de entrenador"
 
 ---
 
-### Task 6: Agregaciones puras desde `WyscoutMatch[]`
+### Task 6: Extender `WyscoutMatch` con goles + agregaciones puras
+
+**Ruling de preflight (registrado en el ledger):** el diseño original de este task asumía que `rawMetrics` traía valores del rival con sufijo `_rival` y que había una key `goles_propio`/`goles_rival`. Verificado contra el archivo real y contra `parseWyscoutTeamStats.ts`: **eso no existe**. `rawMetrics` de un `WyscoutMatch` es únicamente `own.extra` (las columnas de la fila del equipo propio); la fila del rival se descarta salvo `xg`/`posesión`, que sí quedan como campos tipados (`xgAgainst`). Los goles (`Goles`, columna 6) ni siquiera llegan a `WyscoutMatch` — se leen en `rowToRaw` pero se pierden en `buildWyscoutMatches`. **Corrección:** este task primero extiende `parseWyscoutTeamStats.ts` (archivo compartido, también usado por la ficha de Entrenadores en vivo) con dos campos nuevos, puramente aditivos — no rompen los tipos ni los tests existentes (`parseWyscoutTeamStats.test.ts` usa `toMatchObject`, no `toEqual`, así que campos nuevos no rompen nada):
+- `golesFor: number | null` (= `own.goles`, hoy calculado y descartado)
+- `rivalRawMetrics: Record<string, number | string | null>` (= `rival.extra`, hoy descartado del todo)
+
+`golesAgainst` **no** necesita campo nuevo: Wyscout ya lo trae en la propia fila del equipo como columna "Goles recibidos", disponible en `rawMetrics['goles_recibidos']` sin tocar el parser.
+
+Las claves reales de `rawMetrics`/`rivalRawMetrics` (verificadas corriendo la slugificación real de `parseWyscoutTeamStats.ts` contra `Team Stats Temperley (3).xlsx` — **no adivinadas**): la función `slugify` sólo reemplaza espacios por `_`, no saca `/` ni `%`, y los grupos de columnas repetidas (intentos/logrados-o-con-remate/%) quedan como `<base>`, `<base>_2`, `<base>_3` en ese orden. Las que usa este task:
+
+| Dato | Key real |
+|---|---|
+| Formación | `seleccionar_esquema` |
+| Faltas (propias) | `faltas` |
+| Amarillas | `tarjetas_amarillas` |
+| Rojas | `tarjetas_rojas` |
+| PPDA | `ppda` |
+| Goles recibidos | `goles_recibidos` |
+| Duelos ganados % | `duelos_/_ganados_3` |
+| Duelos aéreos ganados % | `duelos_aereos_/_ganados_3` |
+| Precisión de pase % | `pases_/_logrados_3` |
+| Tiros totales (intentos) | `tiros_/_a_la_porteria` |
+| Tiros en contra (concedidos) | `tiros_en_contra_/_a_la_porteria` |
+| Ataque posicional % con remate | `ataques_posicionales_/_con_remate_3` |
+| Contraataque % con remate | `contraataques_/_con_remate_3` |
+| Balón parado % con remate | `jugadas_a_balon_parado_/_con_remate_3` |
+| Córner % con remate | `corneres_/_con_remate_3` |
+| Tiro libre % con remate | `tiros_libres_/_con_remate_3` |
+| Centros % precisos | `centros_/_precisos_3` |
+| Duelos ofensivos % ganados | `duelos_ofensivos_/_ganados_3` |
 
 **Files:**
+- Modify: `src/features/coaches/wyscoutTeamStats/parseWyscoutTeamStats.ts`
 - Create: `src/features/informesDT/coachAggregation.ts`
 - Test: `src/features/informesDT/coachAggregation.test.ts`
 
 **Interfaces:**
-- Consumes: `WyscoutMatch` de `parseWyscoutTeamStats.ts`, tipos de Task 5
+- Consumes: `WyscoutMatch` (extendido), tipos de Task 5
 - Produces:
   - `export function computeRecord(matches: WyscoutMatch[]): RecordStats`
   - `export function computeComparativa(matches: WyscoutMatch[]): ComparativaMetric[]`
@@ -709,21 +741,57 @@ git commit -m "feat(informe-dt): tipos del informe de entrenador"
   - `export function computeDisciplina(matches: WyscoutMatch[]): DisciplinaStats`
   - `export function computeFormaReciente(matches: WyscoutMatch[], n?: number): FormaRecienteEntry[]`
 
-`rawMetrics` en cada `WyscoutMatch` viene del `extra` del row, con keys slugificadas por `normalizeForSearch` (acentos fuera, minúsculas, espacios -> `_`). Para el export "Team Stats" de Wyscout, las keys relevantes que no están en los campos tipados son: `seleccionar_esquema` (formación), `faltas` (propias), `faltas_2` (rival, mismo header repetido — Wyscout no distingue "propio"/"rival" en el nombre, se identifica por si la fila es del equipo propio o del rival dentro de `buildWyscoutMatches`), `tarjetas_amarillas`, `tarjetas_rojas`. **Antes de escribir el test, correr esto una vez contra un archivo real para confirmar los nombres exactos** (el usuario tiene copias en `Downloads`, ej. `Team Stats Temperley (3).xlsx`):
+- [ ] **Step 1: Extender `WyscoutMatch` en `parseWyscoutTeamStats.ts`**
 
-```bash
-node -e "
-const XLSX = require('xlsx');
-const wb = XLSX.readFile('C:/Users/marcos/Downloads/Team Stats Temperley (3).xlsx');
-const ws = wb.Sheets['TeamStats'];
-const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval: null});
-console.log(rows[0].slice(0,10), rows[0].slice(70,80));
-"
+En la interfaz, agregar los dos campos:
+
+```ts
+export interface WyscoutMatch {
+  fecha: string
+  partido: string
+  competencia: string
+  equipoPropio: string
+  equipoRival: string
+  xgFor: number | null
+  xgAgainst: number | null
+  possessionPct: number | null
+  golesFor: number | null
+  rawMetrics: Record<string, number | string | null>
+  rivalRawMetrics: Record<string, number | string | null>
+}
 ```
 
-Si los nombres reales difieren de lo asumido acá, ajustar las claves en `coachAggregation.ts` antes de seguir — no adivinar en silencio.
+Y en `buildWyscoutMatches`, en el `matches.push({...})`, agregar `golesFor: own.goles,` y `rivalRawMetrics: rival.extra,` al objeto.
 
-- [ ] **Step 1: Escribir los tests con un fixture reducido (3 partidos, números controlados a mano)**
+- [ ] **Step 2: Agregar 2 casos al test existente del parser (no reemplazar los que ya hay)**
+
+Agregar a `src/features/coaches/wyscoutTeamStats/parseWyscoutTeamStats.test.ts`, dentro del `describe('buildWyscoutMatches', ...)` ya existente:
+
+```ts
+  it('expone los goles propios y las metricas crudas del rival', () => {
+    const propia = mkRawRow({ equipo: 'Temperley', goles: 1, extra: { faltas: 10 } })
+    const rival = mkRawRow({ equipo: 'Gimnasia y Tiro', goles: 2, extra: { faltas: 12 } })
+    const matches = buildWyscoutMatches([propia, rival], 'Temperley')
+    expect(matches[0].golesFor).toBe(1)
+    expect(matches[0].rawMetrics).toEqual({ faltas: 10 })
+    expect(matches[0].rivalRawMetrics).toEqual({ faltas: 12 })
+  })
+```
+
+- [ ] **Step 3: Correr la suite del parser, confirmar que pasa (incluye los tests viejos, sin tocarlos)**
+
+Run: `npx vitest run src/features/coaches/wyscoutTeamStats/parseWyscoutTeamStats.test.ts`
+Expected: PASS (6 tests: los 4 que ya había + los 2 nuevos)
+
+- [ ] **Step 4: Commit de la extensión del parser (commit propio, separado de la parte de agregaciones)**
+
+```bash
+npx tsc --noEmit
+git add src/features/coaches/wyscoutTeamStats/parseWyscoutTeamStats.ts src/features/coaches/wyscoutTeamStats/parseWyscoutTeamStats.test.ts
+git commit -m "feat(entrenadores): WyscoutMatch expone golesFor y rivalRawMetrics"
+```
+
+- [ ] **Step 5: Escribir los tests de `coachAggregation.ts` con un fixture de 3 partidos, keys reales**
 
 ```ts
 // src/features/informesDT/coachAggregation.test.ts
@@ -733,7 +801,7 @@ import {
 } from './coachAggregation'
 import type { WyscoutMatch } from '@/features/coaches/wyscoutTeamStats/parseWyscoutTeamStats'
 
-function match(overrides: Partial<WyscoutMatch> & { rawMetrics?: Record<string, number | string | null> }): WyscoutMatch {
+function match(overrides: Partial<WyscoutMatch>): WyscoutMatch {
   return {
     fecha: '2026-02-06',
     partido: 'Temperley - Rival 1:0',
@@ -743,43 +811,48 @@ function match(overrides: Partial<WyscoutMatch> & { rawMetrics?: Record<string, 
     xgFor: 1,
     xgAgainst: 0.5,
     possessionPct: 55,
+    golesFor: 1,
     rawMetrics: {},
+    rivalRawMetrics: {},
     ...overrides,
   }
 }
 
 const fixture: WyscoutMatch[] = [
   match({
-    fecha: '2026-02-06', xgFor: 2, xgAgainst: 1, possessionPct: 60,
+    fecha: '2026-02-06', xgFor: 2, xgAgainst: 1, possessionPct: 60, golesFor: 2,
     rawMetrics: {
-      goles_propio: 2, goles_rival: 1, seleccionar_esquema: '4-2-3-1',
-      duelos_pct: 55, duelos_pct_rival: 45, duelos_aereos_pct: 50, duelos_aereos_pct_rival: 40,
-      pases_pct: 80, pases_pct_rival: 75, faltas: 10, faltas_rival: 12,
-      tarjetas_amarillas: 2, tarjetas_rojas: 0, ppda: 8, ppda_rival: 10,
+      goles_recibidos: 1, seleccionar_esquema: '4-2-3-1',
+      'duelos_/_ganados_3': 55, 'duelos_aereos_/_ganados_3': 50, 'pases_/_logrados_3': 80,
+      faltas: 10, tarjetas_amarillas: 2, tarjetas_rojas: 0, ppda: 8,
+      'tiros_/_a_la_porteria': 12, 'tiros_en_contra_/_a_la_porteria': 8,
     },
+    rivalRawMetrics: { 'pases_/_logrados_3': 75, ppda: 10 },
   }),
   match({
-    fecha: '2026-02-14', xgFor: 0.5, xgAgainst: 1.5, possessionPct: 45,
+    fecha: '2026-02-14', xgFor: 0.5, xgAgainst: 1.5, possessionPct: 45, golesFor: 0,
     rawMetrics: {
-      goles_propio: 0, goles_rival: 1, seleccionar_esquema: '4-2-3-1',
-      duelos_pct: 48, duelos_pct_rival: 52, duelos_aereos_pct: 45, duelos_aereos_pct_rival: 55,
-      pases_pct: 74, pases_pct_rival: 78, faltas: 14, faltas_rival: 9,
-      tarjetas_amarillas: 3, tarjetas_rojas: 1, ppda: 9, ppda_rival: 8,
+      goles_recibidos: 1, seleccionar_esquema: '4-2-3-1',
+      'duelos_/_ganados_3': 48, 'duelos_aereos_/_ganados_3': 45, 'pases_/_logrados_3': 74,
+      faltas: 14, tarjetas_amarillas: 3, tarjetas_rojas: 1, ppda: 9,
+      'tiros_/_a_la_porteria': 9, 'tiros_en_contra_/_a_la_porteria': 11,
     },
+    rivalRawMetrics: { 'pases_/_logrados_3': 78, ppda: 8 },
   }),
   match({
-    fecha: '2026-02-23', xgFor: 1, xgAgainst: 1, possessionPct: 50,
+    fecha: '2026-02-23', xgFor: 1, xgAgainst: 1, possessionPct: 50, golesFor: 1,
     rawMetrics: {
-      goles_propio: 1, goles_rival: 1, seleccionar_esquema: '4-4-2',
-      duelos_pct: 50, duelos_pct_rival: 50, duelos_aereos_pct: 52, duelos_aereos_pct_rival: 48,
-      pases_pct: 77, pases_pct_rival: 77, faltas: 11, faltas_rival: 11,
-      tarjetas_amarillas: 1, tarjetas_rojas: 0, ppda: 8.5, ppda_rival: 8.5,
+      goles_recibidos: 1, seleccionar_esquema: '4-4-2',
+      'duelos_/_ganados_3': 50, 'duelos_aereos_/_ganados_3': 52, 'pases_/_logrados_3': 77,
+      faltas: 11, tarjetas_amarillas: 1, tarjetas_rojas: 0, ppda: 8.5,
+      'tiros_/_a_la_porteria': 10, 'tiros_en_contra_/_a_la_porteria': 10,
     },
+    rivalRawMetrics: { 'pases_/_logrados_3': 77, ppda: 8.5 },
   }),
 ]
 
 describe('computeRecord', () => {
-  it('cuenta victorias/empates/derrotas por diferencia de goles y calcula PPG/efectividad', () => {
+  it('cuenta victorias/empates/derrotas por diferencia de goles (golesFor vs. rawMetrics.goles_recibidos) y calcula PPG/efectividad', () => {
     const r = computeRecord(fixture)
     expect(r).toEqual({
       pj: 3, ganados: 1, empatados: 1, perdidos: 1,
@@ -790,14 +863,41 @@ describe('computeRecord', () => {
 })
 
 describe('computeComparativa', () => {
-  it('promedia cada métrica propio vs. rival a lo largo de los partidos', () => {
+  it('posesion y duelos usan la aproximacion 100-propio para el rival (zero-sum, mismo criterio que CoachTeamVsRivalCharts)', () => {
     const c = computeComparativa(fixture)
     const posesion = c.find(m => m.key === 'posesion')!
     expect(posesion.ownValue).toBeCloseTo((60 + 45 + 50) / 3, 5)
+    expect(posesion.rivalValue).toBeCloseTo(100 - (60 + 45 + 50) / 3, 5)
+    const duelos = c.find(m => m.key === 'duelos')!
+    expect(duelos.ownValue).toBeCloseTo((55 + 48 + 50) / 3, 5)
+    expect(duelos.rivalValue).toBeCloseTo(100 - (55 + 48 + 50) / 3, 5)
+  })
+
+  it('precision de pase y ppda leen el valor real del rival desde rivalRawMetrics, no una aproximacion', () => {
+    const c = computeComparativa(fixture)
+    const precision = c.find(m => m.key === 'precisionPase')!
+    expect(precision.ownValue).toBeCloseTo((80 + 74 + 77) / 3, 5)
+    expect(precision.rivalValue).toBeCloseTo((75 + 78 + 77) / 3, 5)
+    const ppda = c.find(m => m.key === 'ppda')!
+    expect(ppda.ownValue).toBeCloseTo((8 + 9 + 8.5) / 3, 5)
+    expect(ppda.rivalValue).toBeCloseTo((10 + 8 + 8.5) / 3, 5)
+  })
+
+  it('xg usa xgFor/xgAgainst tipados, tiros usa tiros propios/en contra de la misma fila', () => {
+    const c = computeComparativa(fixture)
     const xg = c.find(m => m.key === 'xg')!
     expect(xg.ownValue).toBeCloseTo((2 + 0.5 + 1) / 3, 5)
     expect(xg.rivalValue).toBeCloseTo((1 + 1.5 + 1) / 3, 5)
+    const tiros = c.find(m => m.key === 'tirosTotales')!
+    expect(tiros.ownValue).toBeCloseTo((12 + 9 + 10) / 3, 5)
+    expect(tiros.rivalValue).toBeCloseTo((8 + 11 + 10) / 3, 5)
+  })
+
+  it('todas las metricas de "metrica" no vienen marcadas como editadas, y las de vias de generacion estan categorizadas aparte', () => {
+    const c = computeComparativa(fixture)
     expect(c.every(m => m.overridden === false)).toBe(true)
+    expect(c.filter(m => m.category === 'metrica').length).toBeGreaterThan(0)
+    expect(c.filter(m => m.category === 'via_generacion').length).toBe(0) // el fixture no tiene esas keys cargadas, deben devolver 0 sin romper
   })
 })
 
@@ -811,12 +911,13 @@ describe('computeSistemas', () => {
 })
 
 describe('computeDisciplina', () => {
-  it('promedia faltas y suma tarjetas', () => {
-    const d = computeDisciplina(fixture)
+  it('promedia faltas propias y suma tarjetas; faltas del rival viene de rivalRawMetrics', () => {
+    const withRivalFaltas = fixture.map(m => ({ ...m, rivalRawMetrics: { ...m.rivalRawMetrics, faltas: 11 } }))
+    const d = computeDisciplina(withRivalFaltas)
     expect(d.faltasPorPartido).toBeCloseTo((10 + 14 + 11) / 3, 5)
     expect(d.amarillas).toBe(6)
     expect(d.rojas).toBe(1)
-    expect(d.faltasRivalPorPartido).toBeCloseTo((12 + 9 + 11) / 3, 5)
+    expect(d.faltasRivalPorPartido).toBeCloseTo(11, 5)
   })
 })
 
@@ -824,17 +925,17 @@ describe('computeFormaReciente', () => {
   it('devuelve resultado y puntos acumulados en orden cronológico, limitado a n', () => {
     const f = computeFormaReciente(fixture, 2)
     expect(f.map(x => x.resultado)).toEqual(['D', 'E'])
-    expect(f[1].puntosAcumulados).toBe(1 + 1) // victoria(3) del primer partido no entra en el corte de n=2, arranca del 2do
+    expect(f[1].puntosAcumulados).toBe(1)
   })
 })
 ```
 
-- [ ] **Step 2: Correr, confirmar que falla**
+- [ ] **Step 6: Correr, confirmar que falla**
 
 Run: `npx vitest run src/features/informesDT/coachAggregation.test.ts`
 Expected: FAIL — módulo no existe
 
-- [ ] **Step 3: Implementar**
+- [ ] **Step 7: Implementar**
 
 ```ts
 // src/features/informesDT/coachAggregation.ts
@@ -843,8 +944,8 @@ import type {
   RecordStats, ComparativaMetric, SistemaUsado, DisciplinaStats, FormaRecienteEntry,
 } from './types'
 
-function num(m: WyscoutMatch, key: string): number | null {
-  const v = m.rawMetrics[key]
+function num(dict: Record<string, number | string | null>, key: string): number | null {
+  const v = dict[key]
   if (v === null || v === undefined || v === '') return null
   const n = typeof v === 'number' ? v : Number(v)
   return Number.isFinite(n) ? n : null
@@ -857,8 +958,8 @@ function avg(values: number[]): number {
 export function computeRecord(matches: WyscoutMatch[]): RecordStats {
   let ganados = 0, empatados = 0, perdidos = 0, gf = 0, gc = 0
   for (const m of matches) {
-    const own = num(m, 'goles_propio') ?? 0
-    const rival = num(m, 'goles_rival') ?? 0
+    const own = m.golesFor ?? 0
+    const rival = num(m.rawMetrics, 'goles_recibidos') ?? 0
     gf += own
     gc += rival
     if (own > rival) ganados++
@@ -875,38 +976,60 @@ export function computeRecord(matches: WyscoutMatch[]): RecordStats {
   }
 }
 
-const COMPARATIVA_METRICS: { key: string; label: string; ownKey: string; rivalKey: string; unit: '%' | '' }[] = [
-  { key: 'posesion', label: 'Posesión del balón', ownKey: 'possessionPct', rivalKey: '', unit: '%' },
-  { key: 'duelos', label: 'Duelos ganados (total)', ownKey: 'duelos_pct', rivalKey: 'duelos_pct_rival', unit: '%' },
-  { key: 'duelosAereos', label: 'Duelos aéreos ganados', ownKey: 'duelos_aereos_pct', rivalKey: 'duelos_aereos_pct_rival', unit: '%' },
-  { key: 'precisionPase', label: 'Precisión de pase', ownKey: 'pases_pct', rivalKey: 'pases_pct_rival', unit: '%' },
-  { key: 'xg', label: 'xG por partido', ownKey: '', rivalKey: '', unit: '' },
-  { key: 'ppda', label: 'PPDA (presión)', ownKey: 'ppda', rivalKey: 'ppda_rival', unit: '' },
+type MetricDef = {
+  key: string
+  label: string
+  category: 'metrica' | 'via_generacion'
+  unit: '%' | ''
+  own: (m: WyscoutMatch) => number | null
+  rival: (m: WyscoutMatch) => number | null
+}
+
+const ZERO_SUM = (ownKey: string) => (m: WyscoutMatch) => {
+  const own = num(m.rawMetrics, ownKey)
+  return own === null ? null : 100 - own
+}
+
+const COMPARATIVA_METRICS: MetricDef[] = [
+  { key: 'posesion', label: 'Posesión del balón', category: 'metrica', unit: '%',
+    own: m => m.possessionPct, rival: m => (m.possessionPct === null ? null : 100 - m.possessionPct) },
+  { key: 'duelos', label: 'Duelos ganados (total)', category: 'metrica', unit: '%',
+    own: m => num(m.rawMetrics, 'duelos_/_ganados_3'), rival: ZERO_SUM('duelos_/_ganados_3') },
+  { key: 'duelosAereos', label: 'Duelos aéreos ganados', category: 'metrica', unit: '%',
+    own: m => num(m.rawMetrics, 'duelos_aereos_/_ganados_3'), rival: ZERO_SUM('duelos_aereos_/_ganados_3') },
+  { key: 'precisionPase', label: 'Precisión de pase', category: 'metrica', unit: '%',
+    own: m => num(m.rawMetrics, 'pases_/_logrados_3'), rival: m => num(m.rivalRawMetrics, 'pases_/_logrados_3') },
+  { key: 'tirosTotales', label: 'Tiros totales / partido', category: 'metrica', unit: '',
+    own: m => num(m.rawMetrics, 'tiros_/_a_la_porteria'), rival: m => num(m.rawMetrics, 'tiros_en_contra_/_a_la_porteria') },
+  { key: 'xg', label: 'xG por partido', category: 'metrica', unit: '', own: m => m.xgFor, rival: m => m.xgAgainst },
+  { key: 'ppda', label: 'PPDA (presión)', category: 'metrica', unit: '',
+    own: m => num(m.rawMetrics, 'ppda'), rival: m => num(m.rivalRawMetrics, 'ppda') },
+  { key: 'ataquePosicional', label: 'Ataque posicional (% con remate)', category: 'via_generacion', unit: '%',
+    own: m => num(m.rawMetrics, 'ataques_posicionales_/_con_remate_3'), rival: m => num(m.rivalRawMetrics, 'ataques_posicionales_/_con_remate_3') },
+  { key: 'contraataque', label: 'Contraataque (% con remate)', category: 'via_generacion', unit: '%',
+    own: m => num(m.rawMetrics, 'contraataques_/_con_remate_3'), rival: m => num(m.rivalRawMetrics, 'contraataques_/_con_remate_3') },
+  { key: 'balonParado', label: 'Balón parado (% con remate)', category: 'via_generacion', unit: '%',
+    own: m => num(m.rawMetrics, 'jugadas_a_balon_parado_/_con_remate_3'), rival: m => num(m.rivalRawMetrics, 'jugadas_a_balon_parado_/_con_remate_3') },
+  { key: 'corner', label: 'Córner (% con remate)', category: 'via_generacion', unit: '%',
+    own: m => num(m.rawMetrics, 'corneres_/_con_remate_3'), rival: m => num(m.rivalRawMetrics, 'corneres_/_con_remate_3') },
+  { key: 'tiroLibre', label: 'Tiro libre (% con remate)', category: 'via_generacion', unit: '%',
+    own: m => num(m.rawMetrics, 'tiros_libres_/_con_remate_3'), rival: m => num(m.rivalRawMetrics, 'tiros_libres_/_con_remate_3') },
+  { key: 'centros', label: 'Centros (% precisos)', category: 'via_generacion', unit: '%',
+    own: m => num(m.rawMetrics, 'centros_/_precisos_3'), rival: m => num(m.rivalRawMetrics, 'centros_/_precisos_3') },
+  { key: 'duelosOfensivos', label: 'Duelos ofensivos (% ganados)', category: 'via_generacion', unit: '%',
+    own: m => num(m.rawMetrics, 'duelos_ofensivos_/_ganados_3'), rival: m => num(m.rivalRawMetrics, 'duelos_ofensivos_/_ganados_3') },
 ]
 
 export function computeComparativa(matches: WyscoutMatch[]): ComparativaMetric[] {
-  return COMPARATIVA_METRICS.map(def => {
-    let ownValues: number[]
-    let rivalValues: number[]
-    if (def.key === 'posesion') {
-      ownValues = matches.map(m => m.possessionPct ?? 0)
-      rivalValues = matches.map(m => 100 - (m.possessionPct ?? 0))
-    } else if (def.key === 'xg') {
-      ownValues = matches.map(m => m.xgFor ?? 0)
-      rivalValues = matches.map(m => m.xgAgainst ?? 0)
-    } else {
-      ownValues = matches.map(m => num(m, def.ownKey) ?? 0)
-      rivalValues = matches.map(m => num(m, def.rivalKey) ?? 0)
-    }
-    return {
-      key: def.key,
-      label: def.label,
-      ownValue: avg(ownValues),
-      rivalValue: avg(rivalValues),
-      unit: def.unit,
-      overridden: false,
-    }
-  })
+  return COMPARATIVA_METRICS.map(def => ({
+    key: def.key,
+    label: def.label,
+    category: def.category,
+    ownValue: avg(matches.map(m => def.own(m) ?? 0)),
+    rivalValue: avg(matches.map(m => def.rival(m) ?? 0)),
+    unit: def.unit,
+    overridden: false,
+  }))
 }
 
 export function computeSistemas(matches: WyscoutMatch[]): SistemaUsado[] {
@@ -923,10 +1046,10 @@ export function computeSistemas(matches: WyscoutMatch[]): SistemaUsado[] {
 
 export function computeDisciplina(matches: WyscoutMatch[]): DisciplinaStats {
   return {
-    faltasPorPartido: avg(matches.map(m => num(m, 'faltas') ?? 0)),
-    amarillas: matches.reduce((s, m) => s + (num(m, 'tarjetas_amarillas') ?? 0), 0),
-    rojas: matches.reduce((s, m) => s + (num(m, 'tarjetas_rojas') ?? 0), 0),
-    faltasRivalPorPartido: avg(matches.map(m => num(m, 'faltas_rival') ?? 0)),
+    faltasPorPartido: avg(matches.map(m => num(m.rawMetrics, 'faltas') ?? 0)),
+    amarillas: matches.reduce((s, m) => s + (num(m.rawMetrics, 'tarjetas_amarillas') ?? 0), 0),
+    rojas: matches.reduce((s, m) => s + (num(m.rawMetrics, 'tarjetas_rojas') ?? 0), 0),
+    faltasRivalPorPartido: avg(matches.map(m => num(m.rivalRawMetrics, 'faltas') ?? 0)),
   }
 }
 
@@ -935,8 +1058,8 @@ export function computeFormaReciente(matches: WyscoutMatch[], n = 10): FormaReci
   const ultimos = sorted.slice(-n)
   let acumulado = 0
   return ultimos.map(m => {
-    const own = num(m, 'goles_propio') ?? 0
-    const rival = num(m, 'goles_rival') ?? 0
+    const own = m.golesFor ?? 0
+    const rival = num(m.rawMetrics, 'goles_recibidos') ?? 0
     const resultado: 'V' | 'E' | 'D' = own > rival ? 'V' : own === rival ? 'E' : 'D'
     acumulado += resultado === 'V' ? 3 : resultado === 'E' ? 1 : 0
     return { resultado, puntosAcumulados: acumulado, fecha: m.fecha }
@@ -944,14 +1067,15 @@ export function computeFormaReciente(matches: WyscoutMatch[], n = 10): FormaReci
 }
 ```
 
-- [ ] **Step 4: Correr, confirmar que pasa**
+- [ ] **Step 8: Correr, confirmar que pasa**
 
 Run: `npx vitest run src/features/informesDT/coachAggregation.test.ts`
-Expected: PASS (5 tests)
+Expected: PASS (9 tests)
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 9: Commit**
 
 ```bash
+npx tsc --noEmit
 git add src/features/informesDT/coachAggregation.ts src/features/informesDT/coachAggregation.test.ts
 git commit -m "feat(informe-dt): agregaciones puras de record/comparativa/sistemas/disciplina/forma"
 ```
@@ -1651,7 +1775,7 @@ const informe: InformeDT = {
     nombre: 'Nicolás Domingo', cargo: 'Director Técnico', club: 'Temperley', liga: 'Primera Nacional',
     sistemaHabitual: '4-2-3-1', edad: '41', fotoDataUrl: null,
     record: { pj: 27, ganados: 11, empatados: 11, perdidos: 5, ppg: 1.63, gf: 31, gc: 24, efectividadPct: 54 },
-    comparativa: [{ key: 'posesion', label: 'Posesión', ownValue: 50.2, rivalValue: 49.8, unit: '%', overridden: false }],
+    comparativa: [{ key: 'posesion', label: 'Posesión', category: 'metrica', ownValue: 50.2, rivalValue: 49.8, unit: '%', overridden: false }],
     radarAxes: ['posesion'], evolutionCharts: [], sistemas: [{ formacion: '4-2-3-1', partidos: 14 }],
     disciplina: { faltasPorPartido: 12.7, amarillas: 81, rojas: 2, faltasRivalPorPartido: 12.5 },
     formaReciente: [], experienciaJugador: {
@@ -1815,7 +1939,7 @@ export function buildInformeDTHtml(informe: InformeDT): string {
 }
 ```
 
-**Nota para quien ejecute esta tarea:** el snippet de arriba es el esqueleto mínimo para pasar los tests — al implementarlo de verdad, copiar el CSS/HTML completo y fiel de `public/informe-dt-domingo-preview.html` (radar SVG, gráficos de evolución SVG, KPI grids, forma reciente, trayectoria de clubes con logos, todo lo que ya está validado ahí) e interpolar `content.*` en cada punto donde el mockup tiene datos hardcodeados de Domingo — no reinventar el diseño, es un port 1:1 a template function.
+**Nota para quien ejecute esta tarea:** el snippet de arriba es el esqueleto mínimo para pasar los tests — al implementarlo de verdad, copiar el CSS/HTML completo y fiel de `public/informe-dt-domingo-preview.html` (radar SVG, gráficos de evolución SVG, KPI grids, forma reciente, trayectoria de clubes con logos, todo lo que ya está validado ahí) e interpolar `content.*` en cada punto donde el mockup tiene datos hardcodeados de Domingo — no reinventar el diseño, es un port 1:1 a template function. Al armar `comparativaRows`, separar `content.comparativa.filter(m => m.category === 'metrica')` de `content.comparativa.filter(m => m.category === 'via_generacion')` en dos bloques con sus propios títulos ("Comparación por métrica" / "Vías de generación de juego — % con remate"), igual que el mockup — no listarlas todas juntas sin distinción.
 
 - [ ] **Step 4: Correr, confirmar que pasa**
 
