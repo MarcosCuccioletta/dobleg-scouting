@@ -165,8 +165,42 @@ function buildRadarSection(content: InformeDTContent): string {
   const axes = RADAR_ORDER.filter(k => content.radarAxes.includes(k))
   if (axes.length === 0) return ''
   const metricsByKey = new Map(content.comparativa.map(m => [m.key, m]))
-  const cx = 150, cy = 150, R = 118, labelR = 140
   const n = axes.length
+  // Un polígono de 1 o 2 puntos no dibuja una figura utilizable (un punto no
+  // pinta nada, dos degeneran en un palito): por debajo de 3 ejes se muestra
+  // solo la lista de valores propio/rival por eje, sin el SVG del radar.
+  const showChart = n >= 3
+
+  const rows: string[] = axes.map(axisKey => {
+    const metric = metricsByKey.get(axisKey)
+    const ownVal = metric?.ownValue ?? 0
+    const rivalVal = metric?.rivalValue ?? 0
+    const unit: '%' | '' = metric?.unit ?? ''
+    return `<div class="radar-metric-row"><span class="radar-metric-name">${esc(RADAR_ROW_LABEL[axisKey])}</span><span class="radar-metric-vals"><span class="own">${fmtMetricValue(ownVal, { key: axisKey, unit })}</span><span class="sep">/</span><span class="rival">${fmtMetricValue(rivalVal, { key: axisKey, unit })}</span></span></div>`
+  })
+
+  const legendName = `${esc(content.club)} (${esc(lastName(content.nombre))})`
+  const legend = `
+                <div class="dg-legend" style="margin-bottom:10px;">
+                  <span class="dg-legend-item"><span class="dg-legend-dot" style="background:#22C55E"></span>${legendName}</span>
+                  <span class="dg-legend-item"><span class="dg-legend-dot" style="background:#8A9099"></span>Rival promedio</span>
+                </div>`
+
+  const subtitle = showChart
+    ? `${n === 6 ? 'Seis' : n} ejes clave del juego, normalizados a una misma escala. Cuanto más lejos del centro, mejor ese aspecto del equipo.`
+    : `Comparación directa por eje frente al rival promedio (hacen falta al menos 3 ejes elegidos para dibujar el radar).`
+
+  if (!showChart) {
+    return `
+          <p class="dg-panel-title dg-mt">Perfil táctico — ${esc(content.club)} vs. rival promedio</p>
+          <p class="dg-subtitle">${subtitle}</p>
+          <div class="radar-card">
+            ${legend}
+            ${rows.join('\n            ')}
+          </div>`
+  }
+
+  const cx = 150, cy = 150, R = 118, labelR = 140
   const angleFor = (i: number) => (i * 2 * Math.PI) / n
   const ptAt = (i: number, radius: number) => {
     const a = angleFor(i)
@@ -185,18 +219,15 @@ function buildRadarSection(content: InformeDTContent): string {
 
   const ownPts: string[] = []
   const rivalPts: string[] = []
-  const rows: string[] = []
   axes.forEach((axisKey, i) => {
     const metric = metricsByKey.get(axisKey)
     const ownVal = metric?.ownValue ?? 0
     const rivalVal = metric?.rivalValue ?? 0
-    const unit: '%' | '' = metric?.unit ?? ''
     const ratioFn = RADAR_RATIO[axisKey]
     const ownP = ptAt(i, R * ratioFn(ownVal))
     const rivalP = ptAt(i, R * ratioFn(rivalVal))
     ownPts.push(`${ownP.x.toFixed(1)},${ownP.y.toFixed(1)}`)
     rivalPts.push(`${rivalP.x.toFixed(1)},${rivalP.y.toFixed(1)}`)
-    rows.push(`<div class="radar-metric-row"><span class="radar-metric-name">${esc(RADAR_ROW_LABEL[axisKey])}</span><span class="radar-metric-vals"><span class="own">${fmtMetricValue(ownVal, { key: axisKey, unit })}</span><span class="sep">/</span><span class="rival">${fmtMetricValue(rivalVal, { key: axisKey, unit })}</span></span></div>`)
   })
 
   const labels = axes.map((axisKey, i) => {
@@ -209,11 +240,9 @@ function buildRadarSection(content: InformeDTContent): string {
     return `<text class="radar-axis-label" x="${x.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="${anchor}">${esc(RADAR_SHORT_LABEL[axisKey])}</text>`
   }).join('\n                ')
 
-  const legendName = `${esc(content.club)} (${esc(lastName(content.nombre))})`
-
   return `
           <p class="dg-panel-title dg-mt">Perfil táctico — ${esc(content.club)} vs. rival promedio</p>
-          <p class="dg-subtitle">${n === 6 ? 'Seis' : n} eje${n === 1 ? '' : 's'} clave del juego, normalizados a una misma escala. Cuanto más lejos del centro, mejor ese aspecto del equipo.</p>
+          <p class="dg-subtitle">${subtitle}</p>
           <div class="radar-card">
             <div class="radar-grid">
               <svg viewBox="-55 -5 410 310" width="100%" height="auto" style="max-width:360px; margin:0 auto; display:block; overflow:visible;">
@@ -224,10 +253,7 @@ function buildRadarSection(content: InformeDTContent): string {
                 ${labels}
               </svg>
               <div>
-                <div class="dg-legend" style="margin-bottom:10px;">
-                  <span class="dg-legend-item"><span class="dg-legend-dot" style="background:#22C55E"></span>${legendName}</span>
-                  <span class="dg-legend-item"><span class="dg-legend-dot" style="background:#8A9099"></span>Rival promedio</span>
-                </div>
+                ${legend}
                 ${rows.join('\n                ')}
               </div>
             </div>
