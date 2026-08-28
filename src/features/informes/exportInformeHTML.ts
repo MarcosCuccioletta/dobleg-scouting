@@ -1064,9 +1064,7 @@ const css = `
     z-index: 30;
     margin: 0 -24px 16px;
     padding: 10px 24px 12px;
-    background: rgba(8,9,11,0.90);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    background: rgba(8,9,11,0.98);
     border-bottom: 1px solid rgba(255,255,255,0.07);
   }
   /* Un solo riel con las secciones adentro (control segmentado), no botones
@@ -1084,6 +1082,8 @@ const css = `
     scroll-snap-type: x proximity;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
   }
   .dg-tabbar::-webkit-scrollbar { display: none; }
   /* Señal de que la fila sigue: una flecha sobre un degradé, en el borde del
