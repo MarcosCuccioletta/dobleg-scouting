@@ -60,4 +60,13 @@ describe('buildWyscoutMatches', () => {
     const matches = buildWyscoutMatches(rows, 'Temperley')
     expect(matches).toHaveLength(2)
   })
+
+  it('expone los goles propios y las metricas crudas del rival', () => {
+    const propia = mkRawRow({ equipo: 'Temperley', goles: 1, extra: { faltas: 10 } })
+    const rival = mkRawRow({ equipo: 'Gimnasia y Tiro', goles: 2, extra: { faltas: 12 } })
+    const matches = buildWyscoutMatches([propia, rival], 'Temperley')
+    expect(matches[0].golesFor).toBe(1)
+    expect(matches[0].rawMetrics).toEqual({ faltas: 10 })
+    expect(matches[0].rivalRawMetrics).toEqual({ faltas: 12 })
+  })
 })

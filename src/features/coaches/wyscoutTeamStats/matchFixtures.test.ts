@@ -7,7 +7,7 @@ function mkWyscoutMatch(over: Partial<WyscoutMatch> = {}): WyscoutMatch {
   return {
     fecha: '2026-08-02', partido: 'Temperley - Gimnasia y Tiro 1:2', competencia: 'Primera Nacional',
     equipoPropio: 'Temperley', equipoRival: 'Gimnasia y Tiro',
-    xgFor: 1.15, xgAgainst: 1.18, possessionPct: 64.09, rawMetrics: {},
+    xgFor: 1.15, xgAgainst: 1.18, possessionPct: 64.09, golesFor: 1, rawMetrics: {}, rivalRawMetrics: {},
     ...over,
   }
 }

@@ -20,7 +20,9 @@ export interface WyscoutMatch {
   xgFor: number | null
   xgAgainst: number | null
   possessionPct: number | null
+  golesFor: number | null
   rawMetrics: Record<string, number | string | null>
+  rivalRawMetrics: Record<string, number | string | null>
 }
 
 // Columna 0=Fecha, 1=Partido, 2=Competicion, 4=Equipo, 6=Goles, 7=xG, 14=Posesion%.
@@ -102,7 +104,9 @@ export function buildWyscoutMatches(rows: WyscoutRawRow[], ownTeamName: string):
       xgFor: own.xg,
       xgAgainst: rival.xg,
       possessionPct: own.posesion,
+      golesFor: own.goles,
       rawMetrics: own.extra,
+      rivalRawMetrics: rival.extra,
     })
   }
   return matches
