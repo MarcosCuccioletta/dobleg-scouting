@@ -65,3 +65,101 @@ export async function deleteBucket(id: number): Promise<{ success: boolean; erro
   }
   return { success: true }
 }
+
+import type { ParsedInstance } from '@/features/coaches/videoAnalysis/parseNacsportXml'
+
+const MAX_VIDEO_BYTES = 500 * 1024 * 1024 // 500MB
+
+export interface VideoAnalysisMatch {
+  id: number
+  bucket_id: number
+  match_date: string
+  opponent_name: string | null
+  instances: ParsedInstance[]
+  video_storage_path: string | null
+  created_at: string
+}
+
+export async function listMatches(bucketId: number): Promise<VideoAnalysisMatch[]> {
+  const { data, error } = await supabase
+    .from('coach_video_analysis_matches')
+    .select('*')
+    .eq('bucket_id', bucketId)
+    .order('match_date', { ascending: false })
+
+  if (error || !data) {
+    console.error('Error listando partidos de videoanalisis:', error)
+    return []
+  }
+  return data as unknown as VideoAnalysisMatch[]
+}
+
+export async function createMatch(
+  bucketId: number,
+  matchDate: string,
+  opponentName: string | null,
+  instances: ParsedInstance[],
+): Promise<VideoAnalysisMatch | null> {
+  const { data, error } = await supabase
+    .from('coach_video_analysis_matches')
+    .insert({ bucket_id: bucketId, match_date: matchDate, opponent_name: opponentName, instances })
+    .select()
+    .single()
+
+  if (error || !data) {
+    console.error('Error creando partido de videoanalisis:', error)
+    return null
+  }
+  return data as unknown as VideoAnalysisMatch
+}
+
+export async function deleteMatch(id: number): Promise<{ success: boolean; error?: string }> {
+  const { error } = await supabase.from('coach_video_analysis_matches').delete().eq('id', id)
+  if (error) {
+    console.error('Error borrando partido de videoanalisis:', error)
+    return { success: false, error: error.message }
+  }
+  return { success: true }
+}
+
+/** Sube el video completo del partido a Storage y guarda la ruta en el match.
+ *  Sin progreso real (supabase-js no lo expone) -- el llamador muestra un estado
+ *  binario "subiendo/listo", no un porcentaje. */
+export async function uploadMatchVideo(
+  coachKey: string,
+  bucketId: number,
+  matchId: number,
+  file: File,
+): Promise<{ success: boolean; path?: string; error?: string }> {
+  if (file.size > MAX_VIDEO_BYTES) {
+    return { success: false, error: 'El video pesa más de 500MB. Comprimilo o subí una versión más liviana.' }
+  }
+
+  const ext = file.name.split('.').pop() ?? 'mp4'
+  const path = `${coachKey}/${bucketId}/${matchId}.${ext}`
+
+  const { error: uploadError } = await supabase.storage
+    .from('coach-video-analysis')
+    .upload(path, file, { upsert: true })
+
+  if (uploadError) {
+    console.error('Error subiendo video de videoanalisis:', uploadError)
+    return { success: false, error: uploadError.message }
+  }
+
+  const { error: updateError } = await supabase
+    .from('coach_video_analysis_matches')
+    .update({ video_storage_path: path })
+    .eq('id', matchId)
+
+  if (updateError) {
+    console.error('Error guardando ruta de video de videoanalisis:', updateError)
+    return { success: false, error: updateError.message }
+  }
+
+  return { success: true, path }
+}
+
+export function getMatchVideoUrl(path: string): string {
+  return supabase.storage.from('coach-video-analysis').getPublicUrl(path).data.publicUrl
+}
