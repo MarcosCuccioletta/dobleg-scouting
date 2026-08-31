@@ -12,9 +12,19 @@ import {
 } from '@/services/footballApiService'
 import { getMatchNotePhases, type MatchNotePhases } from '@/services/coachService'
 import { PHASE_META } from '@/features/coaches/matchNotesConstants'
-import { groupLineupByPosition, LINEUP_GROUP_ORDER } from '@/features/coaches/lineupGrouping'
+import { groupLineupByPosition, LINEUP_GROUP_ORDER, type LineupPositionGroup } from '@/features/coaches/lineupGrouping'
 import type { AgencyFixture, ApiFixtureLineup, ApiFixtureEvent } from '@/types/footballApi'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
+import { useLanguage } from '@/context/LanguageContext'
+import { LANGUAGE_LOCALES } from '@/constants/translations'
+
+const LINEUP_GROUP_LABEL_KEY: Record<LineupPositionGroup, string> = {
+  Arqueros: 'squadPosition.arqueros',
+  Defensores: 'squadPosition.defensores',
+  Mediocampistas: 'squadPosition.mediocampistas',
+  Delanteros: 'squadPosition.delanteros',
+  Otros: 'squadPosition.otros',
+}
 
 function EmptyState({ message }: { message: string }) {
   return (
@@ -81,15 +91,16 @@ function EventIcon({ e }: { e: ApiFixtureEvent }) {
 }
 
 function EventContent({ e, align }: { e: ApiFixtureEvent; align: 'left' | 'right' }) {
+  const { t } = useLanguage()
   const alignClass = align === 'right' ? 'text-right items-end' : 'text-left items-start'
   if (e.type === 'subst') {
     return (
       <div className={`flex flex-col min-w-0 ${alignClass}`}>
         <p className="text-sm font-medium text-apple-gray-800 dark:text-white truncate w-full">
-          <span className="text-brand-green">↑</span> {e.assist.name ?? 'Ingresa'}
+          <span className="text-brand-green">↑</span> {e.assist.name ?? t('coachMatchDetail.ingresa')}
         </p>
         <p className="text-2xs text-apple-gray-400 truncate w-full">
-          <span className="text-brand-red">↓</span> {e.player.name ?? 'Sale'}
+          <span className="text-brand-red">↓</span> {e.player.name ?? t('coachMatchDetail.sale')}
         </p>
       </div>
     )
@@ -98,21 +109,22 @@ function EventContent({ e, align }: { e: ApiFixtureEvent; align: 'left' | 'right
     <div className={`flex flex-col min-w-0 ${alignClass}`}>
       <p className="text-sm font-medium text-apple-gray-800 dark:text-white truncate w-full">
         {e.player.name ?? e.detail}
-        {e.detail === 'Own Goal' && <span className="text-apple-gray-400 font-normal"> (en contra)</span>}
-        {e.detail === 'Penalty' && <span className="text-apple-gray-400 font-normal"> (penal)</span>}
+        {e.detail === 'Own Goal' && <span className="text-apple-gray-400 font-normal"> ({t('coachMatchDetail.enContra')})</span>}
+        {e.detail === 'Penalty' && <span className="text-apple-gray-400 font-normal"> ({t('coachMatchDetail.penal')})</span>}
       </p>
-      {e.assist.name && <p className="text-2xs text-apple-gray-400 truncate w-full">Asistencia: {e.assist.name}</p>}
+      {e.assist.name && <p className="text-2xs text-apple-gray-400 truncate w-full">{t('coachMatchDetail.asistencia')}: {e.assist.name}</p>}
     </div>
   )
 }
 
 function LineupGroupList({ grouped }: { grouped: ReturnType<typeof groupLineupByPosition> }) {
+  const { t } = useLanguage()
   return (
     <div className="space-y-3">
       {LINEUP_GROUP_ORDER.filter(g => grouped[g].length > 0).map(group => (
         <div key={group}>
           <p className="text-[10px] font-bold text-apple-gray-300 dark:text-apple-gray-600 uppercase tracking-wide mb-1">
-            {group}
+            {t(LINEUP_GROUP_LABEL_KEY[group])}
           </p>
           <div className="space-y-1">
             {grouped[group].map(p => (
@@ -131,6 +143,7 @@ function LineupGroupList({ grouped }: { grouped: ReturnType<typeof groupLineupBy
 }
 
 export default function CoachMatchDetailPage() {
+  const { t, language } = useLanguage()
   const { coachKey, fixtureId } = useParams<{ coachKey: string; fixtureId: string }>()
   const [coach, setCoach] = useState<AgencyCoach | null | undefined>(undefined) // undefined = cargando, null = no existe
   const [fixture, setFixture] = useState<AgencyFixture | null | undefined>(undefined)
@@ -177,14 +190,14 @@ export default function CoachMatchDetailPage() {
     return () => { active = false }
   }, [lineups])
 
-  if (coach === undefined) return <LoadingSpinner message="Cargando entrenador..." />
+  if (coach === undefined) return <LoadingSpinner message={t('coachMatchDetail.cargandoEntrenador')} />
 
   if (!coach || !fixtureId) {
-    return <EmptyState message="No pudimos encontrar este partido." />
+    return <EmptyState message={t('coachMatchDetail.noEncontrado')} />
   }
 
-  if (fixture === undefined) return <LoadingSpinner message="Cargando partido..." />
-  if (fixture === null) return <EmptyState message="No pudimos encontrar este partido." />
+  if (fixture === undefined) return <LoadingSpinner message={t('coachMatchDetail.cargandoPartido')} />
+  if (fixture === null) return <EmptyState message={t('coachMatchDetail.noEncontrado')} />
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 animate-fade-in">
@@ -195,13 +208,13 @@ export default function CoachMatchDetailPage() {
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
         </svg>
-        Volver a {coach.fullName}
+        {t('coachMatchDetail.volverA')} {coach.fullName}
       </Link>
 
       <div className="bg-white dark:bg-apple-gray-800/60 rounded-apple-lg border border-apple-gray-200/60 dark:border-apple-gray-700/40 shadow-apple dark:shadow-apple-dark p-5 sm:p-6 mb-6">
         <p className="text-2xs sm:text-xs font-medium text-apple-gray-400 text-center mb-3">
           {fixture.leagueName} ·{' '}
-          {new Date(fixture.date).toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' })}
+          {new Date(fixture.date).toLocaleDateString(LANGUAGE_LOCALES[language], { day: 'numeric', month: 'long', year: 'numeric' })}
         </p>
         <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-4">
           <div className="flex flex-col items-center gap-2 min-w-0">
@@ -226,18 +239,18 @@ export default function CoachMatchDetailPage() {
       {notePhases && PHASE_META.some(p => (notePhases[p.key] ?? '').trim()) && (
         <div className="bg-white dark:bg-apple-gray-800/60 rounded-apple-lg border border-apple-gray-200/60 dark:border-apple-gray-700/40 p-5 mb-6">
           <div className="flex items-center justify-between mb-3">
-            <p className="text-xs font-semibold text-apple-gray-400 uppercase tracking-wide">Notas del DT</p>
+            <p className="text-xs font-semibold text-apple-gray-400 uppercase tracking-wide">{t('coachMatchDetail.notasDT')}</p>
             <Link
               to={`/entrenadores/${coach.key}?tab=notas`}
               className="text-2xs font-semibold text-brand-green hover:underline"
             >
-              Editar en Notas de partidos
+              {t('coachMatchDetail.editarEnNotas')}
             </Link>
           </div>
           <div className="space-y-3">
             {PHASE_META.filter(p => (notePhases[p.key] ?? '').trim()).map(p => (
               <div key={p.key}>
-                <p className="text-2xs font-semibold uppercase tracking-wide text-apple-gray-400 mb-1">{p.label}</p>
+                <p className="text-2xs font-semibold uppercase tracking-wide text-apple-gray-400 mb-1">{t(p.labelKey)}</p>
                 <p className="text-sm text-apple-gray-700 dark:text-apple-gray-300 whitespace-pre-wrap">{notePhases[p.key]}</p>
               </div>
             ))}
@@ -246,11 +259,11 @@ export default function CoachMatchDetailPage() {
       )}
 
       <div className="mb-6">
-        <p className="text-xs font-semibold text-apple-gray-400 uppercase tracking-wide mb-3">Goles y hechos</p>
+        <p className="text-xs font-semibold text-apple-gray-400 uppercase tracking-wide mb-3">{t('coachMatchDetail.golesYHechos')}</p>
         {events === null ? (
-          <LoadingSpinner message="Cargando hechos..." />
+          <LoadingSpinner message={t('coachMatchDetail.cargandoHechos')} />
         ) : events.length === 0 ? (
-          <EmptyState message="No hay eventos registrados para este partido." />
+          <EmptyState message={t('coachMatchDetail.sinEventos')} />
         ) : (
           <div className="bg-white dark:bg-apple-gray-800/60 rounded-apple-lg border border-apple-gray-200/60 dark:border-apple-gray-700/40 divide-y divide-apple-gray-100 dark:divide-apple-gray-700/40">
             {[...events]
@@ -276,11 +289,11 @@ export default function CoachMatchDetailPage() {
       </div>
 
       <div>
-        <p className="text-xs font-semibold text-apple-gray-400 uppercase tracking-wide mb-3">Alineaciones</p>
+        <p className="text-xs font-semibold text-apple-gray-400 uppercase tracking-wide mb-3">{t('coachMatchDetail.alineaciones')}</p>
         {lineups === null ? (
-          <LoadingSpinner message="Cargando alineaciones..." />
+          <LoadingSpinner message={t('coachMatchDetail.cargandoAlineaciones')} />
         ) : lineups.length === 0 ? (
-          <EmptyState message="No hay alineaciones disponibles para este partido." />
+          <EmptyState message={t('coachMatchDetail.sinAlineaciones')} />
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {lineups.map(lineup => {
@@ -298,13 +311,13 @@ export default function CoachMatchDetailPage() {
                       {lineup.team.name}
                     </span>
                   </div>
-                  {lineup.coach?.name && <p className="text-2xs text-apple-gray-400 mb-3">DT: {lineup.coach.name}</p>}
+                  {lineup.coach?.name && <p className="text-2xs text-apple-gray-400 mb-3">{t('coachMatchDetail.dt')}: {lineup.coach.name}</p>}
                   <p className="text-2xs font-semibold text-apple-gray-400 uppercase tracking-wide mb-1.5">
-                    Titulares
+                    {t('coachMatchDetail.titulares')}
                   </p>
                   <LineupGroupList grouped={startersGrouped} />
                   <p className="text-2xs font-semibold text-apple-gray-400 uppercase tracking-wide mt-3 mb-1.5">
-                    Suplentes
+                    {t('coachMatchDetail.suplentes')}
                   </p>
                   <LineupGroupList grouped={subsGrouped} />
                 </div>
