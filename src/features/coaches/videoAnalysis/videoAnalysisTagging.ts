@@ -6,7 +6,7 @@ export type ActionPhase = 'defensiva' | 'ofensiva' | 'transicion' | 'abp' | 'otr
 // Ampliable: si un XML real trae un codigo que no matchea nada, se agrega aca.
 const PHASE_KEYWORDS: { phase: ActionPhase; keywords: string[] }[] = [
   { phase: 'transicion', keywords: ['transicion'] },
-  { phase: 'abp', keywords: ['abp', 'corner', 'tiro libre', 'penal', 'lateral', 'saque de banda'] },
+  { phase: 'abp', keywords: ['abp', 'corner', 'tiro libre', 'penal', 'saque de banda'] },
   { phase: 'defensiva', keywords: ['presion', 'repliegue', 'marca', 'recuperacion', 'defensiv'] },
   { phase: 'ofensiva', keywords: ['salida', 'ataque', 'posesion', 'ofensiv', 'finalizacion', 'remate', 'gestacion'] },
 ]

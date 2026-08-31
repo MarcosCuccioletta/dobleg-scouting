@@ -36,31 +36,31 @@ CREATE POLICY "write_cvam" ON public.coach_video_analysis_matches FOR ALL TO aut
 -- Bucket de Storage para los videos de partido, publico (mismo modelo que
 -- 'informes-compartidos'): la ruta de cada objeto incluye bucketId/matchId,
 -- no es adivinable ni listable sin conocer esos ids.
-INSERT INTO storage.buckets (id, name, public)
-VALUES ('coach-video-analysis', 'coach-video-analysis', true)
-ON CONFLICT (id) DO UPDATE SET public = true;
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES ('coach-video-analysis', 'coach-video-analysis', true, 524288000, ARRAY['video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/webm', 'video/x-matroska'])
+ON CONFLICT (id) DO UPDATE SET public = true, file_size_limit = 524288000, allowed_mime_types = ARRAY['video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/webm', 'video/x-matroska'];
 
 DROP POLICY IF EXISTS "coach_video_analysis_insert" ON storage.objects;
 CREATE POLICY "coach_video_analysis_insert"
   ON storage.objects FOR INSERT
-  TO anon, authenticated
+  TO authenticated
   WITH CHECK (bucket_id = 'coach-video-analysis');
 
 DROP POLICY IF EXISTS "coach_video_analysis_update" ON storage.objects;
 CREATE POLICY "coach_video_analysis_update"
   ON storage.objects FOR UPDATE
-  TO anon, authenticated
+  TO authenticated
   USING (bucket_id = 'coach-video-analysis')
   WITH CHECK (bucket_id = 'coach-video-analysis');
 
 DROP POLICY IF EXISTS "coach_video_analysis_read" ON storage.objects;
 CREATE POLICY "coach_video_analysis_read"
   ON storage.objects FOR SELECT
-  TO anon, authenticated
+  TO authenticated
   USING (bucket_id = 'coach-video-analysis');
 
 DROP POLICY IF EXISTS "coach_video_analysis_delete" ON storage.objects;
 CREATE POLICY "coach_video_analysis_delete"
   ON storage.objects FOR DELETE
-  TO anon, authenticated
+  TO authenticated
   USING (bucket_id = 'coach-video-analysis');

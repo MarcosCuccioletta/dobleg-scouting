@@ -26,6 +26,14 @@ describe('classifyPhase', () => {
   it('sin match devuelve otro', () => {
     expect(classifyPhase('Categoría rara sin sentido futbolístico')).toBe('otro')
   })
+  it('no clasifica jugadas del lateral (posicion) como ABP', () => {
+    expect(classifyPhase('Desborde del lateral')).not.toBe('abp')
+    expect(classifyPhase('Lateral derecho')).not.toBe('abp')
+    expect(classifyPhase('Centro del lateral')).not.toBe('abp')
+  })
+  it('sigue clasificando el saque de banda como ABP', () => {
+    expect(classifyPhase('Saque de banda')).toBe('abp')
+  })
 })
 
 describe('inferZoneRect', () => {

@@ -39,15 +39,21 @@ export function pitchPoints(
   code: string,
 ): { exact: { x: number; y: number }[]; zones: { x1: number; y1: number; x2: number; y2: number }[] } {
   const exact: { x: number; y: number }[] = []
-  const zones: { x1: number; y1: number; x2: number; y2: number }[] = []
+  let hasZonelessInstance = false
   for (const inst of allInstances(matches)) {
     if (inst.code !== code) continue
     if (inst.x !== null && inst.y !== null) {
       exact.push({ x: inst.x, y: inst.y })
     } else {
-      const zone = inferZoneRect(inst.code)
-      if (zone) zones.push(zone)
+      hasZonelessInstance = true
     }
   }
+  // inferZoneRect depende solo de `code`, no de cada instancia individual -- todas las
+  // instancias de este grupo comparten el mismo codigo, asi que la zona inferida (si existe)
+  // es identica para todas. Calcularla una sola vez fuera del loop evita apilar el mismo
+  // rectangulo N veces (lo que en VideoAnalysisPitch se veria como una capa opaca, no
+  // translucida).
+  const zone = hasZonelessInstance ? inferZoneRect(code) : null
+  const zones = zone ? [zone] : []
   return { exact, zones }
 }

@@ -60,7 +60,7 @@ export default function VideoAnalysisDateRangeSlider({
       <span className="text-2xs text-apple-gray-400 flex-shrink-0">{minDate}</span>
       <div
         ref={trackRef}
-        className="relative flex-1 h-1 bg-apple-gray-200 dark:bg-apple-gray-700 rounded-full"
+        className="relative flex-1 h-1 bg-apple-gray-200 dark:bg-apple-gray-700 rounded-full touch-none select-none"
         onPointerMove={handleMove}
       >
         <div
@@ -71,14 +71,16 @@ export default function VideoAnalysisDateRangeSlider({
           onPointerDown={startDrag('from')}
           onPointerUp={endDrag}
           onPointerCancel={endDrag}
-          className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-4 h-4 rounded-full bg-brand-green border-2 border-white dark:border-apple-gray-900 shadow cursor-grab active:cursor-grabbing"
+          onLostPointerCapture={endDrag}
+          className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-4 h-4 rounded-full bg-brand-green border-2 border-white dark:border-apple-gray-900 shadow cursor-grab active:cursor-grabbing touch-none select-none"
           style={{ left: `${fromPct}%` }}
         />
         <div
           onPointerDown={startDrag('to')}
           onPointerUp={endDrag}
           onPointerCancel={endDrag}
-          className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-4 h-4 rounded-full bg-brand-green border-2 border-white dark:border-apple-gray-900 shadow cursor-grab active:cursor-grabbing"
+          onLostPointerCapture={endDrag}
+          className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-4 h-4 rounded-full bg-brand-green border-2 border-white dark:border-apple-gray-900 shadow cursor-grab active:cursor-grabbing touch-none select-none"
           style={{ left: `${toPct}%` }}
         />
       </div>

@@ -80,4 +80,22 @@ describe('pitchPoints', () => {
     expect(result.exact).toEqual([])
     expect(result.zones).toEqual([{ x1: 0, y1: 67, x2: 100, y2: 100 }])
   })
+
+  it('con muchas instancias sin coordenadas del mismo codigo, la zona inferida aparece una sola vez (no se apila)', () => {
+    const matches: StatsMatch[] = [
+      {
+        match_date: '2026-08-16',
+        instances: [
+          inst({ code: 'Salida en corto' }),
+          inst({ code: 'Salida en corto' }),
+          inst({ code: 'Salida en corto' }),
+        ],
+      },
+      { match_date: '2026-08-23', instances: [inst({ code: 'Salida en corto' })] },
+    ]
+    const result = pitchPoints(matches, 'Salida en corto')
+    expect(result.exact).toEqual([])
+    expect(result.zones).toEqual([{ x1: 0, y1: 67, x2: 100, y2: 100 }])
+    expect(result.zones.length).toBe(1)
+  })
 })

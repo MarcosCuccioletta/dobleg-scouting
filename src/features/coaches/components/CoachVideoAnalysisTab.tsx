@@ -27,22 +27,29 @@ export default function CoachVideoAnalysisTab({ coach }: { coach: AgencyCoach })
   const [newRivalName, setNewRivalName] = useState('')
   const [uploadingVideoFor, setUploadingVideoFor] = useState<number | null>(null)
   const [playingClip, setPlayingClip] = useState<{ videoPath: string; start: number; end: number } | null>(null)
+  const [loadError, setLoadError] = useState(false)
+  const [retryCount, setRetryCount] = useState(0)
+  const [pitchCode, setPitchCode] = useState('')
 
   useEffect(() => {
     let active = true
     async function load() {
+      setLoadError(false)
       const propio = await ensurePropioBucket(coach.key)
       const all = await listBuckets(coach.key)
       if (!active) return
       setBuckets(all)
-      setActiveBucketId(propio?.id ?? all[0]?.id ?? null)
+      const nextActive = propio?.id ?? all[0]?.id ?? null
+      setActiveBucketId(nextActive)
+      if (nextActive === null) setLoadError(true)
     }
     void load()
     return () => { active = false }
-  }, [coach.key])
+  }, [coach.key, retryCount])
 
   useEffect(() => {
     if (activeBucketId === null) return
+    setMatches(null)
     let active = true
     listMatches(activeBucketId).then(m => {
       if (!active) return
@@ -62,7 +69,15 @@ export default function CoachVideoAnalysisTab({ coach }: { coach: AgencyCoach })
   const codeStats = useMemo(() => countByCode(filteredMatches), [filteredMatches])
   const phaseStats = useMemo(() => countByPhase(filteredMatches), [filteredMatches])
   const topCode = codeStats[0]?.code ?? ''
-  const pitchData = useMemo(() => (topCode ? pitchPoints(filteredMatches, topCode) : { exact: [], zones: [] }), [filteredMatches, topCode])
+  useEffect(() => {
+    if (!codeStats.some(c => c.code === pitchCode)) setPitchCode(topCode)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [codeStats])
+  const selectedPitchCode = pitchCode || topCode
+  const pitchData = useMemo(
+    () => (selectedPitchCode ? pitchPoints(filteredMatches, selectedPitchCode) : { exact: [], zones: [] }),
+    [filteredMatches, selectedPitchCode],
+  )
 
   async function handleCreateRival() {
     if (!newRivalName.trim()) return
@@ -90,6 +105,8 @@ export default function CoachVideoAnalysisTab({ coach }: { coach: AgencyCoach })
     const match = await createMatch(activeBucketId, result.matchDate, result.opponentName, result.instances)
     if (!match) { window.alert('No se pudo guardar el partido, intentá de nuevo.'); return }
     setMatches(prev => [match, ...(prev ?? [])].sort((a, b) => b.match_date.localeCompare(a.match_date)))
+    if (!fromDate || result.matchDate < fromDate) setFromDate(result.matchDate)
+    if (!toDate || result.matchDate > toDate) setToDate(result.matchDate)
     if (result.videoFile) {
       setUploadingVideoFor(match.id)
       const res = await uploadMatchVideo(coach.key, activeBucketId, match.id, result.videoFile)
@@ -108,6 +125,21 @@ export default function CoachVideoAnalysisTab({ coach }: { coach: AgencyCoach })
     const res = await deleteMatch(match.id)
     if (!res.success) { window.alert('No se pudo borrar, intentá de nuevo.'); return }
     setMatches(prev => (prev ?? []).filter(m => m.id !== match.id))
+  }
+
+  if (loadError && activeBucketId === null) {
+    return (
+      <div className="flex flex-col items-center gap-3 py-16 text-center">
+        <p className="text-sm text-apple-gray-500 dark:text-apple-gray-400">No se pudo cargar el videoanálisis. Intentá de nuevo.</p>
+        <button
+          type="button"
+          onClick={() => setRetryCount(c => c + 1)}
+          className="min-h-[36px] px-4 rounded-full bg-brand-green text-apple-gray-900 text-xs font-semibold"
+        >
+          Reintentar
+        </button>
+      </div>
+    )
   }
 
   if (buckets === null || activeBucketId === null) return <LoadingSpinner message="Cargando videoanálisis..." />
@@ -172,7 +204,20 @@ export default function CoachVideoAnalysisTab({ coach }: { coach: AgencyCoach })
           {matches.length > 0 && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <div className="bg-white dark:bg-apple-gray-800/60 rounded-apple-lg border border-apple-gray-200/60 dark:border-apple-gray-700/40 p-4">
-                <p className="text-2xs font-semibold text-apple-gray-400 uppercase tracking-wide mb-2">Cancha — {topCode || 'sin categoría'}</p>
+                <div className="flex items-center justify-between mb-2 gap-2">
+                  <p className="text-2xs font-semibold text-apple-gray-400 uppercase tracking-wide">Cancha — {selectedPitchCode || 'sin categoría'}</p>
+                  {codeStats.length > 0 && (
+                    <select
+                      value={selectedPitchCode}
+                      onChange={e => setPitchCode(e.target.value)}
+                      className="text-2xs rounded-lg border border-apple-gray-200 dark:border-apple-gray-700 bg-white dark:bg-apple-gray-900 px-2 py-1"
+                    >
+                      {codeStats.map(c => (
+                        <option key={c.code} value={c.code}>{c.code}</option>
+                      ))}
+                    </select>
+                  )}
+                </div>
                 <VideoAnalysisPitch exact={pitchData.exact} zones={pitchData.zones} />
               </div>
               <div className="flex flex-col gap-4">
