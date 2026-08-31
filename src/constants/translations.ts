@@ -1064,6 +1064,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'coachDetail.tabEntrenamientos': "Entrenamientos",
     'coachDetail.tabNotas': "Notas de partidos",
     'coachDetail.tabPizarra': "Pizarra",
+    'coachDetail.tabVideoanalisis': "Videoanálisis",
     'coachDetail.tabPlantelFuturo': "Plantel futuro",
     'coachDetail.tabReserva': "Reserva",
     'coachDetail.reservaSufijo': "Reserva",
