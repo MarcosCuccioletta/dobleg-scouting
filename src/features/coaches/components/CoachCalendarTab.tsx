@@ -8,8 +8,19 @@ import type { AgencyFixture } from '@/types/footballApi'
 import type { CoachTrainingSession } from '@/services/coachService'
 import type { AgencyCoach } from '@/constants/agencyCoaches'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
+import { useLanguage } from '@/context/LanguageContext'
+import { LANGUAGE_LOCALES } from '@/constants/translations'
 
-const WEEKDAY_LABELS = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
+// Nombres de día vía Intl según el idioma activo, no un array fijo en español —
+// 2 de enero de 2023 fue un lunes, se usa solo como semana de referencia.
+function getDayLabels(locale: string): string[] {
+  const base = new Date(2023, 0, 2)
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(base)
+    d.setDate(base.getDate() + i)
+    return new Intl.DateTimeFormat(locale, { weekday: 'narrow' }).format(d)
+  })
+}
 
 function EmptyState({ message }: { message: string }) {
   return (
@@ -54,6 +65,9 @@ function capitalize(s: string): string {
 }
 
 export default function CoachCalendarTab({ coach }: { coach: AgencyCoach }) {
+  const { t, language } = useLanguage()
+  const locale = LANGUAGE_LOCALES[language]
+  const dayLabels = useMemo(() => getDayLabels(locale), [locale])
   const [fixtures, setFixtures] = useState<AgencyFixture[] | null>(null)
   const [sessions, setSessions] = useState<CoachTrainingSession[] | null>(null)
   const [visibleMonth, setVisibleMonth] = useState(() => {
@@ -98,10 +112,10 @@ export default function CoachCalendarTab({ coach }: { coach: AgencyCoach }) {
   }, [eventsByDate, selectedDate, grid, todayKey])
 
   if (!coach.apiTeamId || !coach.leagueSeason) {
-    return <EmptyState message="No hay datos de equipo disponibles para este entrenador todavía." />
+    return <EmptyState message={t('coachNotes.sinDatosEquipo')} />
   }
 
-  if (eventsByDate === null || selectedDate === null) return <LoadingSpinner message="Cargando calendario..." />
+  if (eventsByDate === null || selectedDate === null) return <LoadingSpinner message={t('coachCalendar.cargando')} />
 
   const goToMonthWithSelection = (year: number, month: number, dateToSelect?: string) => {
     const newGrid = buildMonthGrid(year, month)
@@ -133,7 +147,7 @@ export default function CoachCalendarTab({ coach }: { coach: AgencyCoach }) {
   }
 
   const monthLabel = capitalize(
-    new Date(visibleMonth.year, visibleMonth.month, 1).toLocaleDateString('es-AR', { month: 'long', year: 'numeric' }),
+    new Date(visibleMonth.year, visibleMonth.month, 1).toLocaleDateString(locale, { month: 'long', year: 'numeric' }),
   )
   const isCurrentMonthVisible =
     visibleMonth.year === today.getFullYear() && visibleMonth.month === today.getMonth()
@@ -145,8 +159,9 @@ export default function CoachCalendarTab({ coach }: { coach: AgencyCoach }) {
     isAbroad: false,
   }
   const selectedParsed = parseArDateKey(selectedDate)
-  const selectedWeekday = capitalize(selectedParsed.toLocaleDateString('es-AR', { weekday: 'long' }))
-  const selectedMonthLabel = capitalize(selectedParsed.toLocaleDateString('es-AR', { month: 'long' }))
+  const selectedDateLabel = capitalize(
+    selectedParsed.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long' }),
+  )
 
   return (
     <div className="lg:flex lg:items-start lg:gap-8 animate-fade-in">
@@ -159,7 +174,7 @@ export default function CoachCalendarTab({ coach }: { coach: AgencyCoach }) {
           <button
             type="button"
             onClick={goPrevMonth}
-            aria-label="Mes anterior"
+            aria-label={t('coachCalendar.mesAnterior')}
             className="w-9 h-9 flex items-center justify-center rounded-full text-apple-gray-400 hover:text-apple-gray-700 dark:hover:text-apple-gray-200 hover:bg-apple-gray-100 dark:hover:bg-apple-gray-800 transition-colors"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -170,14 +185,14 @@ export default function CoachCalendarTab({ coach }: { coach: AgencyCoach }) {
             <span className="text-sm font-semibold text-apple-gray-800 dark:text-white">{monthLabel}</span>
             {!isCurrentMonthVisible && (
               <button type="button" onClick={goToday} className="text-2xs font-semibold text-brand-green hover:underline">
-                Hoy
+                {t('calendario.hoy')}
               </button>
             )}
           </div>
           <button
             type="button"
             onClick={goNextMonth}
-            aria-label="Mes siguiente"
+            aria-label={t('coachCalendar.mesSiguiente')}
             className="w-9 h-9 flex items-center justify-center rounded-full text-apple-gray-400 hover:text-apple-gray-700 dark:hover:text-apple-gray-200 hover:bg-apple-gray-100 dark:hover:bg-apple-gray-800 transition-colors"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -187,7 +202,7 @@ export default function CoachCalendarTab({ coach }: { coach: AgencyCoach }) {
         </div>
 
         <div className="grid grid-cols-7 gap-1">
-          {WEEKDAY_LABELS.map((label, i) => (
+          {dayLabels.map((label, i) => (
             <div key={i} className="text-center text-2xs font-semibold text-apple-gray-400 uppercase py-1">
               {label}
             </div>
@@ -250,20 +265,20 @@ export default function CoachCalendarTab({ coach }: { coach: AgencyCoach }) {
         <div className="rounded-apple-lg border border-apple-gray-200/60 dark:border-apple-gray-700/40 bg-white dark:bg-apple-gray-800/60 px-4 py-3 lg:p-5">
           <div className="flex items-center justify-between mb-3">
             <p className="text-2xs font-semibold text-apple-gray-400 uppercase tracking-wide">
-              {selectedWeekday} {selectedParsed.getDate()} de {selectedMonthLabel}
+              {selectedDateLabel}
             </p>
             {selectedDay.isAbroad && (
               <span
                 className="inline-flex items-center gap-1 text-2xs font-medium text-apple-gray-400"
-                title="Viaje al exterior"
+                title={t('coachCalendar.viajeExterior')}
               >
                 <PlaneIcon className="w-3.5 h-3.5" />
-                Viaje al exterior
+                {t('coachCalendar.viajeExterior')}
               </span>
             )}
           </div>
           {selectedDay.fixtures.length === 0 && selectedDay.sessions.length === 0 ? (
-            <p className="text-sm text-apple-gray-300 dark:text-apple-gray-600">Sin actividad este día</p>
+            <p className="text-sm text-apple-gray-300 dark:text-apple-gray-600">{t('coachCalendar.sinActividad')}</p>
           ) : (
             <div className="space-y-2 lg:space-y-3">
               {selectedDay.fixtures.map(f => {
@@ -288,7 +303,7 @@ export default function CoachCalendarTab({ coach }: { coach: AgencyCoach }) {
                       <span className="text-base font-bold text-apple-gray-800 dark:text-white flex-shrink-0">{scoreLabel}</span>
                     ) : (
                       <span className="text-2xs font-medium text-brand-green flex-shrink-0">
-                        {new Date(f.date).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
+                        {new Date(f.date).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     )}
                   </div>
