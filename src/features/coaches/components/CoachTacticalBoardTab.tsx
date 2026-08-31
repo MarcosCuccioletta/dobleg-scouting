@@ -24,6 +24,8 @@ import { isMatchFinished } from '@/utils/coachCalendar'
 import { FORMATIONS, POSITION_KEY_API_MAP, FORMATION_POSITION_API_OVERRIDES } from '@/constants/formations'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
 import type { Position } from '@/types/scoring'
+import { useLanguage } from '@/context/LanguageContext'
+import { LANGUAGE_LOCALES } from '@/constants/translations'
 
 // Grupo generico (API-Football) de cada posicion fina -- fallback para sugerir
 // jugadores del plantel cuando todavia no tienen fila en Supabase con `primary_position`
@@ -111,6 +113,7 @@ function PlayerPickerModal({
   onSelect: (player: SquadPlayer) => void
   onClose: () => void
 }) {
+  const { t } = useLanguage()
   const [search, setSearch] = useState('')
   const filtered = players
     .filter(p => p.name.toLowerCase().includes(search.toLowerCase()))
@@ -132,7 +135,7 @@ function PlayerPickerModal({
             autoFocus
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Buscar jugador..."
+            placeholder={t('tacticalBoard.buscarJugadorPlaceholder')}
             className="w-full min-h-[40px] rounded-lg border border-apple-gray-200 dark:border-apple-gray-700 bg-white dark:bg-apple-gray-900 px-3 text-sm text-apple-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-green/40"
           />
         </div>
@@ -147,11 +150,11 @@ function PlayerPickerModal({
               <span className="text-sm font-semibold text-apple-gray-800 dark:text-white">{p.name}</span>
               {p.number != null && <span className="text-xs text-apple-gray-400">#{p.number}</span>}
               {suggestedIds?.has(p.id) && (
-                <span className="text-2xs font-semibold text-brand-green ml-auto">Sugerido</span>
+                <span className="text-2xs font-semibold text-brand-green ml-auto">{t('tacticalBoard.sugerido')}</span>
               )}
             </button>
           ))}
-          {filtered.length === 0 && <p className="text-sm text-apple-gray-400 text-center py-8">Sin resultados.</p>}
+          {filtered.length === 0 && <p className="text-sm text-apple-gray-400 text-center py-8">{t('tacticalBoard.sinResultados')}</p>}
         </div>
       </div>
     </div>
@@ -159,6 +162,8 @@ function PlayerPickerModal({
 }
 
 export default function CoachTacticalBoardTab({ coach }: { coach: AgencyCoach }) {
+  const { t, language } = useLanguage()
+  const locale = LANGUAGE_LOCALES[language]
   // Desktop (lg+, 1024px): la cancha se ve horizontal y mas grande, con la barra de
   // herramientas al costado en vez de arriba, para aprovechar el ancho disponible.
   const isDesktop = useMediaQuery('(min-width: 1024px)')
@@ -275,7 +280,7 @@ export default function CoachTacticalBoardTab({ coach }: { coach: AgencyCoach })
     } else {
       // Tabla/funcionalidad todavia no disponible en el servidor (ej. migracion sin correr) u otro
       // error -- avisar en vez de cerrar el modal en silencio, y dejar reintentar sin reescribir el nombre.
-      window.alert('No se pudo crear la pizarra. Puede que la funcionalidad todavía no esté disponible en el servidor — probá de nuevo más tarde.')
+      window.alert(t('tacticalBoard.errorCrear'))
     }
   }
 
@@ -297,7 +302,7 @@ export default function CoachTacticalBoardTab({ coach }: { coach: AgencyCoach })
     if (!current || !renameValue.trim()) return
     const res = await renameTacticalBoard(current.id, renameValue.trim())
     if (!res.success) {
-      window.alert('No se pudo renombrar, intentá de nuevo.')
+      window.alert(t('tacticalBoard.errorRenombrar'))
       return
     }
     setCurrent({ ...current, name: renameValue.trim() })
@@ -306,11 +311,11 @@ export default function CoachTacticalBoardTab({ coach }: { coach: AgencyCoach })
   }
 
   async function handleDelete(board: TacticalBoard) {
-    const ok = window.confirm(`¿Borrar la pizarra "${board.name}"?`)
+    const ok = window.confirm(t('tacticalBoard.confirmarBorrarPizarra').replace('{name}', board.name))
     if (!ok) return
     const res = await deleteTacticalBoard(board.id)
     if (!res.success) {
-      window.alert('No se pudo borrar la pizarra, intentá de nuevo.')
+      window.alert(t('tacticalBoard.errorBorrarPizarra'))
       return
     }
     if (current?.id === board.id) {
@@ -403,12 +408,12 @@ export default function CoachTacticalBoardTab({ coach }: { coach: AgencyCoach })
 
   function handleClearAll() {
     if (annotations.length === 0) return
-    const ok = window.confirm('¿Borrar todos los dibujos de esta pizarra?')
+    const ok = window.confirm(t('tacticalBoard.confirmarBorrarDibujos'))
     if (!ok) return
     setAnnotations([])
   }
 
-  if (boards === null) return <LoadingSpinner message="Cargando pizarras..." />
+  if (boards === null) return <LoadingSpinner message={t('tacticalBoard.cargando')} />
 
   const changingMarker = changingMarkerId ? markers.find(m => m.id === changingMarkerId) ?? null : null
   let changingSlotLabel: string | null = null
@@ -440,10 +445,10 @@ export default function CoachTacticalBoardTab({ coach }: { coach: AgencyCoach })
                 className="min-h-[36px] rounded-lg border border-apple-gray-200 dark:border-apple-gray-700 bg-white dark:bg-apple-gray-900 px-2 text-sm"
               />
               <button type="button" onClick={() => void handleRename()} className="text-xs font-semibold text-brand-green">
-                Guardar nombre
+                {t('tacticalBoard.guardarNombre')}
               </button>
               <button type="button" onClick={() => setRenaming(false)} className="text-xs text-apple-gray-400">
-                Cancelar
+                {t('perfil.cancelar')}
               </button>
             </div>
           ) : (
@@ -459,7 +464,7 @@ export default function CoachTacticalBoardTab({ coach }: { coach: AgencyCoach })
             </button>
           )
         ) : (
-          <span className="text-sm text-apple-gray-400">Sin pizarra abierta</span>
+          <span className="text-sm text-apple-gray-400">{t('tacticalBoard.sinPizarraAbierta')}</span>
         )}
         <div className="flex-1" />
         <button
@@ -467,17 +472,17 @@ export default function CoachTacticalBoardTab({ coach }: { coach: AgencyCoach })
           onClick={() => setShowNewInput(true)}
           className="min-h-[36px] px-3 rounded-full bg-apple-gray-100 dark:bg-apple-gray-700 text-xs font-semibold text-apple-gray-600 dark:text-apple-gray-300"
         >
-          Nueva
+          {t('tacticalBoard.nueva')}
         </button>
         <button
           type="button"
           onClick={() => setShowLoadModal(true)}
           className="min-h-[36px] px-3 rounded-full bg-apple-gray-100 dark:bg-apple-gray-700 text-xs font-semibold text-apple-gray-600 dark:text-apple-gray-300"
         >
-          Cargar
+          {t('formacion.cargar')}
         </button>
-        {saveStatus === 'error' && <span className="text-xs text-red-500">Error al guardar</span>}
-        {saveStatus !== 'error' && hasUnsavedChanges && <span className="text-xs text-amber-500">Cambios sin guardar</span>}
+        {saveStatus === 'error' && <span className="text-xs text-red-500">{t('coachNotes.errorGuardar')}</span>}
+        {saveStatus !== 'error' && hasUnsavedChanges && <span className="text-xs text-amber-500">{t('tacticalBoard.cambiosSinGuardar')}</span>}
         <button
           type="button"
           onClick={() => void handleSave()}
@@ -485,12 +490,12 @@ export default function CoachTacticalBoardTab({ coach }: { coach: AgencyCoach })
           className="min-h-[36px] px-4 rounded-full bg-brand-green text-apple-gray-900 text-xs font-semibold disabled:opacity-50"
         >
           {saveStatus === 'saving'
-            ? 'Guardando...'
+            ? t('coachNotes.guardando')
             : saveStatus === 'saved'
-              ? 'Guardado ✓'
+              ? t('coachNotes.guardado')
               : saveStatus === 'error'
-                ? 'Reintentar'
-                : 'Guardar'}
+                ? t('coachNotes.reintentar')
+                : t('coachNotes.guardar')}
         </button>
       </div>
 
@@ -535,7 +540,7 @@ export default function CoachTacticalBoardTab({ coach }: { coach: AgencyCoach })
         </div>
       ) : (
         <div className="flex items-center justify-center py-16 px-4 text-center">
-          <p className="text-sm text-apple-gray-400 max-w-xs">Creá una pizarra nueva o cargá una guardada para empezar.</p>
+          <p className="text-sm text-apple-gray-400 max-w-xs">{t('tacticalBoard.vacioMensaje')}</p>
         </div>
       )}
 
@@ -545,7 +550,7 @@ export default function CoachTacticalBoardTab({ coach }: { coach: AgencyCoach })
         <PlayerPickerModal
           players={squad}
           suggestedIds={suggestedIds}
-          title={`Jugador sugerido para ${changingSlotLabel}`}
+          title={t('tacticalBoard.jugadorSugeridoPara').replace('{slot}', changingSlotLabel ?? '')}
           onSelect={replaceMarkerPlayer}
           onClose={() => setChangingMarkerId(null)}
         />
@@ -554,18 +559,18 @@ export default function CoachTacticalBoardTab({ coach }: { coach: AgencyCoach })
       {showNewInput && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in" onClick={() => setShowNewInput(false)}>
           <div className="bg-white dark:bg-apple-gray-800 rounded-apple-lg p-5 max-w-sm w-full shadow-apple-lg" onClick={e => e.stopPropagation()}>
-            <h3 className="text-sm font-semibold text-apple-gray-800 dark:text-white mb-3">Nueva pizarra</h3>
+            <h3 className="text-sm font-semibold text-apple-gray-800 dark:text-white mb-3">{t('tacticalBoard.nuevaPizarraTitulo')}</h3>
             <input
               autoFocus
               value={newName}
               onChange={e => setNewName(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleCreate()}
-              placeholder="Ej: Salida en corto vs 4-4-2"
+              placeholder={t('tacticalBoard.nombrePlaceholder')}
               className="w-full min-h-[40px] rounded-lg border border-apple-gray-200 dark:border-apple-gray-700 bg-white dark:bg-apple-gray-900 px-3 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-brand-green/40"
             />
             <div className="flex gap-2">
               <button type="button" onClick={() => setShowNewInput(false)} className="flex-1 min-h-[40px] rounded-lg text-sm text-apple-gray-500">
-                Cancelar
+                {t('perfil.cancelar')}
               </button>
               <button
                 type="button"
@@ -573,7 +578,7 @@ export default function CoachTacticalBoardTab({ coach }: { coach: AgencyCoach })
                 disabled={!newName.trim() || creating}
                 className="flex-1 min-h-[40px] rounded-lg bg-brand-green text-apple-gray-900 text-sm font-semibold disabled:opacity-50"
               >
-                {creating ? 'Creando...' : 'Crear'}
+                {creating ? t('tacticalBoard.creando') : t('tacticalBoard.crear')}
               </button>
             </div>
           </div>
@@ -587,8 +592,8 @@ export default function CoachTacticalBoardTab({ coach }: { coach: AgencyCoach })
             onClick={e => e.stopPropagation()}
           >
             <div className="p-4 border-b border-apple-gray-200 dark:border-apple-gray-700 flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-apple-gray-800 dark:text-white">Pizarras guardadas</h3>
-              <button type="button" onClick={() => setShowLoadModal(false)} className="text-apple-gray-400" aria-label="Cerrar">
+              <h3 className="text-sm font-semibold text-apple-gray-800 dark:text-white">{t('tacticalBoard.pizarrasGuardadas')}</h3>
+              <button type="button" onClick={() => setShowLoadModal(false)} className="text-apple-gray-400" aria-label={t('coachDetail.cerrar')}>
                 ✕
               </button>
             </div>
@@ -598,15 +603,15 @@ export default function CoachTacticalBoardTab({ coach }: { coach: AgencyCoach })
                   <button type="button" onClick={() => loadBoard(b)} className="text-left flex-1">
                     <p className="text-sm font-semibold text-apple-gray-800 dark:text-white">{b.name}</p>
                     <p className="text-xs text-apple-gray-400">
-                      {new Date(b.updated_at).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })}
+                      {new Date(b.updated_at).toLocaleDateString(locale, { day: 'numeric', month: 'short' })}
                     </p>
                   </button>
                   <button type="button" onClick={() => void handleDelete(b)} className="text-xs text-red-500 font-semibold ml-3">
-                    Borrar
+                    {t('informes.borrar')}
                   </button>
                 </div>
               ))}
-              {boards.length === 0 && <p className="text-sm text-apple-gray-400 text-center py-8">Sin pizarras guardadas todavía.</p>}
+              {boards.length === 0 && <p className="text-sm text-apple-gray-400 text-center py-8">{t('tacticalBoard.sinPizarrasGuardadas')}</p>}
             </div>
           </div>
         </div>

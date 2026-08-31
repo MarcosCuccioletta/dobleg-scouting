@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { clampPercent, pointsToPathD, arrowHeadPoints, toScreenPoint, fromScreenPoint, type PitchOrientation } from '@/features/coaches/boardGeometry'
 import { COLOR_META } from '@/features/coaches/tacticalBoardConstants'
 import type { BoardMarker, BoardAnnotation, AnnotationColor, ZoneShape } from '@/services/tacticalBoardService'
+import { useLanguage } from '@/context/LanguageContext'
 
 export type BoardTool = 'mover' | 'lapiz' | 'flecha' | 'zona'
 
@@ -45,6 +46,7 @@ export default function TacticalBoardPitch({
   orientation?: PitchOrientation
   onChangePlayerClick?: (markerId: string) => void
 }) {
+  const { t } = useLanguage()
   const containerRef = useRef<HTMLDivElement>(null)
   const [draggingMarkerId, setDraggingMarkerId] = useState<string | null>(null)
   const [selectedMarkerId, setSelectedMarkerId] = useState<string | null>(null)
@@ -380,7 +382,7 @@ export default function TacticalBoardPitch({
               onClick={() => onChangePlayerClick(selectedMarkerId)}
               className="min-h-[36px] px-3 rounded-full bg-white text-apple-gray-900 text-xs font-semibold shadow-lg"
             >
-              Cambiar jugador
+              {t('tacticalBoard.cambiarJugador')}
             </button>
           )}
           <button
@@ -388,7 +390,7 @@ export default function TacticalBoardPitch({
             onClick={handleDeleteSelected}
             className="min-h-[36px] px-3 rounded-full bg-red-500 text-white text-xs font-semibold shadow-lg"
           >
-            Eliminar ficha
+            {t('tacticalBoard.eliminarFicha')}
           </button>
         </div>
       )}

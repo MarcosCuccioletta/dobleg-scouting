@@ -2,12 +2,13 @@ import { COLOR_META, COLOR_ORDER } from '@/features/coaches/tacticalBoardConstan
 import { FORMATIONS } from '@/constants/formations'
 import type { AnnotationColor, MarkerTeam, ZoneShape } from '@/services/tacticalBoardService'
 import type { BoardTool } from './TacticalBoardPitch'
+import { useLanguage } from '@/context/LanguageContext'
 
-const TOOL_META: { id: BoardTool; label: string }[] = [
-  { id: 'mover', label: 'Mover' },
-  { id: 'lapiz', label: 'Lápiz' },
-  { id: 'flecha', label: 'Flecha' },
-  { id: 'zona', label: 'Zona' },
+const TOOL_META: { id: BoardTool; labelKey: string }[] = [
+  { id: 'mover', labelKey: 'boardTool.mover' },
+  { id: 'lapiz', labelKey: 'boardTool.lapiz' },
+  { id: 'flecha', labelKey: 'boardTool.flecha' },
+  { id: 'zona', labelKey: 'boardTool.zona' },
 ]
 
 export default function TacticalBoardToolbar({
@@ -51,6 +52,7 @@ export default function TacticalBoardToolbar({
   canUndo: boolean
   ballAlreadyPlaced: boolean
 }) {
+  const { t } = useLanguage()
   return (
     <div className="bg-white dark:bg-apple-gray-800/60 rounded-apple-lg border border-apple-gray-200/60 dark:border-apple-gray-700/40 p-3 sm:p-4 space-y-3">
       <div className="flex flex-wrap items-center gap-3 pb-1 border-b border-apple-gray-200/60 dark:border-apple-gray-700/40">
@@ -81,18 +83,18 @@ export default function TacticalBoardToolbar({
       </div>
 
       <div className="flex flex-wrap gap-1.5">
-        {TOOL_META.map(t => (
+        {TOOL_META.map(meta => (
           <button
-            key={t.id}
+            key={meta.id}
             type="button"
-            onClick={() => onToolChange(t.id)}
+            onClick={() => onToolChange(meta.id)}
             className={`min-h-[36px] px-3 rounded-full text-xs font-semibold transition-colors ${
-              tool === t.id
+              tool === meta.id
                 ? 'bg-brand-green text-apple-gray-900'
                 : 'bg-apple-gray-100 dark:bg-apple-gray-700 text-apple-gray-500 dark:text-apple-gray-400'
             }`}
           >
-            {t.label}
+            {t(meta.labelKey)}
           </button>
         ))}
       </div>
@@ -105,7 +107,7 @@ export default function TacticalBoardToolbar({
                 key={c}
                 type="button"
                 onClick={() => onColorChange(c)}
-                title={COLOR_META[c].label}
+                title={t(COLOR_META[c].labelKey)}
                 className={`w-6 h-6 rounded-full border-2 transition-transform ${
                   color === c ? 'border-brand-green scale-110' : 'border-apple-gray-200 dark:border-apple-gray-600'
                 }`}
@@ -119,7 +121,7 @@ export default function TacticalBoardToolbar({
               <button
                 type="button"
                 onClick={() => onZoneShapeChange('circulo')}
-                aria-label="Zona circular"
+                aria-label={t('tacticalBoard.zonaCircular')}
                 className={`w-7 h-7 rounded-full border-2 flex items-center justify-center ${zoneShape === 'circulo' ? 'border-brand-green' : 'border-apple-gray-200 dark:border-apple-gray-600'}`}
               >
                 <span className="w-3.5 h-3.5 rounded-full border-2 border-current text-apple-gray-500 dark:text-apple-gray-400" />
@@ -127,7 +129,7 @@ export default function TacticalBoardToolbar({
               <button
                 type="button"
                 onClick={() => onZoneShapeChange('cuadrado')}
-                aria-label="Zona rectangular"
+                aria-label={t('tacticalBoard.zonaRectangular')}
                 className={`w-7 h-7 rounded-full border-2 flex items-center justify-center ${zoneShape === 'cuadrado' ? 'border-brand-green' : 'border-apple-gray-200 dark:border-apple-gray-600'}`}
               >
                 <span className="w-3.5 h-3.5 border-2 border-current text-apple-gray-500 dark:text-apple-gray-400" />
@@ -146,7 +148,7 @@ export default function TacticalBoardToolbar({
               markerTeam === 'propio' ? 'bg-white dark:bg-apple-gray-900 text-apple-gray-800 dark:text-white shadow' : 'text-apple-gray-500'
             }`}
           >
-            Propio
+            {t('tacticalBoard.propio')}
           </button>
           <button
             type="button"
@@ -155,7 +157,7 @@ export default function TacticalBoardToolbar({
               markerTeam === 'rival' ? 'bg-white dark:bg-apple-gray-900 text-apple-gray-800 dark:text-white shadow' : 'text-apple-gray-500'
             }`}
           >
-            Rival
+            {t('evaluar.rival')}
           </button>
         </div>
         <button
@@ -163,14 +165,14 @@ export default function TacticalBoardToolbar({
           onClick={onAddGeneric}
           className="min-h-[36px] px-3 rounded-full bg-apple-gray-100 dark:bg-apple-gray-700 text-xs font-semibold text-apple-gray-600 dark:text-apple-gray-300"
         >
-          + Ficha
+          {t('tacticalBoard.agregarFicha')}
         </button>
         <button
           type="button"
           onClick={onAddPlayer}
           className="min-h-[36px] px-3 rounded-full bg-apple-gray-100 dark:bg-apple-gray-700 text-xs font-semibold text-apple-gray-600 dark:text-apple-gray-300"
         >
-          + Jugador
+          {t('tacticalBoard.agregarJugador')}
         </button>
         <button
           type="button"
@@ -178,7 +180,7 @@ export default function TacticalBoardToolbar({
           disabled={ballAlreadyPlaced}
           className="min-h-[36px] px-3 rounded-full bg-apple-gray-100 dark:bg-apple-gray-700 text-xs font-semibold text-apple-gray-600 dark:text-apple-gray-300 disabled:opacity-40"
         >
-          + Pelota
+          {t('tacticalBoard.agregarPelota')}
         </button>
         <div className="flex-1" />
         <button
@@ -187,10 +189,10 @@ export default function TacticalBoardToolbar({
           disabled={!canUndo}
           className="min-h-[36px] px-3 rounded-full text-xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 disabled:opacity-40"
         >
-          Deshacer
+          {t('tacticalBoard.deshacer')}
         </button>
         <button type="button" onClick={onClearAll} className="min-h-[36px] px-3 rounded-full text-xs font-semibold text-red-500">
-          Borrar todo
+          {t('tacticalBoard.borrarTodo')}
         </button>
       </div>
     </div>
