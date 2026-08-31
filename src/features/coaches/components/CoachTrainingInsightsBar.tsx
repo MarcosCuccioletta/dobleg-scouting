@@ -1,4 +1,6 @@
 import type { TrainingInsights } from '@/features/coaches/trainingInsights'
+import { FOCUS_TAG_LABEL_KEY } from '@/features/coaches/trainingConstants'
+import { useLanguage } from '@/context/LanguageContext'
 
 function FlameIcon({ className }: { className?: string }) {
   return (
@@ -37,6 +39,7 @@ function WarningIcon({ className }: { className?: string }) {
 }
 
 export default function CoachTrainingInsightsBar({ insights }: { insights: TrainingInsights }) {
+  const { t } = useLanguage()
   if (!insights.hasEnoughData) return null
 
   return (
@@ -44,19 +47,22 @@ export default function CoachTrainingInsightsBar({ insights }: { insights: Train
       {insights.streakDays > 0 && (
         <span className="inline-flex items-center gap-1.5 text-xs font-semibold bg-orange-500/10 text-orange-500 px-3 py-1.5 rounded-full">
           <FlameIcon className="w-4 h-4" />
-          {insights.streakDays} {insights.streakDays === 1 ? 'día seguido' : 'días seguidos'}
+          {t(insights.streakDays === 1 ? 'trainingInsights.diaSeguidoUno' : 'trainingInsights.diaSeguidoVarios').replace(
+            '{count}',
+            String(insights.streakDays),
+          )}
         </span>
       )}
       {insights.topFocus && (
         <span className="inline-flex items-center gap-1.5 text-xs font-semibold bg-brand-green/10 text-brand-green px-3 py-1.5 rounded-full">
           <TargetIcon className="w-4 h-4" />
-          Foco: {insights.topFocus.tag}
+          {t('trainingInsights.foco')} {t(FOCUS_TAG_LABEL_KEY[insights.topFocus.tag])}
         </span>
       )}
       {insights.overloadWarning && (
         <span className="inline-flex items-center gap-1.5 text-xs font-semibold bg-red-500/10 text-red-500 px-3 py-1.5 rounded-full">
           <WarningIcon className="w-4 h-4" />
-          Varios días de alta intensidad seguidos
+          {t('trainingInsights.sobrecarga')}
         </span>
       )}
     </div>

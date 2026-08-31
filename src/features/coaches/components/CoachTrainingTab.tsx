@@ -10,8 +10,19 @@ import CoachTrainingDayPanel from './CoachTrainingDayPanel'
 import type { AgencyCoach } from '@/constants/agencyCoaches'
 import type { AgencyFixture } from '@/types/footballApi'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
+import { useLanguage } from '@/context/LanguageContext'
+import { LANGUAGE_LOCALES } from '@/constants/translations'
 
-const WEEKDAY_LABELS = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
+// Nombres de día vía Intl según el idioma activo, no un array fijo en español —
+// 2 de enero de 2023 fue un lunes, se usa solo como semana de referencia.
+function getDayLabels(locale: string): string[] {
+  const base = new Date(2023, 0, 2)
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(base)
+    d.setDate(base.getDate() + i)
+    return new Intl.DateTimeFormat(locale, { weekday: 'narrow' }).format(d)
+  })
+}
 
 function parseArDateKey(key: string): Date {
   const [y, m, d] = key.split('-').map(Number)
@@ -22,12 +33,15 @@ function capitalize(s: string): string {
   return s.length ? s.charAt(0).toUpperCase() + s.slice(1) : s
 }
 
-function formatSessionDate(sessionDate: string): string {
+function formatSessionDate(sessionDate: string, locale: string): string {
   const [y, m, d] = sessionDate.split('-').map(Number)
-  return new Date(y, m - 1, d).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })
+  return new Date(y, m - 1, d).toLocaleDateString(locale, { day: 'numeric', month: 'short' })
 }
 
 export default function CoachTrainingTab({ coach }: { coach: AgencyCoach }) {
+  const { t, language } = useLanguage()
+  const locale = LANGUAGE_LOCALES[language]
+  const dayLabels = useMemo(() => getDayLabels(locale), [locale])
   const [sessions, setSessions] = useState<CoachTrainingSession[] | null>(null)
   const [fixtures, setFixtures] = useState<AgencyFixture[] | null>(null)
   const todayKey = useMemo(() => toArDateKey(new Date()), [])
@@ -85,7 +99,7 @@ export default function CoachTrainingTab({ coach }: { coach: AgencyCoach }) {
     return computeTrainingInsights(sessions, todayKey)
   }, [sessions, todayKey])
 
-  if (sessions === null || fixtures === null) return <LoadingSpinner message="Cargando entrenamientos..." />
+  if (sessions === null || fixtures === null) return <LoadingSpinner message={t('trainingTab.cargando')} />
 
   const goPrevWeek = () => {
     const key = shiftWeeks(weekDates[0], -1)
@@ -109,8 +123,8 @@ export default function CoachTrainingTab({ coach }: { coach: AgencyCoach }) {
   const weekLabel = (() => {
     const first = parseArDateKey(weekDates[0])
     const last = parseArDateKey(weekDates[6])
-    const firstLabel = capitalize(first.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' }))
-    const lastLabel = capitalize(last.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' }))
+    const firstLabel = capitalize(first.toLocaleDateString(locale, { day: 'numeric', month: 'short' }))
+    const lastLabel = capitalize(last.toLocaleDateString(locale, { day: 'numeric', month: 'short' }))
     return `${firstLabel} - ${lastLabel}`
   })()
 
@@ -125,7 +139,7 @@ export default function CoachTrainingTab({ coach }: { coach: AgencyCoach }) {
           <button
             type="button"
             onClick={goPrevWeek}
-            aria-label="Semana anterior"
+            aria-label={t('trainingTab.semanaAnterior')}
             className="w-9 h-9 flex items-center justify-center rounded-full text-apple-gray-400 hover:text-apple-gray-700 dark:hover:text-apple-gray-200 hover:bg-apple-gray-100 dark:hover:bg-apple-gray-800 transition-colors"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -136,14 +150,14 @@ export default function CoachTrainingTab({ coach }: { coach: AgencyCoach }) {
             <span className="text-sm font-semibold text-apple-gray-800 dark:text-white">{weekLabel}</span>
             {!isCurrentWeek && (
               <button type="button" onClick={goToday} className="text-2xs font-semibold text-brand-green hover:underline">
-                Esta semana
+                {t('trainingTab.estaSemana')}
               </button>
             )}
           </div>
           <button
             type="button"
             onClick={goNextWeek}
-            aria-label="Semana siguiente"
+            aria-label={t('trainingTab.semanaSiguiente')}
             className="w-9 h-9 flex items-center justify-center rounded-full text-apple-gray-400 hover:text-apple-gray-700 dark:hover:text-apple-gray-200 hover:bg-apple-gray-100 dark:hover:bg-apple-gray-800 transition-colors"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -173,7 +187,7 @@ export default function CoachTrainingTab({ coach }: { coach: AgencyCoach }) {
                       : 'text-apple-gray-700 dark:text-apple-gray-300 hover:bg-apple-gray-100 dark:hover:bg-apple-gray-800'
                 }`}
               >
-                <span className="text-2xs font-semibold uppercase">{WEEKDAY_LABELS[i]}</span>
+                <span className="text-2xs font-semibold uppercase">{dayLabels[i]}</span>
                 <span className="text-sm font-bold">{parsed.getDate()}</span>
                 <span className="flex items-center gap-0.5 h-2">
                   {daySessions.slice(0, 3).map(s => (
@@ -190,7 +204,7 @@ export default function CoachTrainingTab({ coach }: { coach: AgencyCoach }) {
       <CoachTrainingDayPanel key={selectedDate} coachKey={coach.key} dateKey={selectedDate} sessions={sessionsByDate.get(selectedDate) ?? []} onChanged={reload} />
 
       <div className="space-y-2">
-        <h2 className="text-sm font-semibold text-apple-gray-800 dark:text-white">Historial</h2>
+        <h2 className="text-sm font-semibold text-apple-gray-800 dark:text-white">{t('trainingTab.historial')}</h2>
         {historySessions.map(s => {
           const meta = TYPE_META[s.type]
           return (
@@ -201,19 +215,19 @@ export default function CoachTrainingTab({ coach }: { coach: AgencyCoach }) {
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-apple-gray-800 dark:text-white truncate">{s.title}</p>
                 <p className="text-xs text-apple-gray-400">
-                  {formatSessionDate(s.session_date)} · {meta.label}
+                  {formatSessionDate(s.session_date, locale)} · {t(meta.labelKey)}
                   {s.duration_minutes && ` · ${s.duration_minutes}'`}
-                  {s.intensity && ` · Int. ${s.intensity}/5`}
+                  {s.intensity && ` · ${t('trainingTab.intAbrev').replace('{n}', String(s.intensity))}`}
                 </p>
               </div>
-              <span className={`text-2xs font-semibold px-2 py-1 rounded-full ${meta.badgeClass} flex-shrink-0`}>{meta.label}</span>
+              <span className={`text-2xs font-semibold px-2 py-1 rounded-full ${meta.badgeClass} flex-shrink-0`}>{t(meta.labelKey)}</span>
             </div>
           )
         })}
         {historySessions.length === 0 && (
           <div className="flex items-center justify-center py-16 px-4 text-center">
             <p className="text-sm text-apple-gray-400 max-w-xs">
-              Sin entrenamientos agendados. Tocá un día de la semana de arriba para cargar el primero.
+              {t('trainingTab.sinEntrenamientos')}
             </p>
           </div>
         )}

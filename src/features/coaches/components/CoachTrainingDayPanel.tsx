@@ -6,7 +6,8 @@ import {
   type CoachTrainingSession,
   type TrainingSessionType,
 } from '@/services/coachService'
-import { TYPE_META, FOCUS_TAGS } from '@/features/coaches/trainingConstants'
+import { TYPE_META, FOCUS_TAGS, FOCUS_TAG_LABEL_KEY } from '@/features/coaches/trainingConstants'
+import { useLanguage } from '@/context/LanguageContext'
 
 function DumbbellIcon({ className }: { className?: string }) {
   return (
@@ -66,6 +67,7 @@ function sessionToDraft(s: CoachTrainingSession): DraftSession {
 }
 
 function IntensityPicker({ value, onChange }: { value: number | null; onChange: (v: number) => void }) {
+  const { t } = useLanguage()
   return (
     <div className="flex items-center gap-1.5">
       {[1, 2, 3, 4, 5].map(level => (
@@ -73,7 +75,7 @@ function IntensityPicker({ value, onChange }: { value: number | null; onChange: 
           key={level}
           type="button"
           onClick={() => onChange(level)}
-          aria-label={`Intensidad ${level}`}
+          aria-label={t('trainingDay.intensidadAria').replace('{n}', String(level))}
           className={`w-8 h-8 rounded-full border-2 text-xs font-bold transition-colors ${
             value !== null && level <= value
               ? 'bg-brand-green border-brand-green text-apple-gray-900'
@@ -102,10 +104,12 @@ function SessionForm({
   submitting: boolean
   errorMessage: string | null
 }) {
+  const { t } = useLanguage()
+
   const toggleTag = (tag: string) => {
     onChange({
       ...draft,
-      focus_tags: draft.focus_tags.includes(tag) ? draft.focus_tags.filter(t => t !== tag) : [...draft.focus_tags, tag],
+      focus_tags: draft.focus_tags.includes(tag) ? draft.focus_tags.filter(x => x !== tag) : [...draft.focus_tags, tag],
     })
   }
 
@@ -115,21 +119,21 @@ function SessionForm({
     <div className="space-y-3 bg-apple-gray-50 dark:bg-apple-gray-900/40 rounded-apple-lg p-4">
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div>
-          <label className="block text-xs font-medium text-apple-gray-500 dark:text-apple-gray-400 mb-1">Horario</label>
+          <label className="block text-xs font-medium text-apple-gray-500 dark:text-apple-gray-400 mb-1">{t('trainingDay.horario')}</label>
           <input type="time" value={draft.session_time} onChange={e => onChange({ ...draft, session_time: e.target.value })} className={inputClass} />
         </div>
         <div>
-          <label className="block text-xs font-medium text-apple-gray-500 dark:text-apple-gray-400 mb-1">Tipo</label>
+          <label className="block text-xs font-medium text-apple-gray-500 dark:text-apple-gray-400 mb-1">{t('trainingDay.tipo')}</label>
           <select value={draft.type} onChange={e => onChange({ ...draft, type: e.target.value as TrainingSessionType })} className={inputClass}>
             {Object.entries(TYPE_META).map(([value, meta]) => (
               <option key={value} value={value}>
-                {meta.label}
+                {t(meta.labelKey)}
               </option>
             ))}
           </select>
         </div>
         <div>
-          <label className="block text-xs font-medium text-apple-gray-500 dark:text-apple-gray-400 mb-1">Duración (min)</label>
+          <label className="block text-xs font-medium text-apple-gray-500 dark:text-apple-gray-400 mb-1">{t('trainingDay.duracionMin')}</label>
           <input
             type="number"
             min={1}
@@ -139,24 +143,24 @@ function SessionForm({
           />
         </div>
         <div className="col-span-2 sm:col-span-1">
-          <label className="block text-xs font-medium text-apple-gray-500 dark:text-apple-gray-400 mb-1">Intensidad</label>
+          <label className="block text-xs font-medium text-apple-gray-500 dark:text-apple-gray-400 mb-1">{t('trainingDay.intensidad')}</label>
           <IntensityPicker value={draft.intensity} onChange={v => onChange({ ...draft, intensity: v })} />
         </div>
       </div>
 
       <div>
-        <label className="block text-xs font-medium text-apple-gray-500 dark:text-apple-gray-400 mb-1">Título</label>
+        <label className="block text-xs font-medium text-apple-gray-500 dark:text-apple-gray-400 mb-1">{t('trainingDay.titulo')}</label>
         <input
           type="text"
           value={draft.title}
           onChange={e => onChange({ ...draft, title: e.target.value })}
-          placeholder="Ej: Trabajo de definición"
+          placeholder={t('trainingDay.tituloPlaceholder')}
           className={inputClass}
         />
       </div>
 
       <div>
-        <label className="block text-xs font-medium text-apple-gray-500 dark:text-apple-gray-400 mb-1">Foco del día</label>
+        <label className="block text-xs font-medium text-apple-gray-500 dark:text-apple-gray-400 mb-1">{t('trainingDay.focoDelDia')}</label>
         <div className="flex flex-wrap gap-1.5">
           {FOCUS_TAGS.map(tag => (
             <button
@@ -169,19 +173,19 @@ function SessionForm({
                   : 'bg-white dark:bg-apple-gray-800 text-apple-gray-500 dark:text-apple-gray-400 border border-apple-gray-200 dark:border-apple-gray-700'
               }`}
             >
-              {tag}
+              {t(FOCUS_TAG_LABEL_KEY[tag])}
             </button>
           ))}
         </div>
       </div>
 
       <div>
-        <label className="block text-xs font-medium text-apple-gray-500 dark:text-apple-gray-400 mb-1">Notas</label>
+        <label className="block text-xs font-medium text-apple-gray-500 dark:text-apple-gray-400 mb-1">{t('trainingDay.notas')}</label>
         <textarea
           value={draft.notes}
           onChange={e => onChange({ ...draft, notes: e.target.value })}
           rows={3}
-          placeholder="Qué se trabajó, observaciones..."
+          placeholder={t('trainingDay.notasPlaceholder')}
           className={`${inputClass} min-h-[80px] py-2`}
         />
       </div>
@@ -195,10 +199,10 @@ function SessionForm({
           disabled={!canSubmit}
           className="min-h-[40px] px-5 rounded-lg bg-brand-green text-apple-gray-900 text-sm font-semibold disabled:opacity-50 disabled:pointer-events-none"
         >
-          {submitting ? 'Guardando...' : 'Guardar'}
+          {submitting ? t('coachNotes.guardando') : t('coachNotes.guardar')}
         </button>
         <button type="button" onClick={onCancel} className="min-h-[40px] px-4 rounded-lg text-sm text-apple-gray-500 hover:text-apple-gray-700 dark:hover:text-apple-gray-300">
-          Cancelar
+          {t('perfil.cancelar')}
         </button>
       </div>
     </div>
@@ -216,6 +220,7 @@ export default function CoachTrainingDayPanel({
   sessions: CoachTrainingSession[]
   onChanged: () => void
 }) {
+  const { t } = useLanguage()
   const [editingId, setEditingId] = useState<number | 'new' | null>(null)
   const [draft, setDraft] = useState<DraftSession>(emptyDraft())
   const [submitting, setSubmitting] = useState(false)
@@ -261,7 +266,7 @@ export default function CoachTrainingDayPanel({
         cancelEdit()
         onChanged()
       } else {
-        setErrorMessage(result.error ?? 'No se pudo guardar la sesión. Intentá de nuevo.')
+        setErrorMessage(result.error ?? t('trainingDay.errorGuardar'))
       }
     } finally {
       setSubmitting(false)
@@ -269,7 +274,7 @@ export default function CoachTrainingDayPanel({
   }
 
   const handleDelete = async (session: CoachTrainingSession) => {
-    const ok = window.confirm(`¿Borrar la sesión "${session.title}"?`)
+    const ok = window.confirm(t('trainingDay.confirmarBorrar').replace('{title}', session.title))
     if (!ok) return
     setDeletingId(session.id)
     try {
@@ -277,7 +282,7 @@ export default function CoachTrainingDayPanel({
       if (result.success) {
         onChanged()
       } else {
-        window.alert(result.error ?? 'No se pudo borrar la sesión. Intentá de nuevo.')
+        window.alert(result.error ?? t('trainingDay.errorBorrar'))
       }
     } finally {
       setDeletingId(null)
@@ -317,10 +322,10 @@ export default function CoachTrainingDayPanel({
                   </p>
                 </button>
                 <p className="text-xs text-apple-gray-400">
-                  {meta.label}
+                  {t(meta.labelKey)}
                   {session.session_time && ` · ${session.session_time.slice(0, 5)}`}
                   {session.duration_minutes && ` · ${session.duration_minutes}'`}
-                  {session.intensity && ` · Intensidad ${session.intensity}/5`}
+                  {session.intensity && ` · ${t('trainingDay.intensidadValor').replace('{n}', String(session.intensity))}`}
                 </p>
                 {session.focus_tags.length > 0 && (
                   <div className="flex flex-wrap gap-1 mt-1.5">
@@ -329,7 +334,7 @@ export default function CoachTrainingDayPanel({
                         key={tag}
                         className="text-2xs font-medium px-2 py-0.5 rounded-full bg-apple-gray-100 dark:bg-apple-gray-700 text-apple-gray-500 dark:text-apple-gray-400"
                       >
-                        {tag}
+                        {t(FOCUS_TAG_LABEL_KEY[tag])}
                       </span>
                     ))}
                   </div>
@@ -340,7 +345,7 @@ export default function CoachTrainingDayPanel({
             <button
               onClick={() => void handleDelete(session)}
               disabled={deletingId === session.id}
-              aria-label={`Borrar sesión ${session.title}`}
+              aria-label={t('trainingDay.borrarSesionAria').replace('{title}', session.title)}
               className="flex-shrink-0 min-w-[40px] min-h-[40px] rounded-lg flex items-center justify-center text-apple-gray-400 hover:text-red-500 hover:bg-red-500/10 transition-colors disabled:opacity-50"
             >
               <TrashIcon className="w-4 h-4" />
@@ -364,12 +369,12 @@ export default function CoachTrainingDayPanel({
           onClick={startNew}
           className="w-full min-h-[44px] rounded-lg border-2 border-dashed border-apple-gray-200 dark:border-apple-gray-700 text-sm font-medium text-apple-gray-400 hover:text-brand-green hover:border-brand-green/40 transition-colors"
         >
-          + Agregar sesión
+          {t('trainingDay.agregarSesion')}
         </button>
       )}
 
       {sessions.length === 0 && editingId !== 'new' && (
-        <p className="text-sm text-apple-gray-300 dark:text-apple-gray-600 text-center py-2">Sin entrenamientos este día.</p>
+        <p className="text-sm text-apple-gray-300 dark:text-apple-gray-600 text-center py-2">{t('trainingDay.sinEntrenamientosDia')}</p>
       )}
     </div>
   )
