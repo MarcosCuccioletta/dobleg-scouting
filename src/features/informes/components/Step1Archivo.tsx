@@ -1,14 +1,16 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { parseInformeFile } from '@/features/informes/parseFile'
 import { newInformeId } from '@/features/informes/informesStore'
 import type { ParsedFile, Informe, InformeContent, Row } from '@/features/informes/types'
 import { usePlayersList } from '@/hooks/usePlayerStats'
+import { fetchConfirmedTransfermarktIds } from '@/services/playerStatsService'
 import { dedupePlayers } from '@/features/informes/dedupePlayers'
 import type { PlayerWithScore } from '@/types/scoring'
 import { displayPosition } from '@/types/scoring'
 import { normalizeForSearch } from '@/lib/search'
 import { useCurrency } from '@/context/CurrencyContext'
 import { formatMarketValueInCurrency } from '@/utils/scoring'
+import { useLanguage } from '@/context/LanguageContext'
 
 // ─── Detección de columnas ────────────────────────────────────────────────
 
@@ -131,6 +133,7 @@ interface Step1ArchivoProps {
 
 export default function Step1Archivo({ parsed, informe, onParsed, onChange, onNext }: Step1ArchivoProps) {
   const { currency, rate } = useCurrency()
+  const { t } = useLanguage()
   const [isDragging, setIsDragging] = useState(false)
   const [parsing, setParsing] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -147,10 +150,16 @@ export default function Step1Archivo({ parsed, informe, onParsed, onChange, onNe
     [dbQuery]
   )
   const { players: rawDbPlayers, loading: dbLoading } = usePlayersList(dbFilters)
+  // Confirmados por el saneamiento de datos — evita fusionar por error dos
+  // personas reales distintas que quedaron con el mismo transfermarkt_id mal
+  // asignado. `undefined` mientras carga: dedupePlayers sigue confiando en
+  // transfermarkt_id como antes hasta que esto resuelva, no rompe el buscador.
+  const [confirmedTmIds, setConfirmedTmIds] = useState<Set<number> | undefined>(undefined)
+  useEffect(() => { fetchConfirmedTransfermarktIds().then(setConfirmedTmIds) }, [])
   // El mismo jugador está cargado dos veces (API-Football y Sofascore). Se muestra
   // uno solo y gana el de API-Football: tiene todos los partidos y es el id con el
   // que la API devuelve traspasos y lesiones.
-  const dbPlayers = useMemo(() => dedupePlayers(rawDbPlayers), [rawDbPlayers])
+  const dbPlayers = useMemo(() => dedupePlayers(rawDbPlayers, confirmedTmIds), [rawDbPlayers, confirmedTmIds])
 
   const cols = useMemo(() => (parsed ? detectColumns(parsed.headers, parsed.rows) : null), [parsed])
 
@@ -159,10 +168,10 @@ export default function Step1Archivo({ parsed, informe, onParsed, onChange, onNe
     setParsing(true)
     try {
       const result = await parseInformeFile(file)
-      if (!result.rows.length) throw new Error('El archivo no tiene filas de datos.')
+      if (!result.rows.length) throw new Error(t('informesStep1.errorSinFilas'))
       onParsed(result, buildInforme(result))
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'No se pudo leer el archivo.')
+      setError(e instanceof Error ? e.message : t('informesStep1.errorLeerArchivo'))
     } finally {
       setParsing(false)
     }
@@ -190,7 +199,7 @@ export default function Step1Archivo({ parsed, informe, onParsed, onChange, onNe
       const dataUrl = await resizePhoto(file)
       onChange({ ...informe, fotoDataUrl: dataUrl })
     } catch {
-      setError('No se pudo procesar la foto.')
+      setError(t('informesStep1.errorProcesarFoto'))
     } finally {
       setPhotoBusy(false)
     }
@@ -205,7 +214,7 @@ export default function Step1Archivo({ parsed, informe, onParsed, onChange, onNe
       const dataUrl = await resizePhoto(file, 200)
       onChange({ ...informe, ligaCrestDataUrl: dataUrl })
     } catch {
-      setError('No se pudo procesar el escudo de liga.')
+      setError(t('informesStep1.errorProcesarEscudo'))
     } finally {
       setCrestBusy(false)
     }
@@ -260,9 +269,9 @@ export default function Step1Archivo({ parsed, informe, onParsed, onChange, onNe
     // Feedback visible: resumen de lo que se autocompletó (se ve completo en el paso 3).
     const applied: string[] = []
     if (p.team?.name) applied.push(p.team.name)
-    if (edad) applied.push(`${edad} años`)
+    if (edad) applied.push(`${edad} ${t('externo.anios')}`)
     if (p.league?.name) applied.push(p.league.name)
-    if (p.contract_end_date) applied.push(`contrato ${p.contract_end_date}`)
+    if (p.contract_end_date) applied.push(t('informesStep1.contratoPrefix').replace('{date}', p.contract_end_date))
     if (mvFormatted) applied.push(mvFormatted)
     if (p.agent) applied.push(p.agent)
     setDbApplied({ name: p.name, parts: applied })
@@ -274,7 +283,7 @@ export default function Step1Archivo({ parsed, informe, onParsed, onChange, onNe
       {/* ── Izquierda: archivo, contexto, foto ── */}
       <div className="space-y-4">
         <div className="rounded-2xl border border-apple-gray-200 dark:border-apple-gray-800 bg-white dark:bg-apple-gray-900 p-5">
-          <h2 className="text-sm font-semibold text-apple-gray-900 dark:text-white mb-3">Archivo de métricas</h2>
+          <h2 className="text-sm font-semibold text-apple-gray-900 dark:text-white mb-3">{t('informesStep1.tituloArchivo')}</h2>
           <div
             role="button"
             tabIndex={0}
@@ -294,7 +303,7 @@ export default function Step1Archivo({ parsed, informe, onParsed, onChange, onNe
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
             <p className="text-sm text-apple-gray-500 dark:text-apple-gray-400">
-              Arrastrá el archivo o <span className="text-brand-green font-medium">hacé clic para seleccionar</span>
+              {t('informesStep1.dropzoneTexto')} <span className="text-brand-green font-medium">{t('informesStep1.dropzoneLink')}</span>
             </p>
             <p className="text-xs text-apple-gray-400 dark:text-apple-gray-500 mt-1">.xlsx, .csv, .xml</p>
           </div>
@@ -302,7 +311,7 @@ export default function Step1Archivo({ parsed, informe, onParsed, onChange, onNe
           {parsing && (
             <p className="mt-3 text-xs text-apple-gray-500 dark:text-apple-gray-400 flex items-center gap-2">
               <span className="w-3 h-3 border-2 border-brand-green border-t-transparent rounded-full animate-spin" />
-              Procesando archivo...
+              {t('informesStep1.procesandoArchivo')}
             </p>
           )}
           {error && (
@@ -310,25 +319,25 @@ export default function Step1Archivo({ parsed, informe, onParsed, onChange, onNe
           )}
           {!parsing && !error && parsed && (
             <p className="mt-3 text-xs text-brand-green font-medium">
-              {parsed.rows.length} jugador{parsed.rows.length === 1 ? '' : 'es'} detectado{parsed.rows.length === 1 ? '' : 's'}
+              {t(parsed.rows.length === 1 ? 'informesStep1.detectadoUno' : 'informesStep1.detectadoVarios').replace('{count}', String(parsed.rows.length))}
             </p>
           )}
         </div>
 
         <div className="rounded-2xl border border-apple-gray-200 dark:border-apple-gray-800 bg-white dark:bg-apple-gray-900 p-5">
-          <label className="block text-sm font-semibold text-apple-gray-900 dark:text-white mb-2">Contexto de comparación</label>
+          <label className="block text-sm font-semibold text-apple-gray-900 dark:text-white mb-2">{t('informesStep1.contextoLabel')}</label>
           <input
             type="text"
             disabled={!informe}
             value={informe?.contextoComparacion ?? ''}
             onChange={e => informe && onChange({ ...informe, contextoComparacion: e.target.value })}
-            placeholder="Ej: vs. líneas ofensivas de la misma liga"
+            placeholder={t('informesStep1.contextoPlaceholder')}
             className="w-full px-3 py-2.5 rounded-xl border border-apple-gray-200 dark:border-apple-gray-700 bg-apple-gray-50 dark:bg-apple-gray-800 text-apple-gray-900 dark:text-white placeholder-apple-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-green/40 focus:border-brand-green text-sm disabled:opacity-50"
           />
         </div>
 
         <div className="rounded-2xl border border-apple-gray-200 dark:border-apple-gray-800 bg-white dark:bg-apple-gray-900 p-5">
-          <label className="block text-sm font-semibold text-apple-gray-900 dark:text-white mb-2">Foto del jugador</label>
+          <label className="block text-sm font-semibold text-apple-gray-900 dark:text-white mb-2">{t('informesStep1.fotoLabel')}</label>
           <div className="flex items-center gap-4">
             <div className="w-16 h-16 rounded-2xl overflow-hidden flex-shrink-0 bg-apple-gray-100 dark:bg-apple-gray-800 flex items-center justify-center">
               {informe?.fotoDataUrl ? (
@@ -347,15 +356,15 @@ export default function Step1Archivo({ parsed, informe, onParsed, onChange, onNe
                 onClick={() => photoInputRef.current?.click()}
                 className="px-3 py-2 rounded-xl text-xs font-medium bg-apple-gray-100 dark:bg-apple-gray-800 text-apple-gray-700 dark:text-apple-gray-200 hover:bg-apple-gray-200 dark:hover:bg-apple-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {photoBusy ? 'Procesando...' : 'Subir foto'}
+                {photoBusy ? t('informesStep1.procesando') : t('informesStep1.subirFoto')}
               </button>
-              <p className="text-xs text-apple-gray-400 dark:text-apple-gray-500 mt-1">Se redimensiona automáticamente</p>
+              <p className="text-xs text-apple-gray-400 dark:text-apple-gray-500 mt-1">{t('informesStep1.fotoHint')}</p>
             </div>
           </div>
         </div>
 
         <div className="rounded-2xl border border-apple-gray-200 dark:border-apple-gray-800 bg-white dark:bg-apple-gray-900 p-5">
-          <label className="block text-sm font-semibold text-apple-gray-900 dark:text-white mb-2">Escudo de liga</label>
+          <label className="block text-sm font-semibold text-apple-gray-900 dark:text-white mb-2">{t('informesStep1.escudoLabel')}</label>
           <div className="flex items-center gap-4">
             <div className="w-16 h-16 rounded-2xl overflow-hidden flex-shrink-0 bg-apple-gray-100 dark:bg-apple-gray-800 flex items-center justify-center p-2">
               {informe?.ligaCrestDataUrl ? (
@@ -375,7 +384,7 @@ export default function Step1Archivo({ parsed, informe, onParsed, onChange, onNe
                   onClick={() => crestInputRef.current?.click()}
                   className="px-3 py-2 rounded-xl text-xs font-medium bg-apple-gray-100 dark:bg-apple-gray-800 text-apple-gray-700 dark:text-apple-gray-200 hover:bg-apple-gray-200 dark:hover:bg-apple-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {crestBusy ? 'Procesando...' : 'Subir escudo de liga'}
+                  {crestBusy ? t('informesStep1.procesando') : t('informesStep1.subirEscudo')}
                 </button>
                 {informe?.ligaCrestDataUrl && (
                   <button
@@ -383,11 +392,11 @@ export default function Step1Archivo({ parsed, informe, onParsed, onChange, onNe
                     onClick={() => informe && onChange({ ...informe, ligaCrestDataUrl: undefined })}
                     className="px-3 py-2 rounded-xl text-xs font-medium text-apple-gray-500 dark:text-apple-gray-400 hover:text-red-500 transition-colors"
                   >
-                    Quitar
+                    {t('informesStep1.quitar')}
                   </button>
                 )}
               </div>
-              <p className="text-xs text-apple-gray-400 dark:text-apple-gray-500 mt-1">Se muestra en el encabezado del informe</p>
+              <p className="text-xs text-apple-gray-400 dark:text-apple-gray-500 mt-1">{t('informesStep1.escudoHint')}</p>
             </div>
           </div>
         </div>
@@ -396,9 +405,9 @@ export default function Step1Archivo({ parsed, informe, onParsed, onChange, onNe
       {/* ── Derecha: selección de jugador ── */}
       <div className="space-y-4">
         <div className="rounded-2xl border border-apple-gray-200 dark:border-apple-gray-800 bg-white dark:bg-apple-gray-900 p-5">
-          <h2 className="text-sm font-semibold text-apple-gray-900 dark:text-white mb-3">Seleccionar jugador</h2>
+          <h2 className="text-sm font-semibold text-apple-gray-900 dark:text-white mb-3">{t('informesStep1.seleccionarJugador')}</h2>
           {!informe ? (
-            <p className="text-sm text-apple-gray-500 dark:text-apple-gray-400">Subí un archivo para elegir el protagonista del informe.</p>
+            <p className="text-sm text-apple-gray-500 dark:text-apple-gray-400">{t('informesStep1.subirArchivoProtagonista')}</p>
           ) : (
             <div className="max-h-72 overflow-y-auto rounded-xl border border-apple-gray-100 dark:border-apple-gray-800 divide-y divide-apple-gray-100 dark:divide-apple-gray-800">
               {informe.rows.map((row, idx) => (
@@ -413,10 +422,10 @@ export default function Step1Archivo({ parsed, informe, onParsed, onChange, onNe
                 >
                   <div className="min-w-0">
                     <p className={`text-sm font-medium truncate ${idx === informe.protagonistIndex ? 'text-brand-green' : 'text-apple-gray-900 dark:text-white'}`}>
-                      {cellStr(row, cols?.nombre ?? null) || `Fila ${idx + 1}`}
+                      {cellStr(row, cols?.nombre ?? null) || t('informesStep1.filaFallback').replace('{n}', String(idx + 1))}
                     </p>
                     <p className="text-xs text-apple-gray-500 dark:text-apple-gray-400 truncate">
-                      {[cellStr(row, cols?.club ?? null), cellStr(row, cols?.posicion ?? null), cellStr(row, cols?.edad ?? null) && `${cellStr(row, cols?.edad ?? null)} años`]
+                      {[cellStr(row, cols?.club ?? null), cellStr(row, cols?.posicion ?? null), cellStr(row, cols?.edad ?? null) && `${cellStr(row, cols?.edad ?? null)} ${t('externo.anios')}`]
                         .filter(Boolean).join(' · ')}
                     </p>
                   </div>
@@ -432,23 +441,23 @@ export default function Step1Archivo({ parsed, informe, onParsed, onChange, onNe
         </div>
 
         <div className="rounded-2xl border border-apple-gray-200 dark:border-apple-gray-800 bg-white dark:bg-apple-gray-900 p-5">
-          <label className="block text-sm font-semibold text-apple-gray-900 dark:text-white mb-2">Buscar jugador en la base de datos</label>
+          <label className="block text-sm font-semibold text-apple-gray-900 dark:text-white mb-2">{t('informesStep1.buscarLabel')}</label>
           <div className="relative">
             <input
               type="text"
               disabled={!informe}
               value={dbQuery}
               onChange={e => setDbQuery(e.target.value)}
-              placeholder="Autocompletar club, posición, edad..."
+              placeholder={t('informesStep1.buscarPlaceholder')}
               className="w-full px-3 py-2.5 rounded-xl border border-apple-gray-200 dark:border-apple-gray-700 bg-apple-gray-50 dark:bg-apple-gray-800 text-apple-gray-900 dark:text-white placeholder-apple-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-green/40 focus:border-brand-green text-sm disabled:opacity-50"
             />
             {dbQuery.trim().length >= 2 && (
               <div className="absolute z-10 left-0 right-0 top-full mt-1 bg-white dark:bg-apple-gray-800 border border-apple-gray-200 dark:border-apple-gray-700 rounded-xl shadow-xl overflow-hidden max-h-56 overflow-y-auto">
                 {dbLoading && (
-                  <p className="px-4 py-3 text-xs text-apple-gray-500 dark:text-apple-gray-400">Buscando...</p>
+                  <p className="px-4 py-3 text-xs text-apple-gray-500 dark:text-apple-gray-400">{t('informesStep1.buscando')}</p>
                 )}
                 {!dbLoading && dbPlayers.length === 0 && (
-                  <p className="px-4 py-3 text-xs text-apple-gray-500 dark:text-apple-gray-400">Sin resultados</p>
+                  <p className="px-4 py-3 text-xs text-apple-gray-500 dark:text-apple-gray-400">{t('informesStep1.sinResultados')}</p>
                 )}
                 {!dbLoading && dbPlayers.map(p => (
                   <button
@@ -474,16 +483,16 @@ export default function Step1Archivo({ parsed, informe, onParsed, onChange, onNe
                 <path fillRule="evenodd" d="M12 2a10 10 0 100 20 10 10 0 000-20zm4.7 7.7a1 1 0 00-1.4-1.4L11 12.6l-1.8-1.8a1 1 0 10-1.4 1.4l2.5 2.5a1 1 0 001.4 0l5-5z" clipRule="evenodd" />
               </svg>
               <div className="min-w-0 flex-1">
-                <p className="text-xs font-semibold text-brand-green">Datos cargados de {dbApplied.name}</p>
+                <p className="text-xs font-semibold text-brand-green">{t('informesStep1.datosCargadosDe').replace('{name}', dbApplied.name)}</p>
                 <p className="text-xs text-apple-gray-500 dark:text-apple-gray-400 mt-0.5">
-                  {dbApplied.parts.length ? dbApplied.parts.join(' · ') : 'Sin datos extra para autocompletar.'} · se ven completos en el paso 3
+                  {dbApplied.parts.length ? dbApplied.parts.join(' · ') : t('informesStep1.sinDatosExtra')} · {t('informesStep1.verCompletoPaso3')}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setDbApplied(null)}
                 className="text-apple-gray-400 hover:text-brand-green transition-colors flex-shrink-0"
-                aria-label="Cerrar aviso"
+                aria-label={t('informesStep1.cerrarAviso')}
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
@@ -499,7 +508,7 @@ export default function Step1Archivo({ parsed, informe, onParsed, onChange, onNe
           onClick={onNext}
           className="w-full px-4 py-3 rounded-xl bg-brand-green text-white text-sm font-semibold hover:bg-brand-green/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          Siguiente →
+          {t('informesWizard.siguiente')}
         </button>
       </div>
     </div>
