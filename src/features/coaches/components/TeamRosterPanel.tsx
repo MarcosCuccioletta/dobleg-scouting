@@ -5,33 +5,36 @@ import { fetchSquadMinutes, fetchExistingPlayerIds, fetchSquadProfiles, type Squ
 import { useData, identityKey } from '@/context/DataContext'
 import { makeAgencyMatcher } from '@/utils/agencyFilter'
 import { normalizeName } from '@/utils/scoring'
-import { groupSquadByPosition, POSITION_LABEL } from '@/features/coaches/squadGrouping'
+import { groupSquadByPosition, POSITION_LABEL_KEY } from '@/features/coaches/squadGrouping'
 import { mapSquadPositionToSpanish } from '@/features/coaches/manualExternalPlayer'
 import type { EnrichedPlayer } from '@/types'
 import { PlayerPhoto } from '@/components/ui/PlayerPhoto'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
+import { useLanguage } from '@/context/LanguageContext'
 
-// Nombres completos en español para la posición específica de Supabase (players.primary_position),
+// Claves de traduccion para la posición específica de Supabase (players.primary_position),
 // mucho más precisa que el grupo genérico que trae el plantel crudo de la API (Defender/Midfielder/etc.).
-const FULL_POSITION_LABEL: Record<string, string> = {
-  ARQ: 'Arquero',
-  LD: 'Lateral derecho',
-  CB: 'Defensor central',
-  LI: 'Lateral izquierdo',
-  VC: 'Volante central',
-  VI: 'Volante interno',
-  EXT: 'Extremo',
-  DEL: 'Delantero',
+const FULL_POSITION_LABEL_KEY: Record<string, string> = {
+  ARQ: 'teamRoster.posArquero',
+  LD: 'teamRoster.posLateralDerecho',
+  CB: 'teamRoster.posDefensorCentral',
+  LI: 'teamRoster.posLateralIzquierdo',
+  VC: 'teamRoster.posVolanteCentral',
+  VI: 'teamRoster.posVolanteInterno',
+  EXT: 'teamRoster.posExtremo',
+  DEL: 'teamRoster.posDelantero',
 }
 
-function formatContractBadge(contractEndDate: string): { label: string; colorClass: string } {
+function formatContractBadge(contractEndDate: string, t: (key: string) => string): { label: string; colorClass: string } {
   const months = Math.round((new Date(contractEndDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24 * 30.44))
   const colorClass = months > 18
     ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10'
     : months > 6
       ? 'text-amber-600 dark:text-amber-400 bg-amber-500/10'
       : 'text-red-500 bg-red-500/10'
-  const label = months <= 0 ? 'Contrato vencido' : `Contrato ${months} mes${months !== 1 ? 'es' : ''}`
+  const label = months <= 0
+    ? t('teamRoster.contratoVencido')
+    : t(months === 1 ? 'teamRoster.contratoUnMes' : 'teamRoster.contratoVariosMeses').replace('{count}', String(months))
   return { label, colorClass }
 }
 
@@ -75,12 +78,14 @@ function RosterPlayerRow({
   creating: boolean
   onCreateClick: () => void
 }) {
-  const positionLabel = profile?.primary_position
-    ? FULL_POSITION_LABEL[profile.primary_position] ?? profile.primary_position
+  const { t } = useLanguage()
+  const positionLabelKey = profile?.primary_position
+    ? FULL_POSITION_LABEL_KEY[profile.primary_position]
     : player.position
-      ? POSITION_LABEL[player.position] ?? player.position
+      ? POSITION_LABEL_KEY[player.position]
       : null
-  const contractBadge = profile?.contract_end_date ? formatContractBadge(profile.contract_end_date) : null
+  const positionLabel = positionLabelKey ? t(positionLabelKey) : (profile?.primary_position ?? player.position ?? null)
+  const contractBadge = profile?.contract_end_date ? formatContractBadge(profile.contract_end_date, t) : null
 
   const content = (
     <>
@@ -103,11 +108,11 @@ function RosterPlayerRow({
         <p className="text-2xs text-apple-gray-400 truncate">
           {positionLabel ?? '—'}
           {player.number != null && ` · #${player.number}`}
-          {player.age != null && ` · ${player.age} años`}
+          {player.age != null && ` · ${player.age} ${t('externo.anios')}`}
         </p>
         {profile?.agent && (
           <p className="text-2xs text-apple-gray-400 truncate hidden sm:block">
-            Agente: {profile.agent}
+            {t('teamRoster.agente').replace('{name}', profile.agent)}
           </p>
         )}
       </div>
@@ -118,7 +123,7 @@ function RosterPlayerRow({
       )}
       {stats && (
         <span className="flex-shrink-0 text-2xs font-medium px-2 py-1 rounded-full bg-brand-green/10 text-brand-green whitespace-nowrap">
-          {stats.minutes}' · {stats.matches} PJ
+          {t('teamRoster.statsLine').replace('{minutes}', String(stats.minutes)).replace('{matches}', String(stats.matches))}
         </span>
       )}
       {(link.kind === 'internal' || link.kind === 'external' || link.kind === 'supabase' || link.kind === 'create') && (
@@ -173,6 +178,7 @@ function buildNameMaps(players: EnrichedPlayer[]): { byExact: Map<string, Enrich
 }
 
 export default function TeamRosterPanel({ teamId, teamName }: { teamId: number; teamName: string }) {
+  const { t } = useLanguage()
   const [squad, setSquad] = useState<SquadPlayer[] | null>(null)
   const [minutes, setMinutes] = useState<Record<number, { minutes: number; matches: number }>>({})
   const [profiles, setProfiles] = useState<Record<number, SquadPlayerProfile>>({})
@@ -257,8 +263,8 @@ export default function TeamRosterPanel({ teamId, teamName }: { teamId: number; 
     }
   }
 
-  if (squad === null) return <LoadingSpinner message="Cargando plantel..." />
-  if (squad.length === 0) return <EmptyState message="No se pudo cargar el plantel." />
+  if (squad === null) return <LoadingSpinner message={t('teamRoster.cargandoPlantel')} />
+  if (squad.length === 0) return <EmptyState message={t('teamRoster.errorCargarPlantel')} />
 
   const groups = groupSquadByPosition(squad)
 
@@ -267,7 +273,7 @@ export default function TeamRosterPanel({ teamId, teamName }: { teamId: number; 
       {groups.map(group => (
         <div key={group.positionKey}>
           <h3 className="text-sm font-semibold uppercase tracking-wide text-apple-gray-400 mb-2 px-1">
-            {group.label}
+            {t(group.labelKey)}
           </h3>
           <div className="bg-white dark:bg-apple-gray-800/60 rounded-apple-lg border border-apple-gray-200/60 dark:border-apple-gray-700/40 overflow-hidden">
             {group.players.map(player => (

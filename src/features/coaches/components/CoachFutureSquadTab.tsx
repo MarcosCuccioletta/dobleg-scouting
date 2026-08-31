@@ -6,7 +6,7 @@ import {
   type FutureSquadBaja,
 } from '@/services/futureSquadService'
 import { mapLineupToSlots, type LineupPlayerForPrefill } from '@/features/coaches/futureSquadPrefill'
-import { groupSquadByPosition, POSITION_LABEL } from '@/features/coaches/squadGrouping'
+import { groupSquadByPosition, POSITION_LABEL_KEY } from '@/features/coaches/squadGrouping'
 import FutureSquadPitch from './FutureSquadPitch'
 import FutureSquadPlayerPicker from './FutureSquadPlayerPicker'
 import { FORMATIONS } from '@/constants/formations'
@@ -17,6 +17,7 @@ import type { AgencyCoach } from '@/constants/agencyCoaches'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import { PlayerPhoto } from '@/components/ui/PlayerPhoto'
 import { isMatchFinished } from '@/utils/coachCalendar'
+import { useLanguage } from '@/context/LanguageContext'
 
 function uid(): string {
   return crypto.randomUUID()
@@ -68,6 +69,7 @@ function DraggableSquadRow({
   player: SquadPlayer
   placed: boolean
 }) {
+  const { t } = useLanguage()
   return (
     <div
       draggable
@@ -85,18 +87,19 @@ function DraggableSquadRow({
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-apple-gray-800 dark:text-white truncate">{player.name}</p>
         <p className="text-2xs text-apple-gray-400">
-          {player.position ? POSITION_LABEL[player.position] ?? player.position : '—'}
+          {player.position ? (POSITION_LABEL_KEY[player.position] ? t(POSITION_LABEL_KEY[player.position]) : player.position) : '—'}
           {player.number != null && ` · #${player.number}`}
         </p>
       </div>
       {placed && (
-        <span className="flex-shrink-0 text-2xs font-semibold text-brand-green">En cancha</span>
+        <span className="flex-shrink-0 text-2xs font-semibold text-brand-green">{t('coachFutureSquad.enCancha')}</span>
       )}
     </div>
   )
 }
 
 export default function CoachFutureSquadTab({ coach }: { coach: AgencyCoach }) {
+  const { t } = useLanguage()
   const [squad, setSquad] = useState<SquadPlayer[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -137,7 +140,7 @@ export default function CoachFutureSquadTab({ coach }: { coach: AgencyCoach }) {
         }
       } catch (err) {
         if (!active) return
-        const msg = err instanceof Error ? err.message : 'Error desconocido'
+        const msg = err instanceof Error ? err.message : t('coachFutureSquad.errorDesconocido')
         setLoadError(msg)
       } finally {
         if (active) setLoading(false)
@@ -286,13 +289,13 @@ export default function CoachFutureSquadTab({ coach }: { coach: AgencyCoach }) {
     [squad, bajas],
   )
 
-  if (loading) return <LoadingSpinner message="Cargando plantel a futuro..." />
+  if (loading) return <LoadingSpinner message={t('coachFutureSquad.cargando')} />
 
   if (loadError) {
     return (
       <div className="space-y-4 animate-fade-in">
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/40 rounded-apple-lg p-4">
-          <p className="text-sm font-semibold text-brand-red mb-1">Error cargando plantel a futuro</p>
+          <p className="text-sm font-semibold text-brand-red mb-1">{t('coachFutureSquad.errorCargando')}</p>
           <p className="text-xs text-apple-gray-600 dark:text-apple-gray-400">{loadError}</p>
         </div>
       </div>
@@ -304,7 +307,7 @@ export default function CoachFutureSquadTab({ coach }: { coach: AgencyCoach }) {
       <div className="flex flex-wrap items-center gap-3">
         <div>
           <label className="block text-xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider mb-1">
-            Formación
+            {t('coachFutureSquad.formacion')}
           </label>
           <select
             value={formationType}
@@ -317,18 +320,18 @@ export default function CoachFutureSquadTab({ coach }: { coach: AgencyCoach }) {
           </select>
         </div>
         <p className="hidden lg:block text-2xs text-apple-gray-400 max-w-xs">
-          Arrastrá jugadores del plantel a la cancha o a Bajas planificadas.
+          {t('coachFutureSquad.arrastraHint')}
         </p>
         <div className="flex-1" />
-        {saveStatus === 'error' && <span className="text-xs text-brand-red">Error al guardar</span>}
-        {hasUnsavedChanges && saveStatus === 'idle' && <span className="text-xs text-amber-500">Cambios sin guardar</span>}
+        {saveStatus === 'error' && <span className="text-xs text-brand-red">{t('coachFutureSquad.errorGuardar')}</span>}
+        {hasUnsavedChanges && saveStatus === 'idle' && <span className="text-xs text-amber-500">{t('coachFutureSquad.cambiosSinGuardar')}</span>}
         <button
           type="button"
           onClick={() => void handleSave()}
           disabled={saveStatus === 'saving' || loadError !== null}
           className="min-h-[40px] px-4 rounded-full bg-brand-green text-apple-gray-900 text-sm font-semibold disabled:opacity-50"
         >
-          {saveStatus === 'saving' ? 'Guardando...' : saveStatus === 'saved' ? 'Guardado ✓' : 'Guardar'}
+          {saveStatus === 'saving' ? t('coachFutureSquad.guardando') : saveStatus === 'saved' ? t('coachFutureSquad.guardado') : t('coachFutureSquad.guardar')}
         </button>
       </div>
 
@@ -350,15 +353,15 @@ export default function CoachFutureSquadTab({ coach }: { coach: AgencyCoach }) {
 
         <div className="mt-4 lg:mt-0 lg:w-80 lg:flex-shrink-0 space-y-4">
           <div className="bg-white dark:bg-apple-gray-800/60 rounded-apple-lg border border-apple-gray-200/60 dark:border-apple-gray-700/40 p-3 max-h-[28rem] overflow-y-auto">
-            <h3 className="text-sm font-semibold text-apple-gray-800 dark:text-white px-1.5 mb-2">Plantel</h3>
+            <h3 className="text-sm font-semibold text-apple-gray-800 dark:text-white px-1.5 mb-2">{t('coachFutureSquad.plantel')}</h3>
             {rosterGroups.length === 0 ? (
-              <p className="text-sm text-apple-gray-400 px-1.5 py-4">No hay plantel disponible.</p>
+              <p className="text-sm text-apple-gray-400 px-1.5 py-4">{t('coachFutureSquad.sinPlantel')}</p>
             ) : (
               <div className="space-y-3">
                 {rosterGroups.map(group => (
                   <div key={group.positionKey}>
                     <h4 className="text-2xs font-semibold uppercase tracking-wide text-apple-gray-400 px-1.5 mb-1">
-                      {group.label}
+                      {t(group.labelKey)}
                     </h4>
                     <div className="space-y-0.5">
                       {group.players.map(player => (
@@ -392,12 +395,12 @@ export default function CoachFutureSquadTab({ coach }: { coach: AgencyCoach }) {
               isDragOverBajas ? 'border-red-400 bg-red-50/60 dark:bg-red-900/10' : 'border-apple-gray-200/60 dark:border-apple-gray-700/40'
             }`}
           >
-            <h3 className="text-sm font-semibold text-apple-gray-800 dark:text-white mb-1">Bajas planificadas</h3>
+            <h3 className="text-sm font-semibold text-apple-gray-800 dark:text-white mb-1">{t('coachFutureSquad.bajasPlanificadas')}</h3>
             <p className="text-2xs text-apple-gray-400 mb-3">
-              Arrastrá acá un jugador para sacarlo del plantel (o soltalo fuera de la cancha).
+              {t('coachFutureSquad.bajasHint')}
             </p>
             {bajas.length === 0 ? (
-              <p className="text-sm text-apple-gray-400">Sin bajas planificadas todavía.</p>
+              <p className="text-sm text-apple-gray-400">{t('coachFutureSquad.sinBajas')}</p>
             ) : (
               <div className="space-y-1">
                 {bajas.map(b => (
@@ -410,7 +413,7 @@ export default function CoachFutureSquadTab({ coach }: { coach: AgencyCoach }) {
                       onClick={() => handleRemoveBaja(b.id)}
                       className="text-xs font-semibold text-red-500 flex-shrink-0"
                     >
-                      Quitar
+                      {t('coachFutureSquad.quitar')}
                     </button>
                   </div>
                 ))}

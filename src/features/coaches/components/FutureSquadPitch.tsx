@@ -3,6 +3,7 @@ import { FORMATIONS, FORMATION_SHORT_LABEL_OVERRIDES } from '@/constants/formati
 import type { FutureSquadSlot } from '@/services/futureSquadService'
 import type { CandidateVisuals } from '@/services/coachService'
 import type { SquadPlayer } from '@/services/footballApiService'
+import { useLanguage } from '@/context/LanguageContext'
 
 function initialsOf(name: string): string {
   return name
@@ -33,6 +34,7 @@ export default function FutureSquadPitch({
   onRemoveSlot: (slotKey: string) => void
   onDropSquadPlayer: (slotKey: string, playerId: number) => void
 }) {
+  const { t } = useLanguage()
   const currentFormation = FORMATIONS[formationType] ?? FORMATIONS['4-3-3']
   const [dragOverSlot, setDragOverSlot] = useState<string | null>(null)
 
@@ -136,7 +138,7 @@ export default function FutureSquadPitch({
                 <button
                   type="button"
                   onClick={() => onRemoveSlot(pos.key)}
-                  aria-label={isCandidate ? 'Quitar' : 'Dar de baja'}
+                  aria-label={isCandidate ? t('futureSquadPitch.quitar') : t('futureSquadPitch.darDeBaja')}
                   className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center shadow-md"
                 >
                   <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">

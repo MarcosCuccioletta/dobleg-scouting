@@ -1,19 +1,20 @@
 import type { SquadPlayer } from '@/services/footballApiService'
 
-// Label singular, para el texto chico debajo del nombre de cada jugador.
-export const POSITION_LABEL: Record<string, string> = {
-  Goalkeeper: 'Arquero',
-  Defender: 'Defensor',
-  Midfielder: 'Mediocampista',
-  Attacker: 'Delantero',
+// Label singular (clave de traduccion), para el texto chico debajo del nombre
+// de cada jugador. Se resuelve con t() en el componente, no aca.
+export const POSITION_LABEL_KEY: Record<string, string> = {
+  Goalkeeper: 'squadPosition.arquero',
+  Defender: 'squadPosition.defensor',
+  Midfielder: 'squadPosition.mediocampista',
+  Attacker: 'squadPosition.delantero',
 }
 
-// Label plural, para el encabezado de cada seccion del plantel.
-const SECTION_LABEL: Record<string, string> = {
-  Goalkeeper: 'Arqueros',
-  Defender: 'Defensores',
-  Midfielder: 'Mediocampistas',
-  Attacker: 'Delanteros',
+// Label plural (clave de traduccion), para el encabezado de cada seccion del plantel.
+const SECTION_LABEL_KEY: Record<string, string> = {
+  Goalkeeper: 'squadPosition.arqueros',
+  Defender: 'squadPosition.defensores',
+  Midfielder: 'squadPosition.mediocampistas',
+  Attacker: 'squadPosition.delanteros',
 }
 
 // Orden futbolistico habitual: arqueros, defensores, mediocampistas, delanteros.
@@ -26,11 +27,11 @@ const POSITION_ORDER: Record<string, number> = {
 
 const UNKNOWN_KEY = 'Unknown'
 const UNKNOWN_ORDER = 99
-const UNKNOWN_LABEL = 'Otros'
+const UNKNOWN_LABEL_KEY = 'squadPosition.otros'
 
 export interface SquadPositionGroup {
   positionKey: string
-  label: string
+  labelKey: string
   players: SquadPlayer[]
 }
 
@@ -47,7 +48,7 @@ export function groupSquadByPosition(squad: SquadPlayer[]): SquadPositionGroup[]
     const sorted = [...players].sort((a, b) => (a.number ?? 999) - (b.number ?? 999))
     groups.push({
       positionKey: key,
-      label: SECTION_LABEL[key] ?? UNKNOWN_LABEL,
+      labelKey: SECTION_LABEL_KEY[key] ?? UNKNOWN_LABEL_KEY,
       players: sorted,
     })
   }

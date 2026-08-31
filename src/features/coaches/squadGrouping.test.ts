@@ -42,6 +42,6 @@ describe('groupSquadByPosition', () => {
     ]
     const groups = groupSquadByPosition(squad)
     expect(groups.map(g => g.positionKey)).toEqual(['Attacker', 'Unknown'])
-    expect(groups[1].label).toBe('Otros')
+    expect(groups[1].labelKey).toBe('squadPosition.otros')
   })
 })

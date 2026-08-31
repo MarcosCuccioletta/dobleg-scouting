@@ -4,7 +4,7 @@ import type { PlayerWithScore, Position } from '@/types/scoring'
 import { getScoreColorClass } from '@/components/ui/ScoreBar'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import type { SquadPlayer } from '@/services/footballApiService'
-import { POSITION_LABEL } from '@/features/coaches/squadGrouping'
+import { POSITION_LABEL_KEY } from '@/features/coaches/squadGrouping'
 import {
   POSITION_KEY_API_MAP,
   FORMATION_POSITION_API_OVERRIDES,
@@ -13,6 +13,7 @@ import {
 } from '@/constants/formations'
 import { useCurrency } from '@/context/CurrencyContext'
 import { formatMarketValueInCurrency } from '@/utils/scoring'
+import { useLanguage } from '@/context/LanguageContext'
 
 type PickerTab = 'plantel' | 'sugeridos' | 'buscar'
 
@@ -39,6 +40,7 @@ export default function FutureSquadPlayerPicker({
   onSelectCandidate: (player: PlayerWithScore) => void
   onClose: () => void
 }) {
+  const { t } = useLanguage()
   const { currency, rate } = useCurrency()
   const [activeTab, setActiveTab] = useState<PickerTab>('plantel')
   const [searchQuery, setSearchQuery] = useState('')
@@ -168,7 +170,7 @@ export default function FutureSquadPlayerPicker({
                     : 'text-apple-gray-500 hover:text-apple-gray-700 dark:hover:text-apple-gray-300'
                 }`}
               >
-                {tab === 'plantel' ? 'Plantel' : tab === 'sugeridos' ? 'Sugeridos' : 'Buscar'}
+                {tab === 'plantel' ? t('futureSquadPicker.tabPlantel') : tab === 'sugeridos' ? t('futureSquadPicker.tabSugeridos') : t('futureSquadPicker.tabBuscar')}
               </button>
             ))}
           </div>
@@ -177,7 +179,7 @@ export default function FutureSquadPlayerPicker({
         <div className="p-4 max-h-[60vh] overflow-y-auto flex-1">
           {activeTab === 'plantel' ? (
             availableSquad.length === 0 ? (
-              <p className="text-center text-apple-gray-500 py-8 text-sm">No hay jugadores del plantel disponibles.</p>
+              <p className="text-center text-apple-gray-500 py-8 text-sm">{t('futureSquadPicker.sinPlantel')}</p>
             ) : (
               <div className="space-y-2">
                 {availableSquad.map(p => {
@@ -206,12 +208,12 @@ export default function FutureSquadPlayerPicker({
                           <p className="font-medium text-apple-gray-800 dark:text-white text-sm truncate">{p.name}</p>
                           {isPlacedElsewhere && (
                             <span className="flex-shrink-0 px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-[10px] font-semibold text-amber-600 dark:text-amber-400">
-                              Ya en la cancha
+                              {t('futureSquadPicker.yaEnLaCancha')}
                             </span>
                           )}
                         </div>
                         <p className="text-xs text-apple-gray-500 truncate">
-                          {p.position ? POSITION_LABEL[p.position] ?? p.position : '—'}
+                          {p.position ? (POSITION_LABEL_KEY[p.position] ? t(POSITION_LABEL_KEY[p.position]) : p.position) : '—'}
                           {p.number != null ? ` · #${p.number}` : ''}
                         </p>
                       </div>
@@ -235,7 +237,7 @@ export default function FutureSquadPlayerPicker({
                   onChange={e => setSuggestedLeagueId(e.target.value ? Number(e.target.value) : null)}
                   className="min-h-[32px] rounded-lg border border-apple-gray-200 dark:border-apple-gray-700 bg-white dark:bg-apple-gray-900 px-2 text-2xs text-apple-gray-700 dark:text-apple-gray-300"
                 >
-                  <option value="">Todas las ligas</option>
+                  <option value="">{t('futureSquadPicker.todasLasLigas')}</option>
                   {leagues.map(l => (
                     <option key={l.id} value={l.id}>
                       {l.name}
@@ -247,10 +249,10 @@ export default function FutureSquadPlayerPicker({
                   onChange={e => setSuggestedMaxValue(e.target.value ? Number(e.target.value) : null)}
                   className="min-h-[32px] rounded-lg border border-apple-gray-200 dark:border-apple-gray-700 bg-white dark:bg-apple-gray-900 px-2 text-2xs text-apple-gray-700 dark:text-apple-gray-300"
                 >
-                  <option value="">Cualquier valor</option>
-                  <option value="500000">Hasta {formatMarketValueInCurrency(500_000, currency, rate)}</option>
-                  <option value="1000000">Hasta {formatMarketValueInCurrency(1_000_000, currency, rate)}</option>
-                  <option value="5000000">Hasta {formatMarketValueInCurrency(5_000_000, currency, rate)}</option>
+                  <option value="">{t('futureSquadPicker.cualquierValor')}</option>
+                  <option value="500000">{t('futureSquadPicker.hasta').replace('{value}', formatMarketValueInCurrency(500_000, currency, rate))}</option>
+                  <option value="1000000">{t('futureSquadPicker.hasta').replace('{value}', formatMarketValueInCurrency(1_000_000, currency, rate))}</option>
+                  <option value="5000000">{t('futureSquadPicker.hasta').replace('{value}', formatMarketValueInCurrency(5_000_000, currency, rate))}</option>
                 </select>
                 {suggestedCountries.length > 0 && (
                   <select
@@ -258,7 +260,7 @@ export default function FutureSquadPlayerPicker({
                     onChange={e => setSuggestedCountry(e.target.value || null)}
                     className="min-h-[32px] rounded-lg border border-apple-gray-200 dark:border-apple-gray-700 bg-white dark:bg-apple-gray-900 px-2 text-2xs text-apple-gray-700 dark:text-apple-gray-300"
                   >
-                    <option value="">Cualquier nacionalidad</option>
+                    <option value="">{t('futureSquadPicker.cualquierNacionalidad')}</option>
                     {suggestedCountries.map(c => (
                       <option key={c} value={c}>
                         {c}
@@ -272,7 +274,7 @@ export default function FutureSquadPlayerPicker({
                   <div className="w-6 h-6 border-2 border-brand-green border-t-transparent rounded-full animate-spin" />
                 </div>
               ) : suggestions.length === 0 ? (
-                <p className="text-center text-apple-gray-500 py-8 text-sm">No hay jugadores sugeridos para esta posición.</p>
+                <p className="text-center text-apple-gray-500 py-8 text-sm">{t('futureSquadPicker.sinSugeridos')}</p>
               ) : (
                 <div className="space-y-2">{suggestions.map(renderCandidateCard)}</div>
               )}
@@ -288,7 +290,7 @@ export default function FutureSquadPlayerPicker({
                   type="text"
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
-                  placeholder="Buscar por nombre o equipo..."
+                  placeholder={t('futureSquadPicker.buscarPlaceholder')}
                   className="w-full pl-10 pr-4 py-3 rounded-xl bg-apple-gray-100 dark:bg-apple-gray-700 border border-apple-gray-200 dark:border-apple-gray-600 text-apple-gray-800 dark:text-white placeholder-apple-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-green/50 text-sm"
                 />
               </div>
@@ -297,9 +299,9 @@ export default function FutureSquadPlayerPicker({
                   <div className="w-6 h-6 border-2 border-brand-green border-t-transparent rounded-full animate-spin" />
                 </div>
               ) : debouncedSearch.length < 2 ? (
-                <p className="text-center text-apple-gray-500 py-8 text-sm">Escribí al menos 2 letras para buscar.</p>
+                <p className="text-center text-apple-gray-500 py-8 text-sm">{t('futureSquadPicker.minLetras')}</p>
               ) : searchResults.length === 0 ? (
-                <p className="text-center text-apple-gray-500 py-8 text-sm">No se encontraron jugadores.</p>
+                <p className="text-center text-apple-gray-500 py-8 text-sm">{t('futureSquadPicker.sinResultados')}</p>
               ) : (
                 <div className="space-y-2">{searchResults.map(renderCandidateCard)}</div>
               )}
