@@ -18,6 +18,7 @@
 - Sin `onProgress` de subida — `supabase-js` v2 no expone progreso real de upload (usa `fetch`, no XHR); el estado de subida es binario (subiendo / listo), no un porcentaje.
 - Storage bucket público (mismo modelo que `scout-player-files`/`informes-compartidos`) — la ruta de cada objeto no es adivinable (incluye `bucketId`/`matchId`), así que no hace falta URL firmada.
 - No traducir esta pestaña a los 9 idiomas todavía (fuera de alcance del spec) — sólo se agrega la key en español para que el label de la pestaña no muestre la clave cruda.
+- Convención de testing de este repo: solo los módulos de lógica pura (parser, tagging, stats, geometría) llevan test unitario — mismo criterio que `boardGeometry.ts`/`trainingInsights.ts` (testeados) vs. `TacticalBoardPitch.tsx`/`CoachTrainingDayPanel.tsx` (componentes de UI, sin test propio, verificados por typecheck + prueba manual en Chrome). Las Tasks 6, 9-16 de este plan son componentes de UI y deliberadamente no llevan test unitario — no es un hueco de cobertura, es el patrón ya establecido en el repo.
 
 ---
 
