@@ -114,7 +114,9 @@ export async function deleteBucket(id: number): Promise<{ success: boolean; erro
 export async function listMatches(bucketId: number): Promise<VideoAnalysisMatch[]>
 export async function createMatch(bucketId: number, matchDate: string, opponentName: string | null, instances: ParsedInstance[]): Promise<VideoAnalysisMatch | null>
 export async function deleteMatch(id: number): Promise<{ success: boolean; error?: string }>
-export async function uploadMatchVideo(coachKey: string, bucketId: number, matchId: number, file: File, onProgress?: (pct: number) => void): Promise<{ success: boolean; path?: string; error?: string }>
+export async function uploadMatchVideo(coachKey: string, bucketId: number, matchId: number, file: File): Promise<{ success: boolean; path?: string; error?: string }>
+// Sin onProgress: supabase-js v2 sube con fetch, no expone progreso real de subida.
+// El llamador muestra un estado binario (subiendo/listo), no un porcentaje.
 ```
 
 ## 5. Agregación para gráficos — lógica pura testeada
