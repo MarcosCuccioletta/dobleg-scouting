@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import type { ParsedInstance } from '@/features/coaches/videoAnalysis/parseNacsportXml'
 
 export type BucketKind = 'propio' | 'rival'
 
@@ -65,8 +66,6 @@ export async function deleteBucket(id: number): Promise<{ success: boolean; erro
   }
   return { success: true }
 }
-
-import type { ParsedInstance } from '@/features/coaches/videoAnalysis/parseNacsportXml'
 
 const MAX_VIDEO_BYTES = 500 * 1024 * 1024 // 500MB
 
