@@ -1,4 +1,5 @@
 import { it } from 'vitest'
+import { JSDOM } from 'jsdom'
 
 /**
  * Puente para que los tests de las edge functions corran con `npm test`.
@@ -12,3 +13,10 @@ import { it } from 'vitest'
 ;(globalThis as unknown as { Deno?: unknown }).Deno ??= {
   test: (name: string, fn: () => void | Promise<void>) => it(name, fn),
 }
+
+/**
+ * Proporciona DOMParser globalmente para los tests que parsean XML.
+ * jsdom ya está instalado; simplemente exponemos su DOMParser.
+ */
+const { window } = new JSDOM()
+Object.assign(globalThis, { DOMParser: window.DOMParser })
