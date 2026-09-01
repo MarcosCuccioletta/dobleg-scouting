@@ -688,6 +688,99 @@ git commit -m "refactor(scoring): playerStatsService lee avg_rating/rating en ve
 
 ---
 
+### Task 9.1 (insertada durante ejecución): Motor de Insights de Informes ("Impacto") lee `match_score` — gap real del plan original
+
+**Por qué existe esta tarea:** al revisar la Task 9, se encontró que `src/features/informes/insights/compute.ts`, `src/features/informes/insights/squad.ts`, `src/features/informes/useInformeEnrichment.ts` y `src/features/informes/useInformeInsights.ts` leen `.match_score` extensamente para calcular el bloque "Rendimiento" de la pestaña Impacto de Informes (promedio de partidos, mejor partido, ranking de plantel, gráfico de "Evolución de nivel"). Ninguno de estos archivos estaba en el inventario original del spec/plan. Como `match_score` quedó permanentemente `null` desde que las Tasks 2-3 se deployaron (Task 8), **esta funcionalidad ya está silenciosamente rota en producción** — no es un riesgo a futuro, es un bug ya vivo. Se inserta esta tarea para cerrarlo, en el mismo lugar del plan donde se descubrió (antes de continuar con el resto del barrido frontend).
+
+**Files:**
+- Modify: `src/features/informes/insights/types.ts:49` — renombrar el campo `match_score` a `rating` en `SquadMatchRow` (tipo local de Informes, NO mirrorea una columna real de la base — a diferencia de `PlayerMatchStat`/`SquadStatRow`, acá sí se renombra limpio).
+- Modify: `src/services/playerStatsService.ts` — `SquadStatRow` interface (agregar `rating: number | null`, dejar `match_score` como está — este SÍ mirrorea la columna real) y el `.select()` de `fetchSquadMatchStats` (agregar `rating` a la lista de columnas).
+- Modify: `src/features/informes/useInformeInsights.ts:65,92` — `toPlayerRows`/`toSquadRows` pasan a mapear `rating: m.rating` / `rating: r.rating` en vez de `match_score: m.match_score` / `match_score: r.match_score`.
+- Modify: `src/features/informes/useInformeEnrichment.ts:199-200` — el filtro/map de "Evolución de nivel" pasa de `m.match_score` a `m.rating` (este archivo ya usa `PlayerMatchStat` directo, que ya tiene `.rating` — no hace falta tocar su fuente de datos).
+- Modify: `src/features/informes/insights/compute.ts:222,227,234,238` — `m.match_score` → `m.rating` en las 3 lecturas; recalibrar los cortes de tono `avgScore >= 7 ? 'strong' : avgScore >= 6.3 ? 'neutral' : 'weak'` a `avgScore >= 6.8 ? 'strong' : avgScore >= 6.4 ? 'neutral' : 'weak'` (mismos cortes "bueno"/"regular" que el resto del plan, Global Constraints).
+- Modify: `src/features/informes/insights/squad.ts:96-97` — `r.match_score` → `r.rating`.
+- Modify: `src/features/informes/insights/compute.test.ts` — helpers `mine`/`squadRow` y toda fixture que pase `match_score:` pasan a `rating:` (reemplazo mecánico, mismo criterio que Task 5: el mecanismo no depende del nombre del campo, solo cambia qué campo simula).
+- Modify: `src/features/informes/insights/squad.test.ts` — helper `row` y toda fixture con `match_score:` pasan a `rating:`.
+
+**Interfaces:**
+- Produces: `SquadMatchRow.rating: number | null` (reemplaza a `match_score` en este tipo local). `SquadStatRow.rating: number | null` (nuevo, además de `match_score` que se mantiene).
+- Consumes: `PlayerMatchStat.rating` (ya existe, viene de `fetchPlayerAllMatches`'s `select('*')`), `SquadStatRow.rating` (nuevo, ver arriba).
+
+- [ ] **Step 1:** En `insights/types.ts` línea 49, cambiar `match_score: number | null` por `rating: number | null` dentro de `SquadMatchRow` (heredado por `PlayerMatchRow`).
+
+- [ ] **Step 2:** En `playerStatsService.ts`, agregar `rating: number | null;` a la interfaz `SquadStatRow` (sin sacar `match_score`, que mirrorea la columna real), y en `fetchSquadMatchStats`, agregar `rating` a la lista de columnas del `.select()`:
+
+```ts
+      .select(`
+        player_id, fixture_id, minutes, goals, assists, passes_key,
+        duels_won, duels_total, dribbles_success, dribbles_attempted,
+        rating, match_score, detected_position,
+        player:players(name),
+        fixture:fixtures!inner(date)
+      `)
+```
+
+- [ ] **Step 3:** En `useInformeInsights.ts`, en `toPlayerRows` (línea 65) y `toSquadRows` (línea 92), cambiar `match_score: m.match_score,` / `match_score: r.match_score,` por `rating: m.rating,` / `rating: r.rating,` respectivamente.
+
+- [ ] **Step 4:** En `useInformeEnrichment.ts` líneas 199-200:
+
+```ts
+    const scored = dated
+      .filter(m => m.rating != null)
+      .map(m => ({ date: new Date(m.fixture!.date), score: Math.round((m.rating ?? 0) * 10) / 10 }))
+```
+
+- [ ] **Step 5:** En `insights/compute.ts` líneas 222-238, cambiar las 3 lecturas de `m.match_score` a `m.rating`, y recalibrar los cortes de tono:
+
+```ts
+    const scored = played.filter(m => m.rating != null)
+
+    if (scored.length > 0 && !shortSample) {
+      const values = scored.map(m => m.rating as number)
+      const avgScore = round1(values.reduce((a, b) => a + b, 0) / values.length)
+      const best = Math.max(...values)
+
+      items.push({
+        id: 'rend.promedio',
+        values: { avg: avgScore, matches: scored.length },
+        tone: avgScore >= 6.8 ? 'strong' : avgScore >= 6.4 ? 'neutral' : 'weak',
+      })
+      tiles.push({ id: 'tile.score', render: 'plain', values: { avg: avgScore, matches: scored.length } })
+
+      const bestMatch = scored.find(m => m.rating === best)
+```
+
+- [ ] **Step 6:** En `insights/squad.ts` líneas 96-97:
+
+```ts
+    if (r.rating != null) {
+      cur.scoreSum += r.rating
+      cur.scoreCount++
+    }
+```
+
+- [ ] **Step 7:** En `compute.test.ts` y `squad.test.ts`, reemplazar mecánicamente cada `match_score:` por `rating:` en los helpers de fixture (`mine`, `squadRow`, `row`) y en cada llamada que pase ese campo (son valores de prueba genéricos, no cambia ninguna aserción de negocio — mismo criterio que Task 5).
+
+- [ ] **Step 8:** Actualizar también el comentario stale en `playerStatsService.ts:705` (`// fetchPlayerMatchHistory filtra por posición detectada y por match_score no nulo,`) → `// fetchPlayerMatchHistory filtra por posición detectada y por rating no nulo,` (encontrado durante la revisión de Task 9, describía el comportamiento viejo).
+
+- [ ] **Step 9:** Correr:
+
+```bash
+npx tsc --noEmit
+npx vitest run src/features/informes
+```
+
+Ambos deben quedar limpios — este es el bloque de tests más grande tocado hasta ahora en este plan, prestar atención a cualquier aserción de negocio que dependa del valor numérico de `match_score`/`rating` (deberían seguir pasando porque los valores de fixture no cambian, solo el nombre del campo).
+
+- [ ] **Step 10:** Commit:
+
+```bash
+git add src/features/informes/insights/types.ts src/features/informes/insights/compute.ts src/features/informes/insights/squad.ts src/features/informes/insights/compute.test.ts src/features/informes/insights/squad.test.ts src/features/informes/useInformeInsights.ts src/features/informes/useInformeEnrichment.ts src/services/playerStatsService.ts
+git commit -m "fix(scoring): motor de Insights de Informes lee rating (estaba roto en produccion desde el deploy de match_score=null)"
+```
+
+---
+
 ### Task 10: `scoutPlayersService.ts` — fuente de score de Seguimiento GG
 
 **Files:**
