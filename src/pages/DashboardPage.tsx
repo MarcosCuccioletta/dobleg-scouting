@@ -528,7 +528,7 @@ export default function DashboardPage() {
             {positionScores.map(({ label, avg, count, globalAvg }) => {
               // Normalize globalAvg to match the active scale (positionAverages is 0-100 from CSV, Supabase scores are 1-10)
               const normGlobalAvg = globalAvg !== null && globalAvg > 10 ? globalAvg / 10 : globalAvg
-              const eliteThreshold = 8.0
+              const eliteThreshold = 7.3
               const goodThreshold = 5.5
               const devThreshold = 3.5
               const colorClass =
