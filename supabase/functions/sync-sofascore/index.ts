@@ -14,7 +14,6 @@ import {
 } from '../_shared/sofascore.ts';
 import type { SofascoreLineupPlayer, SofascoreIncident } from '../_shared/sofascore.ts';
 import { mapGridToPosition, parseFormationLines } from '../_shared/position-mapper.ts';
-import { calculateMatchScore } from '../_shared/scoring.ts';
 import type { PlayerMatchRow, Position } from '../_shared/types.ts';
 
 const STATS_BATCH = 5;
@@ -268,12 +267,6 @@ serve(async (req) => {
             await upsertPlayer(supabase, p, teamId);
             allRows.push(mapPlayerStats(p, fixture.id, teamId, position, formation, null, cardMap.get(p.player.id)));
           }
-        }
-
-        // Calculate match scores
-        for (const row of allRows) {
-          const peers = allRows.filter(r => r.player_id !== row.player_id);
-          row.match_score = calculateMatchScore(row, peers);
         }
 
         if (allRows.length > 0) {
