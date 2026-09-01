@@ -1971,11 +1971,11 @@ export default function PlayerDetailPage() {
                               return (
                                 <>
                                   <div className="flex justify-between text-sm">
-                                    <span className="text-apple-gray-500 dark:text-apple-gray-400">Rating</span>
+                                    <span className="text-apple-gray-500 dark:text-apple-gray-400">Rating por partido</span>
                                     <span className="font-semibold text-apple-gray-800 dark:text-white tabular-nums">{isNaN(avgRating) ? '—' : avgRating.toFixed(1)}</span>
                                   </div>
                                   <div className="flex justify-between text-sm">
-                                    <span className="text-apple-gray-500 dark:text-apple-gray-400">Score</span>
+                                    <span className="text-apple-gray-500 dark:text-apple-gray-400">Rating temporada</span>
                                     <span className="font-semibold text-brand-green tabular-nums">{supabaseAvgScore?.toFixed(1) ?? '—'}</span>
                                   </div>
                                   <div className="flex justify-between text-sm">
@@ -2090,7 +2090,7 @@ export default function PlayerDetailPage() {
                           {supabaseAvgScore != null ? (
                             <>
                               <p className="text-3xl font-bold text-brand-green">{supabaseAvgScore.toFixed(1)}<span className="text-lg text-apple-gray-400">/10</span></p>
-                              <p className="text-xs text-apple-gray-400 mt-1">Score · {supabaseMatches.length} partidos</p>
+                              <p className="text-xs text-apple-gray-400 mt-1">Rating · {supabaseMatches.length} partidos</p>
                               {supabasePosAverage && (
                                 <p className={`text-xs mt-2 font-medium ${supabaseAvgScore >= supabasePosAverage ? 'text-emerald-500' : 'text-orange-500'}`}>
                                   {supabaseAvgScore >= supabasePosAverage ? '↑' : '↓'} {Math.abs(supabaseAvgScore - supabasePosAverage).toFixed(1)} vs promedio
