@@ -46,7 +46,7 @@ export interface SquadMatchRow {
   duels_total: number
   dribbles_success: number
   dribbles_attempted: number
-  match_score: number | null
+  rating: number | null
   detected_position: string | null
 }
 

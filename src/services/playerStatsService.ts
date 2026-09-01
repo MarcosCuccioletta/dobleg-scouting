@@ -702,7 +702,7 @@ export async function resolvePreferredPlayerId(playerId: number): Promise<number
 }
 
 // ── Informes / pestaña Impacto ────────────────────────────────────────────────
-// fetchPlayerMatchHistory filtra por posición detectada y por match_score no nulo,
+// fetchPlayerMatchHistory filtra por posición detectada y por rating no nulo,
 // lo que subcuenta partidos. Para contar continuidad hacen falta todas las filas.
 
 export async function fetchPlayerAllMatches(playerId: number): Promise<PlayerMatchStat[]> {
@@ -763,6 +763,7 @@ export interface SquadStatRow {
   dribbles_success: number;
   dribbles_attempted: number;
   match_score: number | null;
+  rating: number | null;
   detected_position: string | null;
   fixture_id: number;
   player?: { name: string } | null;
@@ -787,7 +788,7 @@ export async function fetchSquadMatchStats(
       .select(`
         player_id, fixture_id, minutes, goals, assists, passes_key,
         duels_won, duels_total, dribbles_success, dribbles_attempted,
-        match_score, detected_position,
+        rating, match_score, detected_position,
         player:players(name),
         fixture:fixtures!inner(date)
       `)

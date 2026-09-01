@@ -14,7 +14,7 @@ function mine(fixtureId: number, date: string, p: Partial<PlayerMatchRow> = {}):
   return {
     player_id: PLAYER, player_name: 'Protagonista', fixture_id: fixtureId, date,
     minutes: 90, goals: 0, assists: 0, passes_key: 0, duels_won: 0, duels_total: 0,
-    dribbles_success: 0, dribbles_attempted: 0, match_score: 7, detected_position: 'VI',
+    dribbles_success: 0, dribbles_attempted: 0, rating: 7, detected_position: 'VI',
     is_substitute: false, team_id: TEAM, home_team_id: TEAM, away_team_id: RIVAL,
     score_home: 1, score_away: 0, ...p,
   }
@@ -24,7 +24,7 @@ function squadRow(playerId: number, fixtureId: number, p: Partial<SquadMatchRow>
   return {
     player_id: playerId, player_name: `P${playerId}`, fixture_id: fixtureId, date: '2026-02-01T00:00:00Z',
     minutes: 90, goals: 0, assists: 0, passes_key: 0, duels_won: 0, duels_total: 0,
-    dribbles_success: 0, dribbles_attempted: 0, match_score: 6.5, detected_position: 'EXT', ...p,
+    dribbles_success: 0, dribbles_attempted: 0, rating: 6.5, detected_position: 'EXT', ...p,
   }
 }
 
@@ -161,7 +161,7 @@ describe('computeInsights — peso ofensivo', () => {
 describe('computeInsights — muestra corta', () => {
   function shortInput(blocks: InsightsInput['blocks']) {
     const input = baseInput({ blocks, percentile: 78 })
-    input.playerMatches = [mine(1, '2026-02-01T00:00:00Z', { match_score: 9 })]
+    input.playerMatches = [mine(1, '2026-02-01T00:00:00Z', { rating: 9 })]
     return input
   }
 
@@ -206,12 +206,12 @@ describe('computeInsights — lugar en el plantel', () => {
     const input = baseInput({ blocks: ['plantel'] })
     // Protagonista: 3 asistencias de 5 del equipo, 20 pases clave de 50.
     input.squadRows = [
-      squadRow(PLAYER, 1, { assists: 2, passes_key: 10, minutes: 90, duels_won: 6, duels_total: 10, match_score: 7.5 }),
-      squadRow(PLAYER, 2, { assists: 1, passes_key: 10, minutes: 90, duels_won: 6, duels_total: 10, match_score: 7.5 }),
-      squadRow(PLAYER, 3, { passes_key: 0, minutes: 300, duels_won: 0, duels_total: 0, match_score: 7.5 }),
-      squadRow(2, 1, { assists: 2, passes_key: 20, minutes: 480, match_score: 6.0 }),
-      squadRow(3, 1, { passes_key: 10, minutes: 480, match_score: 6.0 }),
-      squadRow(4, 1, { minutes: 90, match_score: 9.9 }),
+      squadRow(PLAYER, 1, { assists: 2, passes_key: 10, minutes: 90, duels_won: 6, duels_total: 10, rating: 7.5 }),
+      squadRow(PLAYER, 2, { assists: 1, passes_key: 10, minutes: 90, duels_won: 6, duels_total: 10, rating: 7.5 }),
+      squadRow(PLAYER, 3, { passes_key: 0, minutes: 300, duels_won: 0, duels_total: 0, rating: 7.5 }),
+      squadRow(2, 1, { assists: 2, passes_key: 20, minutes: 480, rating: 6.0 }),
+      squadRow(3, 1, { passes_key: 10, minutes: 480, rating: 6.0 }),
+      squadRow(4, 1, { minutes: 90, rating: 9.9 }),
     ]
     input.minMinutes = 400
     return input
@@ -246,10 +246,10 @@ describe('computeInsights — rendimiento', () => {
   function rendInput() {
     const input = baseInput({ blocks: ['rendimiento'], percentile: 82 })
     input.playerMatches = [
-      mine(1, '2026-02-01T00:00:00Z', { match_score: 6.0 }),
-      mine(2, '2026-02-08T00:00:00Z', { match_score: 6.0 }),
-      mine(3, '2026-02-15T00:00:00Z', { match_score: 7.0 }),
-      mine(4, '2026-02-22T00:00:00Z', { match_score: 8.0 }),
+      mine(1, '2026-02-01T00:00:00Z', { rating: 6.0 }),
+      mine(2, '2026-02-08T00:00:00Z', { rating: 6.0 }),
+      mine(3, '2026-02-15T00:00:00Z', { rating: 7.0 }),
+      mine(4, '2026-02-22T00:00:00Z', { rating: 8.0 }),
     ]
     return input
   }
@@ -267,7 +267,7 @@ describe('computeInsights — rendimiento', () => {
 
   it('llama sostenido a una diferencia menor a 0,3', () => {
     const input = rendInput()
-    input.playerMatches = input.playerMatches.map(m => ({ ...m, match_score: 7 }))
+    input.playerMatches = input.playerMatches.map(m => ({ ...m, rating: 7 }))
     const res = computeInsights(input)
     expect(itemById(res, 'rend.tendencia')!.values.direction).toBe('flat')
   })
