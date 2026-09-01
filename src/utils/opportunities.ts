@@ -13,21 +13,31 @@ export function marketTagsFor(
   return tags
 }
 
+// `new Date("YYYY-MM-DD")` ancla la fecha a medianoche UTC; leerla despues con
+// getters locales (getFullYear/getMonth/getDate) corre el dia para atras en
+// cualquier huso horario detras de UTC (ej. Argentina, UTC-3) -- estas fechas
+// son solo calendario (sin hora), asi que se parsean los componentes
+// directamente del string en vez de pasar por un objeto Date con zona horaria.
+function parseCalendarDate(date: string): { year: number; month: number; day: number } {
+  const [year, month, day] = date.split('-').map(Number)
+  return { year, month: month - 1, day }
+}
+
 export function ageFromBirthDate(birth_date: string | null): number | null {
   if (!birth_date) return null
-  const b = new Date(birth_date)
+  const b = parseCalendarDate(birth_date)
   const now = new Date()
-  let age = now.getFullYear() - b.getFullYear()
-  const m = now.getMonth() - b.getMonth()
-  if (m < 0 || (m === 0 && now.getDate() < b.getDate())) age--
+  let age = now.getFullYear() - b.year
+  const m = now.getMonth() - b.month
+  if (m < 0 || (m === 0 && now.getDate() < b.day)) age--
   return age
 }
 
 export function monthsToContractEnd(date: string | null): number | null {
   if (!date) return null
-  const end = new Date(date)
+  const end = parseCalendarDate(date)
   const now = new Date()
-  return (end.getFullYear() - now.getFullYear()) * 12 + (end.getMonth() - now.getMonth())
+  return (end.year - now.getFullYear()) * 12 + (end.month - now.getMonth())
 }
 
 // El boost original (1.5) era ~15% del spread nominal ~1-9 que usaba Score GG.
