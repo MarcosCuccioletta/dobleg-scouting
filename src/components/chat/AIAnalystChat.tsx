@@ -33,7 +33,7 @@ interface SuggestedQuestion {
 const SUGGESTED_QUESTIONS: SuggestedQuestion[] = [
   { text: '¿Cómo busco un jugador?', category: 'help' },
   { text: '¿Cómo veo las métricas de un jugador?', category: 'help' },
-  { text: '¿Qué es el Score GG?', category: 'help' },
+  { text: '¿Qué es el Rating?', category: 'help' },
   { text: 'Busco un 9 goleador sub-23', category: 'search' },
   { text: '¿Cómo comparo dos jugadores?', category: 'help' },
   { text: 'Extremo gambeteador de Argentina', category: 'search' },
@@ -60,19 +60,15 @@ const HELP_RESPONSES: Record<string, string> = {
 
 💡 **Tip:** Pasá el mouse sobre el radar para ver los valores exactos.`,
 
-  'score_gg': `**¿Qué es el Score GG?**
+  'score_gg': `**¿Qué es el Rating?**
 
-El **Score GG** es una puntuación de 0-100 que calcula el rendimiento general del jugador según su posición.
+El **Rating** es el promedio de calificación por partido que calculan Sofascore/API-Football, en escala 1-10. Es el mismo dato que usan esas plataformas — la agencia no le aplica ninguna fórmula propia encima.
 
-📊 **Cómo se calcula:**
-- Compara las métricas clave del jugador vs otros de su posición
-- Cada posición tiene métricas diferentes (ej: goles para delanteros, duelos para defensores)
-
-🏷️ **Rangos:**
-- **80+** = Elite (top del ranking)
-- **55-79** = Buen nivel
-- **35-54** = Regular
-- **<35** = Por debajo del promedio`,
+🏷️ **Rangos de referencia:**
+- **7.3+** = Elite
+- **6.8-7.2** = Buen nivel
+- **6.4-6.7** = Regular
+- **<6.4** = Por debajo del promedio`,
 
   'comparar': `**¿Cómo comparar dos jugadores?**
 
@@ -136,7 +132,7 @@ Podés exportar fichas de jugadores a **PDF**:
 Puedo ayudarte con:
 
 🔍 **Buscar jugadores** - Decime qué perfil buscás
-📊 **Explicarte métricas** - Score GG, radar, percentiles
+📊 **Explicarte métricas** - Rating, radar, percentiles
 🧭 **Navegar la app** - Cómo usar cada sección
 📋 **Comparar jugadores** - Cómo funciona
 
@@ -164,7 +160,7 @@ function detectHelpIntent(message: string): string | null {
     return 'metricas'
   }
 
-  // Score GG
+  // Rating
   if (msg.includes('score') || msg.includes('gg') || msg.includes('puntuación') || msg.includes('puntaje') ||
       msg.includes('puntuacion')) {
     return 'score_gg'
@@ -343,7 +339,7 @@ function searchPlayers(players: EnrichedPlayer[], criteria: SearchCriteria): Enr
 
   // Filter by score
   if (criteria.minScore) {
-    results = results.filter(p => (p.ggScore ?? 0) >= criteria.minScore!)
+    results = results.filter(p => (p.rating ?? 0) >= criteria.minScore!)
   }
 
   // Score and sort by metrics
@@ -359,8 +355,8 @@ function searchPlayers(players: EnrichedPlayer[], criteria: SearchCriteria): Enr
       return { ...p, _metricScore: metricScore }
     }).sort((a, b) => (b as any)._metricScore - (a as any)._metricScore)
   } else {
-    // Sort by ggScore if no specific metrics
-    results = results.sort((a, b) => (b.ggScore ?? 0) - (a.ggScore ?? 0))
+    // Sort by rating if no specific metrics
+    results = results.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0))
   }
 
   return results.slice(0, 8)
@@ -419,15 +415,15 @@ function generateResponse(criteria: SearchCriteria, results: EnrichedPlayer[]): 
     response += `El #1 es quien mejor combina esas características.\n\n`
   } else if (criteria.minScore) {
     response += `📊 **¿Por qué este orden?**\n`
-    response += `Filtré jugadores con Score GG ${criteria.minScore}+ y los ordené del mejor al peor.\n`
-    response += `El Score GG considera todas las métricas importantes de su posición.\n\n`
+    response += `Filtré jugadores con Rating ${criteria.minScore}+ y los ordené del mejor al peor.\n`
+    response += `El Rating es el promedio de calificación del proveedor de datos (Sofascore/API-Football) en la temporada.\n\n`
   } else {
-    response += `📊 **Ordenados por Score GG**\n`
-    response += `El Score evalúa el rendimiento general considerando las métricas clave de cada posición.\n\n`
+    response += `📊 **Ordenados por Rating**\n`
+    response += `El Rating es el promedio de calificación por partido que calculan Sofascore/API-Football en la temporada.\n\n`
   }
 
   // Add score legend for context
-  response += '🏷️ **Score:** 80+ elite · 55-79 bueno · 35-54 regular\n\n'
+  response += '🏷️ **Rating:** 7.3+ elite · 6.8-7.2 bueno · 6.4-6.7 regular\n\n'
   response += '👆 Tocá cualquier jugador para ver su ficha completa.'
 
   return response
@@ -454,7 +450,7 @@ export default function AIAnalystChat() {
     {
       id: '1',
       role: 'assistant',
-      content: '¡Hola! Soy tu **asistente de la plataforma Scout**.\n\nPuedo ayudarte a:\n🔍 **Buscar jugadores** según perfil específico\n🧭 **Navegar la app** y usar cada función\n📊 **Entender métricas** como Score GG, radar, etc.\n\n**¿En qué te puedo ayudar?**'
+      content: '¡Hola! Soy tu **asistente de la plataforma Scout**.\n\nPuedo ayudarte a:\n🔍 **Buscar jugadores** según perfil específico\n🧭 **Navegar la app** y usar cada función\n📊 **Entender métricas** como Rating, radar, etc.\n\n**¿En qué te puedo ayudar?**'
     }
   ])
   const [showSuggestions, setShowSuggestions] = useState(true)

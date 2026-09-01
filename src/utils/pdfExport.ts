@@ -80,18 +80,20 @@ const LIGHT_COLORS: ColorPalette = {
 // Legacy alias for backwards compatibility
 const C = DARK_COLORS
 
-// Cortes sobre el Score GG (1-10).
+// Cortes sobre el Rating (1-10), calibrados sobre la distribución real
+// (Sofascore/API-Football, comprimida entre ~5.7 y ~8.6) — mismo criterio que
+// ScoreBar.tsx/GaugeScore.tsx (7.3/6.8/6.4/6.0).
 function scoreColor(s: number, colors: ColorPalette): RGB {
-  if (s >= 7) return colors.brand
-  if (s >= 5) return colors.yellow
-  if (s >= 3) return colors.orange
+  if (s >= 7.3) return colors.brand
+  if (s >= 6.8) return colors.yellow
+  if (s >= 6.4) return colors.orange
   return colors.red
 }
 
 function scoreLabel(s: number): string {
-  if (s >= 7) return 'EXCELENTE'
-  if (s >= 5) return 'BUENO'
-  if (s >= 3) return 'REGULAR'
+  if (s >= 7.3) return 'EXCELENTE'
+  if (s >= 6.8) return 'BUENO'
+  if (s >= 6.4) return 'REGULAR'
   return 'BAJO'
 }
 
@@ -648,7 +650,7 @@ export async function exportPlayerToPdfFull(data: FullExportData): Promise<void>
 
   if (sections.includes('header') || sections.includes('general')) {
     pdf.playerInfo(player)
-    pdf.scoreGauge(player.ggScore, positionAverageScore)
+    pdf.scoreGauge(player.rating, positionAverageScore)
 
     if (subjectiveGroups && subjectiveGroups.length > 0 && sections.includes('scout')) {
       pdf.scoutEval(subjectiveGroups)
