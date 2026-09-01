@@ -192,6 +192,22 @@ def extract_birth_date(profile):
     return None
 
 
+def implies_implausible_age(birth_date_str):
+    # Edad imposible para un jugador activo -> el match probablemente cayó en
+    # un homónimo (nombre común, primer resultado de búsqueda). Ver
+    # saneamiento de datos: ~390 casos históricos de este patrón (ej. 4 "Juan
+    # García" distintos, los 4 matcheados al mismo Juan García de 1921). Un
+    # MIN_AUTO_MATCH_SCORE alto no alcanza solo -- el nombre puede scorear
+    # bien y aun así ser la persona equivocada. Mismo criterio que
+    # supabase/functions/enrich-player/index.ts -- mantener en sync.
+    try:
+        dob = datetime.strptime(birth_date_str[:10], "%Y-%m-%d")
+    except ValueError:
+        return False
+    age_years = (datetime.now() - dob).days / 365.25
+    return age_years < 14 or age_years > 45
+
+
 def extract_contract_end(profile):
     attrs = profile.get("attributes", {})
     val = attrs.get("contractUntil") or profile.get("contractEndDate") or profile.get("contractExpiryDate")
@@ -241,6 +257,16 @@ def build_tm_url(profile, tm_id):
     return f"https://www.transfermarkt.com/{name_slug}/profil/spieler/{tm_id}"
 
 
+# Piso de confianza para aceptar un match automático SIN revisión humana.
+# 10 = nombre exacto normalizado. 8 = apellido + inicial del nombre + club
+# confirmado (5+2+3 nunca sin el bonus de club). Cualquier cosa por debajo
+# —apellido solo, o apellido+inicial sin club— NO se acepta automático: mejor
+# dejar `transfermarkt_id` sin poner que adivinar mal (ver auditoría de
+# saneamiento de datos: 107 grupos con el mismo transfermarkt_id en nombres
+# incompatibles, todos por debajo de este piso).
+MIN_AUTO_MATCH_SCORE = 8
+
+
 def match_player(results, player_name, team_name=None):
     target = norm(player_name)
     target_parts = target.split()
@@ -275,6 +301,8 @@ def match_player(results, player_name, team_name=None):
             best_score = score
             best = r
 
+    if best_score < MIN_AUTO_MATCH_SCORE:
+        return None
     return best
 
 
@@ -340,12 +368,12 @@ def main():
             time.sleep(DELAY_MS / 2000)
             continue
 
-        # Search TM website HTML
+        # Search TM website HTML. Antes reintentaba buscando solo por
+        # apellido si el nombre completo no daba resultados — eso ensanchaba
+        # la red justo en los casos más difíciles de confirmar (ver
+        # MIN_AUTO_MATCH_SCORE). Sin resultados por nombre completo, mejor no
+        # encontrar nada que adivinar por apellido solo.
         results = search_tm_html(name)
-        if not results:
-            parts = name.split()
-            if len(parts) > 1:
-                results = search_tm_html(parts[-1])
 
         matched = match_player(results, name, team_name) if results else None
 
@@ -362,6 +390,14 @@ def main():
         # Fetch profile for contract + agent
         profile = tm_profile(tm_id)
 
+        if profile:
+            fresh_birth_date = extract_birth_date(profile)
+            if fresh_birth_date and implies_implausible_age(fresh_birth_date):
+                print(f"rejected: edad imposible ({fresh_birth_date}), probable homonimo")
+                stats["not_found"] += 1
+                time.sleep(DELAY_MS / 1000)
+                continue
+
         update = {"transfermarkt_id": tm_id}
 
         if profile:
@@ -375,7 +411,10 @@ def main():
             if agent:
                 update["agent"] = agent
             birth_date = extract_birth_date(profile)
-            if birth_date:
+            # Nunca pisar un birth_date que ya vino de API-Football/Sofascore: esas
+            # fuentes son mucho más confiables que un match por nombre en Transfermarkt
+            # (apellidos comunes hacen que a veces enganche el perfil de otra persona).
+            if birth_date and not player.get("birth_date"):
                 update["birth_date"] = birth_date
             update["transfermarkt_url"] = build_tm_url(profile, tm_id)
         else:

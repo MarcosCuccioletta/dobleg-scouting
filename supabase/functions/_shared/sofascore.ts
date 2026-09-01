@@ -170,3 +170,32 @@ export function sofascoreTeamLogo(rawId: number): string {
 export function sofascorePlayerPhoto(rawId: number): string {
   return `https://api.sofascore.com/api/v1/player/${rawId}/image`;
 }
+
+export function sofascoreRawId(id: number): number { return id - ID_OFFSET; }
+
+/**
+ * Perfil completo de un jugador — a diferencia de lo que trae una alineación
+ * (liviano), este endpoint sí incluye la nacionalidad (`country.name`). Se
+ * usa para llenar ese campo desde la fuente propia del jugador — nunca se
+ * infiere por nombre/club (ver saneamiento de datos). `rawId` es el id
+ * nativo de Sofascore, sin el offset de `players.id`.
+ *
+ * OJO: `sofascoreFetch` acá arriba usa `fetch` nativo de Deno — Sofascore
+ * bloquea eso (exige impersonar el fingerprint TLS de un browser real,
+ * `curl_cffi`). Esta función SIRVE si algún día corre en un contexto que sí
+ * pueda impersonar (o si Sofascore deja de bloquear `fetch` simple) — hoy no
+ * se llama desde ninguna función edge por eso mismo. El backfill real de
+ * nacionalidad para jugadores de Sofascore es un script Python local (mismo
+ * motivo por el que `scripts/sync-sofascore/sync.py` corre local y no acá).
+ */
+export async function fetchPlayerProfile(rawId: number) {
+  const data = await sofascoreFetch<{ player?: { country?: { name?: string }; dateOfBirthTimestamp?: number } }>(`/player/${rawId}`);
+  const p = data?.player;
+  if (!p) return null;
+  return {
+    nationality: p.country?.name ?? null,
+    birthDate: p.dateOfBirthTimestamp
+      ? new Date(p.dateOfBirthTimestamp * 1000).toISOString().slice(0, 10)
+      : null,
+  };
+}

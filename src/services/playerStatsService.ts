@@ -343,21 +343,41 @@ export interface ScoreLookupRow {
   percentile: number | null;
   matches_played: number;
   season: number;
+  /**
+   * Si `transfermarkt_id` está VALIDADO (mismo nombre normalizado + misma
+   * fecha de nacimiento contra las demás filas que comparten ese id — ver
+   * `player_identities`/`player_external_ids`, `confidence='confirmed'`, del
+   * saneamiento de datos). Default `true` cuando no se especifica —
+   * compatibilidad con los tests existentes, que ya representan casos reales
+   * confirmados (Paradela, Vera, etc.). En producción `fetchScoreLookup`
+   * SIEMPRE lo calcula explícito, nunca queda "sin especificar".
+   *
+   * La auditoría de saneamiento encontró 103 grupos donde el mismo
+   * `transfermarkt_id` está mal asignado a dos personas reales distintas
+   * (match automático de Transfermarkt sin piso de confianza suficiente —
+   * ver `enrich.py`/`enrich-player`). Antes de este campo, esos 103 casos se
+   * fusionaban en vivo acá mismo: dos jugadores distintos terminaban
+   * mostrando un solo score mezclado en ficha/dashboard/comparación.
+   */
+  transfermarkt_id_confirmed?: boolean;
 }
 
 /**
  * Identidad real de la persona, no de la fila: mismo criterio que `dedupePlayers()`
- * en Informes (transfermarkt_id si lo tiene — matcheado por nombre+club+edad contra
- * Transfermarkt — si no, nombre + fecha de nacimiento). Dos filas con el mismo id de
- * Transfermarkt SIEMPRE son la misma persona (API-Football y Sofascore duplicando al
- * mismo jugador, o un fragmento de 1 partido detectado en otra posición). Sin ninguno
- * de los dos datos, cada fila queda como su propia identidad — no se fusiona a ciegas
- * sólo por compartir nombre.
+ * en Informes (transfermarkt_id si lo tiene y está confirmado — ver
+ * `transfermarkt_id_confirmed` — si no, nombre + fecha de nacimiento). Dos filas con
+ * el mismo id de Transfermarkt CONFIRMADO son la misma persona (API-Football y
+ * Sofascore duplicando al mismo jugador, o un fragmento de 1 partido detectado en
+ * otra posición). Un transfermarkt_id sin confirmar NUNCA se usa para agrupar — mejor
+ * tratar dos filas como personas distintas por error que fusionar dos personas reales
+ * distintas por error (ver nota en `transfermarkt_id_confirmed`). Sin ninguno de los
+ * dos datos, cada fila queda como su propia identidad — no se fusiona a ciegas sólo
+ * por compartir nombre.
  */
 function identityKey(row: ScoreLookupRow): string {
   const norm = (s: string) =>
     s.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-  if (row.transfermarkt_id) return `tm:${row.transfermarkt_id}`;
+  if (row.transfermarkt_id && row.transfermarkt_id_confirmed !== false) return `tm:${row.transfermarkt_id}`;
   if (row.birth_date) return `nb:${norm(row.name)}|${row.birth_date}`;
   return `row:${row.player_id}`;
 }
@@ -486,6 +506,22 @@ export function buildScoreLookup(
   return map;
 }
 
+/**
+ * IDs de Transfermarkt validados por nombre+fecha de nacimiento (ver
+ * `player_identities`, `confidence='confirmed'`, del saneamiento de datos) —
+ * usar para no confiar en un `transfermarkt_id` compartido por error entre
+ * dos personas reales distintas (107 casos detectados en la auditoría).
+ * Compartido entre `fetchScoreLookup` y `dedupePlayers` (Informes).
+ */
+export async function fetchConfirmedTransfermarktIds(): Promise<Set<number>> {
+  const { data } = await supabase
+    .from('player_external_ids')
+    .select('external_id, player_identity:player_identities!inner(confidence)')
+    .eq('source', 'transfermarkt')
+    .eq('player_identity.confidence', 'confirmed');
+  return new Set((data ?? []).map((r: any) => r.external_id as number));
+}
+
 export async function fetchScoreLookup(
   season?: number
 ): Promise<Map<string, ScoreLookupEntry>> {
@@ -513,20 +549,26 @@ export async function fetchScoreLookup(
     from += PAGE_SIZE;
   }
 
-  const rows: ScoreLookupRow[] = allRows.map(row => ({
-    player_id: row.player_id,
-    name: (row as any).player?.name as string,
-    current_team_id: ((row as any).player?.current_team_id as number | null) ?? null,
-    transfermarkt_id: ((row as any).player?.transfermarkt_id as number | null) ?? null,
-    birth_date: ((row as any).player?.birth_date as string | null) ?? null,
-    team_name: ((row as any).player?.team?.name as string | null) ?? null,
-    team_logo: ((row as any).player?.team?.logo as string | null) ?? null,
-    score: row.avg_score,
-    position: row.position as Position,
-    percentile: row.percentile,
-    matches_played: row.matches_played,
-    season: row.season,
-  }));
+  const confirmedTmIds = await fetchConfirmedTransfermarktIds();
+
+  const rows: ScoreLookupRow[] = allRows.map(row => {
+    const tmId = ((row as any).player?.transfermarkt_id as number | null) ?? null;
+    return {
+      player_id: row.player_id,
+      name: (row as any).player?.name as string,
+      current_team_id: ((row as any).player?.current_team_id as number | null) ?? null,
+      transfermarkt_id: tmId,
+      transfermarkt_id_confirmed: tmId != null ? confirmedTmIds.has(tmId) : undefined,
+      birth_date: ((row as any).player?.birth_date as string | null) ?? null,
+      team_name: ((row as any).player?.team?.name as string | null) ?? null,
+      team_logo: ((row as any).player?.team?.logo as string | null) ?? null,
+      score: row.avg_score,
+      position: row.position as Position,
+      percentile: row.percentile,
+      matches_played: row.matches_played,
+      season: row.season,
+    };
+  });
 
   const { AGENCY_PLAYERS } = await import('@/constants/agencyPlayers');
   return buildScoreLookup(rows, AGENCY_PLAYERS);

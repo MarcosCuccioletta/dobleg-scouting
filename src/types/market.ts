@@ -28,11 +28,19 @@ export interface ClubNeed {
   updated_at: string
 }
 
+/** Una persona de contacto en un club — no siempre es "el" director
+ * deportivo, puede ser cualquiera que atienda la negociación. `role` es
+ * libre (cargo) y opcional. */
+export interface ClubContact {
+  name: string
+  role: string | null
+}
+
 /**
- * Una negociacion real tiene hasta 3 personas distintas de un lado y otro:
- * el representante del jugador (agente, no es de la agencia), el director
- * deportivo del club ACTUAL del jugador (para sacarlo) y el del club al que
- * se lo quiere llevar (para meterlo, `team_id`/`team_name`/`team_logo`).
+ * Una negociacion real tiene contactos de ambos lados del club (el actual,
+ * para sacarlo, y el destino, para meterlo — `team_id`/`team_name`/`team_logo`)
+ * y a veces un representante externo del jugador, cuando el jugador no es
+ * de la propia agencia (`belongs_to_agency`).
  *
  * Ambos clubes son opcionales, no solo el actual: `team_id` null representa
  * "el objetivo es dejarlo libre" (sin destino puntual todavia), y
@@ -50,10 +58,20 @@ export interface Negotiation {
   player_name: string
   player_api_id: number | null
   player_source: 'interno' | 'externo' | null
+  /** Posición del jugador ofrecido — se usa para enganchar (o crear) la
+   * búsqueda de club correspondiente. Ver [[market_negotiation_need_link]]. */
+  position_label: string | null
+  /** Búsqueda de club a la que quedó vinculada esta negociación, si el club
+   * destino tiene una (se crea sola si no existía). Null si no hay club
+   * destino o no se pudo determinar la posición del jugador. */
+  need_id: number | null
+  /** Si el jugador es de la propia agencia (Doble G lo representa
+   * directamente) o si hay un representante externo (`agent_name`).
+   * Null en negociaciones viejas, cargadas antes de que se preguntara esto. */
+  belongs_to_agency: boolean | null
   agent_name: string | null
-  target_club_contact_name: string | null
-  target_club_contact_role: string | null
-  current_club_contact_name: string | null
+  target_club_contacts: ClubContact[]
+  current_club_contacts: ClubContact[]
   status: NegotiationStatus
   assigned_to_id: number | null
   assigned_to_name: string | null
@@ -88,6 +106,9 @@ export interface NeedCandidate {
   player_api_id: number | null
   player_source: 'interno' | 'externo' | null
   status: CandidateStatus
+  /** Negociación de la que salió este candidato, si vino de ahí (en vez de
+   * haberse agregado a mano directo en la búsqueda). */
+  negotiation_id: number | null
   added_by_id: string | null
   added_by_name: string | null
   created_at: string

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import MobileSheet from '@/components/ui/MobileSheet'
 import TeamSearchSelect from './TeamSearchSelect'
 import AssigneeSelect from './AssigneeSelect'
-import { createClubNeed } from '@/services/marketService'
+import { createClubNeed, MARKET_POSITION_OPTIONS } from '@/services/marketService'
 import { isValidFollowupDate } from '@/utils/marketAlerts'
 import { useAuth } from '@/context/AuthContext'
 import { useLanguage } from '@/context/LanguageContext'
@@ -68,21 +68,24 @@ export default function NewNeedForm({ open, onClose, onCreated }: { open: boolea
     <MobileSheet open={open} onClose={onClose} title={t('mercado.nuevoObjetivo')}>
       <div className="space-y-4 p-4">
         <div>
-          <label className="block text-xs font-medium text-apple-gray-500 mb-1.5">{t('mercado.club')}</label>
+          <label className="block text-xs font-medium text-apple-gray-500 mb-1.5">{t('mercado.club')} *</label>
           <TeamSearchSelect value={team} onChange={setTeam} />
         </div>
         <div>
-          <label className="block text-xs font-medium text-apple-gray-500 mb-1.5">{t('mercado.queBusca')}</label>
-          <input
-            type="text"
+          <label className="block text-xs font-medium text-apple-gray-500 mb-1.5">{t('mercado.queBusca')} *</label>
+          <select
             value={positionLabel}
             onChange={e => setPositionLabel(e.target.value)}
-            placeholder={t('mercado.posicionPlaceholder')}
             className="input-apple text-sm w-full"
-          />
+          >
+            <option value="" disabled>{t('mercado.posicionSinEspecificar')}</option>
+            {MARKET_POSITION_OPTIONS.map(p => (
+              <option key={p} value={p}>{p}</option>
+            ))}
+          </select>
         </div>
         <div>
-          <label className="block text-xs font-medium text-apple-gray-500 mb-1.5">{t('mercado.responsable')}</label>
+          <label className="block text-xs font-medium text-apple-gray-500 mb-1.5">{t('mercado.responsableBusqueda')}</label>
           <AssigneeSelect value={assigneeId} onChange={(id, name) => { setAssigneeId(id); setAssigneeName(name) }} />
         </div>
         <div>

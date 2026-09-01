@@ -14,12 +14,13 @@ import {
 } from '@/services/scoutPlayersService'
 import AddPlayerModal from '@/components/tracking/AddPlayerModal'
 import LinkPlayerModal from '@/components/tracking/LinkPlayerModal'
+import LinkClubModal from '@/components/tracking/LinkClubModal'
 import FichaManualModal from '@/components/tracking/FichaManualModal'
+import { PlayerPhoto, TeamLogo } from '@/components/ui/PlayerPhoto'
+import { isMarketLinkAdmin } from '@/services/marketService'
 import type { ScoutPlayer, ScoutPlayerStatusRecord, TrackingStatus, EnrichedPlayer } from '@/types'
 import { fuzzyMatch } from '@/lib/search'
 import { useLanguage } from '@/context/LanguageContext'
-
-const ADMIN_EMAIL = 'marcoscucho99@gmail.com'
 
 // ─── STATUS CONFIG ────────────────────────────────────────────────────────────
 
@@ -27,7 +28,19 @@ const TRACKING_STATUS_CONFIG: Record<TrackingStatus, { labelKey: string; color: 
   en_seguimiento: { labelKey: 'seguimiento.estadoEnSeguimiento', color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-500/10 border-blue-500/20', dot: 'bg-blue-500' },
   contactado:     { labelKey: 'seguimiento.estadoContactado',     color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-500/10 border-amber-500/20', dot: 'bg-amber-500' },
   en_negociacion: { labelKey: 'seguimiento.estadoEnNegociacion', color: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-500/10 border-purple-500/20', dot: 'bg-purple-500' },
-  descartado:     { labelKey: 'seguimiento.estadoDescartado',     color: 'text-apple-gray-500', bg: 'bg-apple-gray-200/50 dark:bg-apple-gray-700/50 border-apple-gray-300/30 dark:border-apple-gray-600/30', dot: 'bg-apple-gray-400' },
+  completado:     { labelKey: 'seguimiento.estadoCompletado',     color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/20', dot: 'bg-emerald-500' },
+  descartado:     { labelKey: 'seguimiento.estadoDescartado',     color: 'text-red-600 dark:text-red-400', bg: 'bg-red-500/10 border-red-500/20', dot: 'bg-red-500' },
+}
+
+// Completados y descartados van al final de la lista (ya no requieren
+// seguimiento activo) — descartado hasta más abajo que completado, para que
+// lo "andá a buscar si te importa" quede lo más lejos posible de lo urgente.
+const STATUS_SORT_RANK: Record<TrackingStatus, number> = {
+  en_seguimiento: 0,
+  contactado: 0,
+  en_negociacion: 0,
+  completado: 1,
+  descartado: 2,
 }
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
@@ -69,8 +82,8 @@ function StatusDropdown({
     if (requiresAuth) return
     if (buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect()
-      // 4 opciones × ~36px + padding ≈ 170px
-      const dropdownH = 180
+      // 5 opciones × ~36px + padding ≈ 210px
+      const dropdownH = 220
       const spaceBelow = window.innerHeight - rect.bottom
       const top = spaceBelow >= dropdownH ? rect.bottom + 4 : rect.top - dropdownH - 4
       const left = Math.min(rect.left, window.innerWidth - 212)
@@ -151,16 +164,31 @@ export default function ScoutTrackingGGPage() {
     return map
   }, [external, internal])
 
-  // Returns effective display data: real DB values when linked, manual values otherwise
+  // Returns effective display data: real DB values when linked, manual values otherwise.
+  // Dos vínculos posibles y NO excluyentes — `player_db_id` (planilla Wyscout,
+  // vía `external`/`internal`) y `supabase_player_id` (API-Football/Sofascore,
+  // ya resuelto en `player.team_name/team_logo/player_age/player_photo` por
+  // `fetchScoutPlayersWithScores`). Antes esta función solo miraba el primero:
+  // un jugador vinculado por Supabase pero ausente de la planilla Wyscout
+  // (típico en altas recientes, ver el comentario en `LinkPlayerModal`) quedaba
+  // "sin vincular" a los ojos de la tabla — sin edad, sin escudo, nada.
   const getEffective = useCallback((player: ScoutPlayerWithScore) => {
     const db = player.player_db_id ? dbPlayerMap.get(player.player_db_id) : null
+    const supabaseLinked = player.supabase_player_id != null
     return {
-      name:   db ? db.Jugador       : player.full_name,
-      club:   db ? db.Equipo        : (player.club   ?? null),
-      liga:   db ? db.Liga          : (player.liga   ?? null),
+      name:   db ? db.Jugador : player.full_name,
+      // El club vinculado a mano (`club_team_id`) gana siempre que exista —
+      // es la elección explícita de un admin, más confiable que lo que haya
+      // resuelto automático el vínculo del jugador o la planilla vieja.
+      club:     player.club_team_name ?? player.team_name ?? (db ? db.Equipo : (player.club ?? null)),
+      teamLogo: player.club_team_logo ?? player.team_logo,
+      liga:   db ? db.Liga : (player.liga ?? null),
       agente: db ? (db.Representante || null) : (player.agente ?? null),
-      edad:   db ? (db.ageNum != null ? String(db.ageNum) : db.Edad || null) : (player.edad != null ? String(player.edad) : null),
-      isLinked: !!db,
+      edad:   player.player_age != null ? String(player.player_age)
+            : db ? (db.ageNum != null ? String(db.ageNum) : db.Edad || null)
+            : (player.edad != null ? String(player.edad) : null),
+      photo: player.player_photo,
+      isLinked: !!db || supabaseLinked,
     }
   }, [dbPlayerMap])
 
@@ -170,9 +198,13 @@ export default function ScoutTrackingGGPage() {
   const [showAddModal, setShowAddModal] = useState(false)
   const [fileUploadPlayerId, setFileUploadPlayerId] = useState<string | null>(null)
   const [linkingPlayer, setLinkingPlayer] = useState<ScoutPlayerWithScore | null>(null)
+  const [linkingClubPlayer, setLinkingClubPlayer] = useState<ScoutPlayerWithScore | null>(null)
   const [fichaPlayer, setFichaPlayer] = useState<ScoutPlayerWithScore | null>(null)
 
-  const isAdmin = user?.email === ADMIN_EMAIL
+  // Mismo criterio de admin que Mercado (Marcos + Matías) — antes esto solo
+  // dejaba vincular jugadores con el email del dueño de la cuenta, Matías no
+  // podía hacerlo acá aunque sí puede en Mercado.
+  const isAdmin = isMarketLinkAdmin(user?.email)
 
   // Filters
   const [search, setSearch] = useState('')
@@ -268,9 +300,13 @@ export default function ScoutTrackingGGPage() {
         if (s !== statusFilter) return false
       }
       return true
-    }).sort((a, b) =>
-      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-    )
+    }).sort((a, b) => {
+      const statusA = (statuses[a.id]?.status as TrackingStatus) || 'en_seguimiento'
+      const statusB = (statuses[b.id]?.status as TrackingStatus) || 'en_seguimiento'
+      const rankDiff = STATUS_SORT_RANK[statusA] - STATUS_SORT_RANK[statusB]
+      if (rankDiff !== 0) return rankDiff
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    })
   }, [players, statuses, search, posFilter, statusFilter, scoutFilter])
 
   const activeFilters = [search, posFilter, statusFilter, scoutFilter].filter(Boolean).length
@@ -446,7 +482,6 @@ export default function ScoutTrackingGGPage() {
                     const statusRecord = statuses[player.id]
                     const currentStatus: TrackingStatus = (statusRecord?.status as TrackingStatus) || 'en_seguimiento'
                     const eff = getEffective(player)
-                    const initials = eff.name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()
                     const files = player.files ?? []
 
                     return (
@@ -467,9 +502,7 @@ export default function ScoutTrackingGGPage() {
                           {/* Jugador */}
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-3">
-                              <div className="w-9 h-9 rounded-lg bg-apple-gray-200 dark:bg-apple-gray-700 flex items-center justify-center text-apple-gray-600 dark:text-apple-gray-300 font-bold text-xs flex-shrink-0">
-                                {initials}
-                              </div>
+                              <PlayerPhoto src={eff.photo} name={eff.name} size="sm" rounded="lg" className="flex-shrink-0" />
                               <div className="min-w-0">
                                 <div className="flex items-center gap-1.5">
                                   <p
@@ -530,12 +563,28 @@ export default function ScoutTrackingGGPage() {
                           </td>
 
                           {/* Club */}
-                          <td className="px-4 py-3 text-sm text-apple-gray-700 dark:text-apple-gray-300 max-w-[120px]">
-                            {eff.club ? (
-                              <span className="truncate block" title={eff.club}>{eff.club}</span>
-                            ) : (
-                              <span className="text-apple-gray-400">—</span>
-                            )}
+                          <td className="px-4 py-3 text-sm text-apple-gray-700 dark:text-apple-gray-300 max-w-[140px]" onClick={e => e.stopPropagation()}>
+                            <span className="flex items-center gap-1.5 min-w-0">
+                              {eff.club ? (
+                                <>
+                                  <TeamLogo src={eff.teamLogo} className="w-4 h-4 flex-shrink-0" />
+                                  <span className="truncate" title={eff.club}>{eff.club}</span>
+                                </>
+                              ) : (
+                                <span className="text-apple-gray-400">—</span>
+                              )}
+                              {isAdmin && (
+                                <button
+                                  onClick={() => setLinkingClubPlayer(player)}
+                                  title={player.club_team_id ? t('seguimiento.cambiarVinculo') : t('seguimiento.vincularClub')}
+                                  className={`flex-shrink-0 p-0.5 rounded transition-colors opacity-0 group-hover:opacity-100 ${player.club_team_id ? 'text-brand-green hover:bg-brand-green/10' : 'text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20'}`}
+                                >
+                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                                  </svg>
+                                </button>
+                              )}
+                            </span>
                           </td>
 
                           {/* Liga */}
@@ -733,7 +782,6 @@ export default function ScoutTrackingGGPage() {
               const statusRecord = statuses[player.id]
               const currentStatus: TrackingStatus = (statusRecord?.status as TrackingStatus) || 'en_seguimiento'
               const eff = getEffective(player)
-              const initials = eff.name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()
               const files = player.files ?? []
 
               return (
@@ -742,9 +790,7 @@ export default function ScoutTrackingGGPage() {
                   className="bg-white dark:bg-apple-gray-800 rounded-xl border border-apple-gray-200 dark:border-apple-gray-700 p-3"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-lg bg-apple-gray-200 dark:bg-apple-gray-700 flex items-center justify-center text-apple-gray-600 dark:text-apple-gray-300 font-bold text-xs flex-shrink-0">
-                      {initials}
-                    </div>
+                    <PlayerPhoto src={eff.photo} name={eff.name} size="sm" rounded="lg" className="flex-shrink-0" />
                     <div className="flex-1 min-w-0">
                       <p
                         className="font-semibold text-sm truncate cursor-pointer hover:text-brand-green transition-colors"
@@ -760,8 +806,22 @@ export default function ScoutTrackingGGPage() {
                       >
                         {eff.name}
                       </p>
-                      <p className="text-xs text-apple-gray-500">
-                        {[eff.club, eff.liga, eff.edad ? `${eff.edad}${t('seguimiento.aniosAbbr')}` : null].filter(Boolean).join(' · ')}
+                      <p className="text-xs text-apple-gray-500 flex items-center gap-1 min-w-0">
+                        {eff.teamLogo && <TeamLogo src={eff.teamLogo} className="w-3.5 h-3.5 flex-shrink-0" />}
+                        <span className="truncate">
+                          {[eff.club, eff.liga, eff.edad ? `${eff.edad}${t('seguimiento.aniosAbbr')}` : null].filter(Boolean).join(' · ')}
+                        </span>
+                        {isAdmin && (
+                          <button
+                            onClick={() => setLinkingClubPlayer(player)}
+                            title={player.club_team_id ? t('seguimiento.cambiarVinculo') : t('seguimiento.vincularClub')}
+                            className={`flex-shrink-0 p-0.5 rounded transition-colors ${player.club_team_id ? 'text-brand-green' : 'text-amber-500'}`}
+                          >
+                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                            </svg>
+                          </button>
+                        )}
                       </p>
                       {eff.agente && (
                         <p className="text-xs text-apple-gray-400 truncate">{t('seguimiento.agente')}: {eff.agente}</p>
@@ -872,6 +932,15 @@ export default function ScoutTrackingGGPage() {
             // resuelve el Score GG/foto/equipo reales — un patch local los dejaría vacíos.
             load()
           }}
+        />
+      )}
+
+      {/* Link Club Modal (admin only, para jugadores que no están en la API) */}
+      {linkingClubPlayer && (
+        <LinkClubModal
+          player={linkingClubPlayer}
+          onClose={() => setLinkingClubPlayer(null)}
+          onLinked={load}
         />
       )}
 

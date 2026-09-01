@@ -52,6 +52,22 @@ export async function fetchFixturePlayers(fixtureId: number) {
   });
 }
 
+/**
+ * Perfil completo de un jugador — a diferencia de `fetchFixturePlayers`
+ * (liviano, solo lo que trae un partido), este endpoint sí incluye
+ * `nationality`. Se usa para llenar ese campo desde la fuente propia del
+ * jugador — nunca se infiere por nombre/club (ver saneamiento de datos).
+ */
+export async function fetchPlayerProfile(playerId: number, season: number) {
+  const data = await apiFetch<Array<{ player: { nationality: string | null; birth: { date: string | null } } }>>('/players', {
+    id: String(playerId),
+    season: String(season),
+  });
+  const entry = data?.[0]?.player;
+  if (!entry) return null;
+  return { nationality: entry.nationality ?? null, birthDate: entry.birth?.date ?? null };
+}
+
 export async function fetchLeagueInfo(leagueId: number, season: number) {
   return apiFetch<Array<{ league: { id: number; name: string }; country: { name: string }; seasons: Array<{ year: number; coverage: { fixtures: { statistics_players: boolean } } }> }>>('/leagues', {
     id: String(leagueId),

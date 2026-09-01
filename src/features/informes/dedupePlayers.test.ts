@@ -61,4 +61,15 @@ describe('dedupePlayers', () => {
     ])
     expect(out.map(p => p.id)).toEqual([99000001])
   })
+
+  it('mismo transfermarkt_id pero SIN confirmar (del saneamiento de datos): no se fusiona', () => {
+    // Mismo caso que el test equivalente en playerStatsService.test.ts — acá con la
+    // lista de confirmados vacía (nada validado todavía) para el mismo id compartido.
+    const confirmed = new Set<number>() // 999 no está confirmado
+    const out = dedupePlayers([
+      player({ id: 300, name: 'Danilo', transfermarkt_id: 999 }),
+      player({ id: 400, name: 'Danilo Santos', birth_date: '1990-01-01', transfermarkt_id: 999 }),
+    ], confirmed)
+    expect(out).toHaveLength(2)
+  })
 })

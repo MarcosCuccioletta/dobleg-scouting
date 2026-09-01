@@ -2,13 +2,17 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useScoreLookup } from '@/hooks/usePlayerStats'
 import { normalizeName } from '@/utils/scoring'
 import { buildPlayerPhotoUrl, computeAge } from '@/utils/marketAlerts'
-import { fetchPlayerIdentity, type PlayerIdentity } from '@/services/marketService'
+import { fetchPlayerIdentity, canonicalPositionLabel, type PlayerIdentity } from '@/services/marketService'
 import { PlayerPhoto } from '@/components/ui/PlayerPhoto'
 import { useLanguage } from '@/context/LanguageContext'
 
 export interface ResolvedPlayerIdentity {
   name: string
   age: number | null
+  /** Posición canónica en español (ej. "Volante interno"), para autocompletar
+   * la búsqueda de club a la que se engancha la negociación. Null si el
+   * jugador no tiene posición cargada. */
+  position: string | null
 }
 
 const MAX_RESULTS = 8
@@ -72,7 +76,7 @@ export default function PlayerLinkField({
       if (!active) return
       setResolving(false)
       setResolved(identity)
-      onResolved?.(identity ? { name: identity.name, age: computeAge(identity.birth_date) } : null)
+      onResolved?.(identity ? { name: identity.name, age: computeAge(identity.birth_date), position: canonicalPositionLabel(identity.primary_position) } : null)
       if (identity) setQuery(identity.name)
     })
     return () => { active = false }

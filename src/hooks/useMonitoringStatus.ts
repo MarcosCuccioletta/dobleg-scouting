@@ -68,6 +68,7 @@ export const TRACKING_STATUS_CONFIG: Record<TrackingStatus, { label: string; col
   en_seguimiento: { label: 'En Seguimiento', color: 'text-blue-600 dark:text-blue-400', bgColor: 'bg-blue-500/10 border border-blue-500/20' },
   contactado:     { label: 'Contactado',     color: 'text-amber-600 dark:text-amber-400', bgColor: 'bg-amber-500/10 border border-amber-500/20' },
   en_negociacion: { label: 'En Negociación', color: 'text-purple-600 dark:text-purple-400', bgColor: 'bg-purple-500/10 border border-purple-500/20' },
+  completado:     { label: 'Completado',     color: 'text-emerald-600 dark:text-emerald-400', bgColor: 'bg-emerald-500/10 border border-emerald-500/20' },
   descartado:     { label: 'Descartado',     color: 'text-apple-gray-500', bgColor: 'bg-apple-gray-200/60 border border-apple-gray-300/30 dark:bg-apple-gray-700/50 dark:border-apple-gray-600/30' },
 }
 

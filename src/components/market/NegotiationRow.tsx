@@ -6,9 +6,12 @@ import ClubTransferBadge from './ClubTransferBadge'
 import AssigneeSelect from './AssigneeSelect'
 import PlayerLinkField from './PlayerLinkField'
 import MarketNotesPanel from './MarketNotesPanel'
-import { NEGOTIATION_STATUS_LABEL_KEY, NEGOTIATION_STATUS_COLOR } from './marketLabels'
+import StatusPill from './StatusPill'
+import FollowupDateField from './FollowupDateField'
+import { NEGOTIATION_STATUS_LABEL_KEY, NEGOTIATION_STATUS_COLOR, NEGOTIATION_STATUS_ORDER, NEGOTIATION_STATUS_ACCENT } from './marketLabels'
 import { buildPlayerPhotoUrl } from '@/utils/marketAlerts'
-import { updateNegotiationStatus, reassignNegotiation, linkNegotiationPlayer, isMarketLinkAdmin } from '@/services/marketService'
+import { useLinkedPlayerAge } from '@/hooks/useLinkedPlayerAge'
+import { updateNegotiationStatus, updateFollowupDate, reassignNegotiation, linkNegotiationPlayer, isMarketLinkAdmin } from '@/services/marketService'
 import type { Negotiation, NegotiationStatus } from '@/types/market'
 
 export default function NegotiationRow({
@@ -16,21 +19,37 @@ export default function NegotiationRow({
   onUpdated,
   defaultExpanded = false,
   overdue = false,
+  flash = false,
+  onNeedMightHaveChanged,
 }: {
   negotiation: Negotiation
   onUpdated: (n: Negotiation) => void
   defaultExpanded?: boolean
   overdue?: boolean
+  /** Resalte momentáneo al llegar desde el calendario semanal, para ubicar
+   * la fila sin forzar que se expanda. */
+  flash?: boolean
+  /** Un cambio de estado acá se sincroniza server-side al candidato de la
+   * búsqueda vinculada (si hay una) — se llama para que esa lista hermana no
+   * quede desactualizada en pantalla. Ver [[market_negotiation_need_link]]. */
+  onNeedMightHaveChanged?: () => void
 }) {
   const { user, userDisplayName } = useAuth()
   const { t } = useLanguage()
   const [expanded, setExpanded] = useState(defaultExpanded)
   const rowRef = useRef<HTMLDivElement>(null)
 
+  // Reacciona a `defaultExpanded` (no solo al montaje): si ya estabas en esta
+  // página y tocás otra notificación de la campanita, la fila que corresponde
+  // recién ahora pasa a `defaultExpanded=true` sin que el componente se
+  // remonte — sin este efecto dependiendo del valor, ni se expandía ni
+  // scrolleaba.
   useEffect(() => {
-    if (defaultExpanded) rowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+    if (defaultExpanded) {
+      setExpanded(true)
+      rowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [defaultExpanded])
   const [reassigning, setReassigning] = useState(false)
   const [linking, setLinking] = useState(false)
   const [pendingApiId, setPendingApiId] = useState<number | null>(null)
@@ -38,11 +57,23 @@ export default function NegotiationRow({
   const [notesRefreshSignal, setNotesRefreshSignal] = useState(0)
 
   const canLink = isMarketLinkAdmin(user?.email)
+  const age = useLinkedPlayerAge(negotiation.player_api_id)
   const photoUrl = buildPlayerPhotoUrl(negotiation.player_api_id)
+  const negotiationStatusLabels = Object.fromEntries(
+    NEGOTIATION_STATUS_ORDER.map(s => [s, t(NEGOTIATION_STATUS_LABEL_KEY[s])]),
+  ) as Record<NegotiationStatus, string>
 
   const handleStatusChange = async (status: NegotiationStatus) => {
     const ok = await updateNegotiationStatus(negotiation.id, status)
-    if (ok) onUpdated({ ...negotiation, status })
+    if (ok) {
+      onUpdated({ ...negotiation, status })
+      if (negotiation.need_id) onNeedMightHaveChanged?.()
+    }
+  }
+
+  const handleFollowupChange = async (date: string | null) => {
+    const ok = await updateFollowupDate({ negotiationId: negotiation.id }, date)
+    if (ok) onUpdated({ ...negotiation, next_followup_date: date })
   }
 
   const handleReassign = async (id: number, name: string) => {
@@ -77,17 +108,18 @@ export default function NegotiationRow({
   return (
     <div
       ref={rowRef}
-      className={`bg-white dark:bg-apple-gray-800 rounded-xl border overflow-hidden transition-all ${defaultExpanded ? 'border-brand-green ring-1 ring-brand-green/30' : 'border-apple-gray-200 dark:border-apple-gray-700'}`}
+      id={`market-negotiation-${negotiation.id}`}
+      className={`bg-white dark:bg-apple-gray-800 rounded-xl border overflow-hidden transition-all ${defaultExpanded || flash ? 'border-brand-green ring-1 ring-brand-green/30' : 'border-apple-gray-200 dark:border-apple-gray-700'}`}
     >
-      <button
+      <div
+        role="button"
+        tabIndex={0}
         onClick={() => setExpanded(e => !e)}
-        className="w-full flex flex-col gap-2 sm:grid sm:grid-cols-[auto_minmax(0,2fr)_7rem_7rem_5.5rem] sm:items-center sm:gap-3 px-4 py-3 sm:py-3.5 text-left hover:bg-apple-gray-50 dark:hover:bg-apple-gray-700/40 transition-colors font-sans"
+        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpanded(x => !x) } }}
+        className="w-full flex flex-col gap-2 sm:grid sm:grid-cols-[auto_minmax(0,2fr)_7rem_7rem_5.5rem] sm:items-center sm:gap-3 px-4 py-3 sm:py-3.5 text-left hover:bg-apple-gray-50 dark:hover:bg-apple-gray-700/40 transition-colors font-sans cursor-pointer"
       >
         <div className="flex items-center gap-3 min-w-0 sm:contents">
           <div className="flex items-center gap-2 flex-shrink-0">
-            <svg className={`w-4 h-4 text-apple-gray-400 flex-shrink-0 transition-transform ${expanded ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
             <ClubTransferBadge
               currentLogo={negotiation.current_team_logo}
               currentName={negotiation.current_team_name}
@@ -99,7 +131,10 @@ export default function NegotiationRow({
           <div className="flex items-center gap-2 min-w-0 flex-1 sm:flex-none">
             <PlayerPhoto src={photoUrl} name={negotiation.player_name} size="sm" />
             <div className="min-w-0">
-              <p className="font-semibold text-sm text-apple-gray-800 dark:text-white truncate">{negotiation.player_name}</p>
+              <p className="font-semibold text-sm text-apple-gray-800 dark:text-white truncate">
+                {negotiation.player_name}
+                {age != null && <span className="font-normal text-apple-gray-400">, {age} {t('externo.anios')}</span>}
+              </p>
               <p className="text-2xs text-apple-gray-400 truncate">
                 {negotiation.current_team_name ?? t('mercado.jugadorLibre')} → {negotiation.team_name ?? t('mercado.quedaLibre')}
               </p>
@@ -108,25 +143,38 @@ export default function NegotiationRow({
         </div>
 
         <div className="flex items-center gap-2 flex-wrap pl-[3.25rem] sm:pl-0 sm:contents">
-          <span className={`inline-flex max-w-full px-2 py-1 rounded-full text-2xs font-semibold truncate ${NEGOTIATION_STATUS_COLOR[negotiation.status]}`}>
-            {t(NEGOTIATION_STATUS_LABEL_KEY[negotiation.status])}
-          </span>
-          <span className="text-2xs text-apple-gray-400 truncate min-w-0">{negotiation.assigned_to_name || '—'}</span>
-          <span className={`text-2xs tabular-nums ml-auto sm:ml-0 sm:text-right ${overdue ? 'text-red-500 font-semibold' : 'text-apple-gray-400'}`}>
-            {negotiation.next_followup_date ?? '—'}
-          </span>
+          <StatusPill
+            value={negotiation.status}
+            options={NEGOTIATION_STATUS_ORDER}
+            labels={negotiationStatusLabels}
+            colors={NEGOTIATION_STATUS_COLOR}
+            onChange={handleStatusChange}
+            title={t('mercado.cambiarEstado')}
+          />
+          <span className="text-xs text-apple-gray-500 dark:text-apple-gray-400 truncate min-w-0">{negotiation.assigned_to_name || '—'}</span>
+          <div className="ml-auto sm:ml-0 sm:text-right">
+            <FollowupDateField value={negotiation.next_followup_date} overdue={overdue} onChange={handleFollowupChange} />
+          </div>
         </div>
-      </button>
+      </div>
 
       {expanded && (
         <div className="px-4 pb-4 pt-1 border-t border-apple-gray-100 dark:border-apple-gray-700 space-y-4">
+          {negotiation.need_id && (
+            <p className="text-2xs text-apple-gray-400 pt-3 flex items-center gap-1.5">
+              <svg className="w-3.5 h-3.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 010 5.656l-3 3a4 4 0 01-5.656-5.656l1.5-1.5M10.172 13.828a4 4 0 010-5.656l3-3a4 4 0 015.656 5.656l-1.5 1.5" />
+              </svg>
+              {t('mercado.vinculadaBusqueda')} {negotiation.team_name} · {negotiation.position_label}
+            </p>
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3">
             <div>
               <label className="block text-2xs font-medium text-apple-gray-400 mb-1">{t('mercado.estado')}</label>
               <select
                 value={negotiation.status}
                 onChange={e => handleStatusChange(e.target.value as NegotiationStatus)}
-                className="input-apple text-sm w-full"
+                className={`input-apple text-sm w-full ${NEGOTIATION_STATUS_ACCENT[negotiation.status]}`}
               >
                 {(Object.keys(NEGOTIATION_STATUS_LABEL_KEY) as NegotiationStatus[]).map(s => (
                   <option key={s} value={s}>{t(NEGOTIATION_STATUS_LABEL_KEY[s])}</option>
@@ -135,7 +183,7 @@ export default function NegotiationRow({
             </div>
             <div className="flex items-end justify-between gap-2">
               <div className="min-w-0">
-                <p className="text-2xs font-medium text-apple-gray-400 mb-1">{t('mercado.responsable')}</p>
+                <p className="text-2xs font-medium text-apple-gray-400 mb-1">{t('mercado.responsableNegociacion')}</p>
                 <p className="text-sm text-apple-gray-700 dark:text-apple-gray-200 truncate">{negotiation.assigned_to_name || t('mercado.sinAsignar')}</p>
               </div>
               <button onClick={() => setReassigning(r => !r)} className="text-xs font-medium text-brand-green hover:text-emerald-600 flex-shrink-0">
@@ -147,18 +195,26 @@ export default function NegotiationRow({
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
             <div>
-              <p className="text-2xs font-medium text-apple-gray-400 mb-0.5">{t('mercado.representante')}</p>
-              <p className="text-apple-gray-700 dark:text-apple-gray-200">{negotiation.agent_name || '—'}</p>
+              <p className="text-2xs font-medium text-apple-gray-400 mb-0.5">{t('mercado.perteneceDobleG')}</p>
+              <p className="text-apple-gray-700 dark:text-apple-gray-200">
+                {negotiation.belongs_to_agency == null ? '—' : negotiation.belongs_to_agency ? t('mercado.si') : (negotiation.agent_name || t('mercado.no'))}
+              </p>
             </div>
             <div>
               <p className="text-2xs font-medium text-apple-gray-400 mb-0.5">{t('mercado.contactoClubActual')}</p>
-              <p className="text-apple-gray-700 dark:text-apple-gray-200">{negotiation.current_club_contact_name || '—'}</p>
+              {negotiation.current_club_contacts.length === 0 ? (
+                <p className="text-apple-gray-700 dark:text-apple-gray-200">—</p>
+              ) : negotiation.current_club_contacts.map((c, i) => (
+                <p key={i} className="text-apple-gray-700 dark:text-apple-gray-200">{c.name}{c.role ? ` · ${c.role}` : ''}</p>
+              ))}
             </div>
             <div>
               <p className="text-2xs font-medium text-apple-gray-400 mb-0.5">{t('mercado.contactoClubDestino')}</p>
-              <p className="text-apple-gray-700 dark:text-apple-gray-200">
-                {negotiation.target_club_contact_name || '—'}{negotiation.target_club_contact_role ? ` · ${negotiation.target_club_contact_role}` : ''}
-              </p>
+              {negotiation.target_club_contacts.length === 0 ? (
+                <p className="text-apple-gray-700 dark:text-apple-gray-200">—</p>
+              ) : negotiation.target_club_contacts.map((c, i) => (
+                <p key={i} className="text-apple-gray-700 dark:text-apple-gray-200">{c.name}{c.role ? ` · ${c.role}` : ''}</p>
+              ))}
             </div>
           </div>
 
@@ -195,7 +251,6 @@ export default function NegotiationRow({
           <div className="pt-2 border-t border-apple-gray-100 dark:border-apple-gray-700">
             <MarketNotesPanel
               target={{ negotiationId: negotiation.id }}
-              onFollowupSynced={date => onUpdated({ ...negotiation, next_followup_date: date })}
               refreshSignal={notesRefreshSignal}
             />
           </div>

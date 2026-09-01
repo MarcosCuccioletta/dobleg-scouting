@@ -166,6 +166,14 @@ export const DISPLAY_POSITION_MAP: Record<string, string> = {
   'Delantero': 'Delantero',
   'Segundo delantero': 'Delantero',
   'Ariete': 'Delantero',
+  // Códigos internos (players.primary_position, sync-sofascore)
+  'ARQ': 'Arquero',
+  'LD': 'Lateral derecho',
+  'LI': 'Lateral izquierdo',
+  'VC': 'Volante central',
+  'VI': 'Volante interno',
+  'EXT': 'Extremo',
+  'DEL': 'Delantero',
   // Wyscout position codes
   'RCB': 'Defensor central',
   'LCB': 'Defensor central',

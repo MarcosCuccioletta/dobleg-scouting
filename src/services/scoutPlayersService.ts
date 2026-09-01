@@ -2,6 +2,7 @@ import { supabase } from '@/lib/supabase'
 import type { ScoutPlayer, ScoutPlayerStatusRecord, ScoutPlayerFile } from '@/types'
 import { nameKey, playerNamesMatch } from '@/utils/nameUtils'
 import { currentSeasons } from '@/services/playerStatsService'
+import { computeAge } from '@/utils/marketAlerts'
 
 export interface NewScoutPlayer {
   full_name: string
@@ -174,6 +175,16 @@ export interface ScoutPlayerWithScore extends ScoutPlayer {
   player_photo: string | null
   team_name: string | null
   team_logo: string | null
+  /** Edad calculada desde `birth_date` de la base (API-Football/Sofascore),
+   * cuando el jugador está vinculado por `supabase_player_id`. Null si no
+   * está vinculado por ahí o no tiene fecha de nacimiento cargada. Ver
+   * [[seguimiento_gg_edad_escudo_bug]]. */
+  player_age: number | null
+  /** Nombre/escudo reales del club vinculado directo por `club_team_id` —
+   * independiente de si el JUGADOR está vinculado o no (útil para ascenso,
+   * reserva, etc., que no están en la API pero cuyo club sí puede estarlo). */
+  club_team_name: string | null
+  club_team_logo: string | null
 }
 
 export async function fetchScoutPlayersWithScores(
@@ -195,7 +206,7 @@ export async function fetchScoutPlayersWithScores(
     .filter((id): id is number => id !== null)
 
   let scoreMap = new Map<number, { score: number; percentile: number | null; position: string; matches: number }>()
-  let playerInfoMap = new Map<number, { photo: string | null; team_name: string | null; team_logo: string | null }>()
+  let playerInfoMap = new Map<number, { photo: string | null; team_name: string | null; team_logo: string | null; age: number | null }>()
 
   if (supabaseIds.length > 0) {
     // Sin filtrar por temporada, un jugador con muchos partidos en una temporada
@@ -230,7 +241,7 @@ export async function fetchScoutPlayersWithScores(
 
     const { data: playerInfos } = await supabase
       .from('players')
-      .select('id, photo, team:teams(name, logo)')
+      .select('id, photo, birth_date, team:teams(name, logo)')
       .in('id', supabaseIds)
 
     if (playerInfos) {
@@ -240,14 +251,34 @@ export async function fetchScoutPlayersWithScores(
           photo: p.photo,
           team_name: team?.name ?? null,
           team_logo: team?.logo ?? null,
+          age: computeAge(p.birth_date ?? null),
         })
       }
+    }
+  }
+
+  // Club vinculado directo (`club_team_id`) — aparte del jugador, porque
+  // varios jugadores en seguimiento (ascenso, reserva) nunca van a poder
+  // vincularse como jugador pero su club sí puede estar en `teams`.
+  const clubTeamIds = players
+    .map(p => p.club_team_id)
+    .filter((id): id is number => id !== null)
+
+  const clubTeamMap = new Map<number, { name: string; logo: string | null }>()
+  if (clubTeamIds.length > 0) {
+    const { data: teamsData } = await supabase
+      .from('teams')
+      .select('id, name, logo')
+      .in('id', clubTeamIds)
+    if (teamsData) {
+      for (const t of teamsData) clubTeamMap.set(t.id, { name: t.name, logo: t.logo })
     }
   }
 
   return players.map(p => {
     const s = p.supabase_player_id ? scoreMap.get(p.supabase_player_id) : undefined
     const info = p.supabase_player_id ? playerInfoMap.get(p.supabase_player_id) : undefined
+    const clubTeam = p.club_team_id ? clubTeamMap.get(p.club_team_id) : undefined
     return {
       ...p,
       gg_score: s?.score ?? null,
@@ -257,6 +288,9 @@ export async function fetchScoutPlayersWithScores(
       player_photo: info?.photo ?? null,
       team_name: info?.team_name ?? p.club,
       team_logo: info?.team_logo ?? null,
+      player_age: info?.age ?? null,
+      club_team_name: clubTeam?.name ?? null,
+      club_team_logo: clubTeam?.logo ?? null,
     }
   })
 }
@@ -336,6 +370,19 @@ export async function linkScoutPlayerToDb(
     .eq('id', id)
 
   if (error) { console.error('Error linking scout player:', error); return false }
+  return true
+}
+
+// Vincula el CLUB directo del jugador en seguimiento a un `teams.id` real —
+// aparte del vínculo de jugador (ver comentario en `ScoutPlayerWithScore`).
+// `teamId: null` desvincula.
+export async function linkScoutPlayerClub(id: string, teamId: number | null): Promise<boolean> {
+  const { error } = await supabase
+    .from('scout_players')
+    .update({ club_team_id: teamId, updated_at: new Date().toISOString() })
+    .eq('id', id)
+
+  if (error) { console.error('Error linking scout player club:', error); return false }
   return true
 }
 

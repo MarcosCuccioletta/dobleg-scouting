@@ -300,6 +300,7 @@ export type TrackingStatus =
   | 'en_seguimiento'
   | 'contactado'
   | 'en_negociacion'
+  | 'completado'
   | 'descartado'
 
 export type ScoutsGGStatus = TrackingStatus
@@ -320,6 +321,10 @@ export interface ScoutPlayer {
   player_db_id: string | null        // The "Jugador" field value from the DB (e.g. "L. Messi")
   player_db_source: 'interno' | 'externo' | null  // Which DB this player is in
   supabase_player_id: number | null   // Link to Supabase players.id (API-Football/Sofascore)
+  // Vínculo directo al club real (`teams.id`), independiente del jugador —
+  // para jugadores que no están en la API (ascenso, reserva) pero cuyo club
+  // sí está, así se puede mostrar el escudo real igual.
+  club_team_id: number | null
   club: string | null
   liga: string | null
   edad: number | null

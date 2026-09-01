@@ -8,9 +8,17 @@ import { isApiFootballPlayer } from '@/services/playerStatsService'
 import { normalizeForSearch } from '@/lib/search'
 import type { PlayerWithScore } from '@/types/scoring'
 
-/** Misma persona: transfermarkt_id si lo tiene; si no, nombre + fecha de nacimiento. */
-function identityKey(p: PlayerWithScore): string {
-  if (p.transfermarkt_id) return `tm:${p.transfermarkt_id}`
+/**
+ * Misma persona: transfermarkt_id si lo tiene Y está confirmado (ver
+ * `confirmedTmIds` — `player_identities`, `confidence='confirmed'`, del
+ * saneamiento de datos); si no, nombre + fecha de nacimiento. Sin la lista de
+ * confirmados (`confirmedTmIds` undefined) se sigue confiando en el
+ * transfermarkt_id como antes — no romper mientras carga.
+ */
+function identityKey(p: PlayerWithScore, confirmedTmIds?: Set<number>): string {
+  if (p.transfermarkt_id && (confirmedTmIds === undefined || confirmedTmIds.has(p.transfermarkt_id))) {
+    return `tm:${p.transfermarkt_id}`
+  }
   if (p.birth_date) return `nb:${normalizeForSearch(p.name)}|${p.birth_date}`
   return `id:${p.id}`
 }
@@ -21,12 +29,12 @@ function rank(p: PlayerWithScore): number {
   return (isApiFootballPlayer(p) ? 1_000_000 : 0) + matches
 }
 
-export function dedupePlayers(players: PlayerWithScore[]): PlayerWithScore[] {
+export function dedupePlayers(players: PlayerWithScore[], confirmedTmIds?: Set<number>): PlayerWithScore[] {
   const best = new Map<string, PlayerWithScore>()
   const order: string[] = []
 
   for (const p of players) {
-    const key = identityKey(p)
+    const key = identityKey(p, confirmedTmIds)
     const current = best.get(key)
     if (!current) {
       best.set(key, p)
