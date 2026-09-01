@@ -419,21 +419,24 @@ function estimateMarketValue(player: EnrichedPlayer, leagueType: 'argentina1' | 
 
   let baseValue: number
 
-  // Cortes sobre el Rating (1-10). Argentina vale ~4-5x más que Colombia.
+  // Cortes sobre el Rating (1-10), recalibrados sobre la distribución real
+  // (comprimida entre ~5.7 y ~8.6, p5-p95 6.5-7.3) — misma familia que
+  // ScoreBar.tsx/GaugeScore.tsx/DashboardPage.tsx (7.3/6.8/6.4/6.0).
+  // Argentina vale ~4-5x más que Colombia.
   if (isArgentina) {
     // Liga Argentina base values
-    if (score >= 6.5) baseValue = 3_000_000      // Elite performers
-    else if (score >= 5.5) baseValue = 1_800_000 // Very good
-    else if (score >= 4.5) baseValue = 1_000_000 // Good
-    else if (score >= 3.5) baseValue = 600_000   // Average
+    if (score >= 7.3) baseValue = 3_000_000      // Elite performers
+    else if (score >= 6.8) baseValue = 1_800_000 // Very good
+    else if (score >= 6.4) baseValue = 1_000_000 // Good
+    else if (score >= 6.0) baseValue = 600_000   // Average
     else if (score > 0) baseValue = 350_000      // Below average
     else baseValue = 400_000                     // No score - use age
   } else {
     // Colombia 2nd division base values
-    if (score >= 6.0) baseValue = 400_000
-    else if (score >= 5.0) baseValue = 250_000
-    else if (score >= 4.0) baseValue = 175_000
-    else if (score >= 3.0) baseValue = 125_000
+    if (score >= 7.3) baseValue = 400_000
+    else if (score >= 6.8) baseValue = 250_000
+    else if (score >= 6.4) baseValue = 175_000
+    else if (score >= 6.0) baseValue = 125_000
     else if (score > 0) baseValue = 75_000
     else baseValue = 100_000
   }

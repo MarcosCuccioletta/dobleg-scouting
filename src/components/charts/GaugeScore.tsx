@@ -26,14 +26,18 @@ function getScoreColorAbsolute(score: number, scale: '100' | '10' = '100'): stri
   return '#EF4444'
 }
 
+// Relative-to-average tiers: on a scale-10 rating, the real spread around a
+// typical position average (~6.8-7.0) only extends about ±1.0-1.3 in absolute
+// terms — a multiplicative ratio (avg*0.85/0.70) falls below the real dataset
+// minimum (~5.7) and never triggers, so we use an additive offset instead.
 function getScoreColor(score: number, posAvg?: number | null, scale: '100' | '10' = '100'): string {
   const elite = scale === '10' ? 7.3 : 80
   if (score >= elite) return '#34D399'
   if (posAvg != null) {
     const avg = scale === '10' && posAvg > 10 ? posAvg / 10 : posAvg
     if (score >= avg) return '#10B981'
-    if (score >= avg * 0.85) return '#F59E0B'
-    if (score >= avg * 0.70) return '#F97316'
+    if (score >= (scale === '10' ? avg - 0.3 : avg * 0.85)) return '#F59E0B'
+    if (score >= (scale === '10' ? avg - 0.8 : avg * 0.70)) return '#F97316'
     return '#EF4444'
   }
   return getScoreColorAbsolute(score, scale)
@@ -45,8 +49,8 @@ function getScoreLabel(score: number, posAvg?: number | null, scale: '100' | '10
   if (posAvg != null) {
     const avg = scale === '10' && posAvg > 10 ? posAvg / 10 : posAvg
     if (score >= avg) return 'Sobre el promedio'
-    if (score >= avg * 0.85) return 'Cerca del promedio'
-    if (score >= avg * 0.70) return 'Bajo el promedio'
+    if (score >= (scale === '10' ? avg - 0.3 : avg * 0.85)) return 'Cerca del promedio'
+    if (score >= (scale === '10' ? avg - 0.8 : avg * 0.70)) return 'Bajo el promedio'
     return 'Muy bajo'
   }
   if (scale === '10') {
@@ -67,8 +71,8 @@ function getScoreDescription(score: number, posAvg?: number | null, scale: '100'
   if (posAvg != null) {
     const avg = scale === '10' && posAvg > 10 ? posAvg / 10 : posAvg
     if (score >= avg) return 'Por encima del promedio de su posicion'
-    if (score >= avg * 0.85) return 'Cerca del promedio de su posicion'
-    if (score >= avg * 0.70) return 'Por debajo del promedio de su posicion'
+    if (score >= (scale === '10' ? avg - 0.3 : avg * 0.85)) return 'Cerca del promedio de su posicion'
+    if (score >= (scale === '10' ? avg - 0.8 : avg * 0.70)) return 'Por debajo del promedio de su posicion'
     return 'Rendimiento bajo en su posicion'
   }
   if (scale === '10') {

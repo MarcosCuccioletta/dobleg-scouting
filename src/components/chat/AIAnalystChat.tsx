@@ -296,9 +296,9 @@ function parseUserIntent(message: string): { type: string; criteria: SearchCrite
 
   // Score threshold
   if (msg.includes('elite') || msg.includes('top') || msg.includes('mejor')) {
-    criteria.minScore = 6.5
+    criteria.minScore = 7.3
   } else if (msg.includes('buen') || msg.includes('destac')) {
-    criteria.minScore = 5.5
+    criteria.minScore = 6.8
   }
 
   // League detection

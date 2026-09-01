@@ -143,11 +143,11 @@ export default function ScoreEvolutionChart({ matches, avgScore }: ScoreEvolutio
             tickLine={false}
           />
           <YAxis
-            domain={[1, 10]}
+            domain={[5.5, 8.5]}
             tick={{ fill: '#6b7280', fontSize: 10 }}
             axisLine={false}
             tickLine={false}
-            ticks={[2, 4, 6, 8, 10]}
+            ticks={[5.5, 6.5, 7.5, 8.5]}
           />
           <Tooltip
             content={({ active, payload }) => {

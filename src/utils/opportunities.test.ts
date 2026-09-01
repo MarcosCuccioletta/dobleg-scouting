@@ -33,10 +33,10 @@ function dateInMonths(n: number): string {
 
 describe('contractBoostFor', () => {
   it('boost máximo cuando el contrato vence este mes', () => {
-    expect(contractBoostFor(dateInMonths(0))).toBeCloseTo(1.5, 1)
+    expect(contractBoostFor(dateInMonths(0))).toBeCloseTo(0.15, 2)
   })
   it('boost a mitad de camino a los 6 meses', () => {
-    expect(contractBoostFor(dateInMonths(6))).toBeCloseTo(0.75, 1)
+    expect(contractBoostFor(dateInMonths(6))).toBeCloseTo(0.075, 3)
   })
   it('boost cero a los 12 meses', () => {
     expect(contractBoostFor(dateInMonths(12))).toBeCloseTo(0, 1)
@@ -55,7 +55,7 @@ describe('contractBoostFor', () => {
 describe('opportunityScoreFor', () => {
   it('suma el score reciente y el boost por contrato', () => {
     const p = mk({ recent_avg: 7, contract_end_date: dateInMonths(6) })
-    expect(opportunityScoreFor(p)).toBeCloseTo(7.75, 1)
+    expect(opportunityScoreFor(p)).toBeCloseTo(7.075, 3)
   })
   it('sin contrato, el opportunity_score es igual al recent_avg', () => {
     const p = mk({ recent_avg: 7, contract_end_date: null })

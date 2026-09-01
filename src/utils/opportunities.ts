@@ -30,7 +30,11 @@ export function monthsToContractEnd(date: string | null): number | null {
   return (end.getFullYear() - now.getFullYear()) * 12 + (end.getMonth() - now.getMonth())
 }
 
-export const CONTRACT_BOOST_MAX = 1.5
+// El boost original (1.5) era ~15% del spread nominal ~1-9 que usaba Score GG.
+// Sobre el rating crudo (spread real p5-p95 de ~0.8, entre 6.5 y 7.3), el equivalente
+// es 0.15 — mantiene la urgencia contractual como desempate relevante sin que
+// domine por completo la señal del rating (lo que 1.5 hacía contra un spread de 0.8).
+export const CONTRACT_BOOST_MAX = 0.15
 export const CONTRACT_BOOST_MONTHS = 12
 
 export function contractBoostFor(contractEndDate: string | null): number {
@@ -51,12 +55,12 @@ export function detectOpportunities(players: PlayerWithScore[]) {
   const withScore = players.filter(p => p.primary_score != null)
 
   const undervalued = withScore
-    .filter(p => (p.primary_score as number) >= 6.5 && (p.market_value_eur ?? 0) > 0)
+    .filter(p => (p.primary_score as number) >= 6.8 && (p.market_value_eur ?? 0) > 0)
     .sort((a, b) => (a.market_value_eur ?? 0) - (b.market_value_eur ?? 0))
 
   const youngTalent = withScore.filter(p => {
     const age = ageFromBirthDate(p.birth_date)
-    return age != null && age <= 21 && (p.primary_score as number) >= 6.0
+    return age != null && age <= 21 && (p.primary_score as number) >= 6.4
   })
 
   const expiringContract = players.filter(p => {

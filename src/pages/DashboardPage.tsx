@@ -529,26 +529,30 @@ export default function DashboardPage() {
               // Normalize globalAvg to match the active scale (positionAverages is 0-100 from CSV, Supabase scores are 1-10)
               const normGlobalAvg = globalAvg !== null && globalAvg > 10 ? globalAvg / 10 : globalAvg
               const eliteThreshold = 7.3
-              const goodThreshold = 5.5
-              const devThreshold = 3.5
+              const goodThreshold = 6.8
+              const devThreshold = 6.4
+              // Comparación relativa al promedio de posición: sobre un spread real
+              // comprimido (~0.8 de ancho p5-p95), un offset aditivo separa mejor
+              // los tramos que un ratio multiplicativo (avg*0.85/0.70 caía por debajo
+              // del mínimo real del dataset, colapsando estos tramos a inalcanzables).
               const colorClass =
                 avg >= eliteThreshold ? 'text-emerald-400' :
                 normGlobalAvg !== null
                   ? avg >= normGlobalAvg ? 'text-emerald-500' :
-                    avg >= normGlobalAvg * 0.85 ? 'text-amber-500' :
-                    avg >= normGlobalAvg * 0.70 ? 'text-orange-500' : 'text-red-500'
+                    avg >= normGlobalAvg - 0.3 ? 'text-amber-500' :
+                    avg >= normGlobalAvg - 0.8 ? 'text-orange-500' : 'text-red-500'
                   : avg >= goodThreshold ? 'text-emerald-500' :
                     avg >= devThreshold ? 'text-amber-500' : 'text-orange-500'
               const barColor =
                 avg >= eliteThreshold ? 'bg-emerald-400' :
                 normGlobalAvg !== null
                   ? avg >= normGlobalAvg ? 'bg-emerald-500' :
-                    avg >= normGlobalAvg * 0.85 ? 'bg-amber-500' :
-                    avg >= normGlobalAvg * 0.70 ? 'bg-orange-500' : 'bg-red-500'
+                    avg >= normGlobalAvg - 0.3 ? 'bg-amber-500' :
+                    avg >= normGlobalAvg - 0.8 ? 'bg-orange-500' : 'bg-red-500'
                   : avg >= goodThreshold ? 'bg-emerald-500' :
                     avg >= devThreshold ? 'bg-amber-500' : 'bg-orange-500'
-              // Bar width: normalize avg to 0-100% regardless of scale
-              const barWidth = Math.min(100, ((avg - 1) / 9) * 100)
+              // Bar width: normalize avg to 0-100% sobre el rango real de display (5.5-8.5)
+              const barWidth = Math.min(100, Math.max(0, ((avg - 5.5) / (8.5 - 5.5)) * 100))
               return (
                 <div key={label} className="flex flex-col gap-1.5">
                   <div className="flex items-end justify-between">
