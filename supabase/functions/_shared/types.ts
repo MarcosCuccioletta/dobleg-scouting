@@ -88,12 +88,3 @@ export interface PlayerMatchRow {
   goals_conceded: number;
   match_score: number | null;
 }
-
-export interface ScoringWeight {
-  metric: string;
-  weight: number;
-  source: (row: PlayerMatchRow) => number;
-  inverse?: boolean; // lower is better
-  per90?: boolean;   // normalize to /90 min
-  isPercentage?: boolean; // already 0-100, don't per90
-}
