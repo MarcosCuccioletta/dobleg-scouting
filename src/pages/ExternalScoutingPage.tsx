@@ -851,7 +851,7 @@ export default function ExternalScoutingPage() {
                   {players.map(player => {
                     const age = getAge(player.birth_date)
                     const ss = player.season_scores[0]
-                    const score = ss?.avg_score ?? null
+                    const score = ss?.avg_rating ?? null
                     return (
                       <tr
                         key={`${player.id}-${ss?.position}`}

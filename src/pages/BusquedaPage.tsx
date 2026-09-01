@@ -55,8 +55,8 @@ function playerToEnriched(p: PlayerWithScore, currency: Currency, rate: number):
     Transfermkt: p.transfermarkt_url ?? '',
     Representante: p.agent ?? '',
     Imagen: p.photo ?? '',
-    ggScore: p.primary_score,
-    ggScorePercentile: p.primary_percentile,
+    rating: p.primary_score,
+    ratingPercentile: p.primary_percentile,
     source: 'externo',
     contractStatus: 'ok',
     monthsRemaining: null,
@@ -872,7 +872,7 @@ export default function BusquedaPage() {
                 {selectedPlayer.primary_score != null && (
                   <div className={`flex-shrink-0 flex flex-col items-center justify-center w-16 h-16 rounded-2xl ${scoreBg(selectedPlayer.primary_score)}`}>
                     <span className={`text-2xl font-bold ${scoreColor(selectedPlayer.primary_score)}`}>{selectedPlayer.primary_score.toFixed(1)}</span>
-                    <span className="text-xs text-apple-gray-500 dark:text-apple-gray-400">Score GG</span>
+                    <span className="text-xs text-apple-gray-500 dark:text-apple-gray-400">Rating</span>
                     {leagueScoreContext?.rank && (
                       <span className="text-[10px] text-apple-gray-400 dark:text-apple-gray-500 leading-none mt-0.5">
                         {leagueScoreContext.rank}° / {leagueScoreContext.total}
@@ -1312,7 +1312,7 @@ export default function BusquedaPage() {
                         {conclusions.playerScore.toFixed(1)}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold text-apple-gray-800 dark:text-white">Score GG</p>
+                        <p className="text-sm font-semibold text-apple-gray-800 dark:text-white">Rating</p>
                         <p className="text-sm text-apple-gray-500 dark:text-apple-gray-400 mt-0.5">
                           {conclusions.scorePct != null
                             ? t('analisisCompleto.percentilDelGrupo').replace('{pct}', String(conclusions.scorePct)).replace('{rank}', String(conclusions.scoreRank)).replace('{total}', String(conclusions.poolSize))
