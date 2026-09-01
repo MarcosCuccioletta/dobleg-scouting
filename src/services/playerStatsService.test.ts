@@ -317,4 +317,26 @@ describe('dedupeTeamsByName', () => {
     expect(result).toHaveLength(1)
     expect(result[0].id).toBe(453)
   })
+
+  // Bug real encontrado 2026-09-01 en Mercado ("Nueva busqueda" mostraba
+  // "River Plate" duplicado dos veces): mismo club real con league_id
+  // distinto en cada fuente (liga domestica vs copa nacional) -- agrupar
+  // solo por league_id los dejaba en buckets distintos y nunca se comparaban.
+  it('fusiona el mismo club cuando aparece con league_id distinto (liga vs copa) del mismo pais', () => {
+    const teams = [
+      { id: 435, name: 'River Plate', league_id: 130, country: 'Argentina' }, // Copa Argentina
+      { id: 20003211, name: 'River Plate', league_id: 128, country: 'Argentina' }, // Liga Profesional
+    ]
+    const result = dedupeTeamsByName(teams)
+    expect(result).toHaveLength(1)
+    expect(result[0].id).toBe(435) // gana el id de API-Football (< 20000000)
+  })
+
+  it('sigue sin fusionar paises distintos aunque se provea country', () => {
+    const teams = [
+      { id: 1, name: 'River Plate', league_id: 128, country: 'Argentina' },
+      { id: 2, name: 'River Plate', league_id: 268, country: 'Uruguay' },
+    ]
+    expect(dedupeTeamsByName(teams)).toHaveLength(2)
+  })
 })

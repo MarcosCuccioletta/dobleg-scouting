@@ -276,18 +276,28 @@ function sameClub(a: string, b: string): boolean {
  * problema para cualquier buscador de club libre por nombre, no sólo por
  * liga (ver `searchMarketTeams` en `marketService.ts`).
  *
- * Nunca se compara entre ligas distintas (un mismo nombre en dos países es
+ * Nunca se compara entre países distintos (un mismo nombre en dos países es
  * casi seguro dos clubes reales distintos, ej. "River Plate" en Argentina y
- * en Uruguay) — dentro de la misma liga, dos nombres "emparentados" por
+ * en Uruguay) — dentro del mismo país, dos nombres "emparentados" por
  * `sameClub` son casi con certeza el mismo club real duplicado por fuente.
  * Gana el id de API-Football (< 20000000) cuando hay un empate real.
+ *
+ * Agrupa por PAÍS, no por `league_id` exacto: un mismo club real puede tener
+ * dos filas con `league_id` distinto si un proveedor lo asoció a la liga
+ * doméstica y el otro a una copa nacional (mismo país) — agrupar por
+ * `league_id` a secas dejaba pasar ese caso sin deduplicar (caso real:
+ * "River Plate" con `league_id` de Liga Profesional en una fila y de Copa
+ * Argentina en la otra, ambas Argentina — `searchMarketTeams` en Mercado
+ * mostraba el club dos veces). Si no se provee `country` (llamadas que ya
+ * vienen acotadas a una sola liga, como `fetchTeamsByLeague`), se cae al
+ * agrupamiento por `league_id` de siempre — no cambia nada para esos casos.
  */
-export function dedupeTeamsByName<T extends { id: number; name: string; league_id?: number | null }>(teams: T[]): T[] {
+export function dedupeTeamsByName<T extends { id: number; name: string; league_id?: number | null; country?: string | null }>(teams: T[]): T[] {
   const byLeague = new Map<string, T[]>();
   for (const team of teams) {
-    const leagueKey = String(team.league_id ?? '');
-    if (!byLeague.has(leagueKey)) byLeague.set(leagueKey, []);
-    byLeague.get(leagueKey)!.push(team);
+    const groupKey = team.country != null ? `c:${team.country}` : `l:${team.league_id ?? ''}`;
+    if (!byLeague.has(groupKey)) byLeague.set(groupKey, []);
+    byLeague.get(groupKey)!.push(team);
   }
 
   const result: T[] = [];

@@ -146,12 +146,16 @@ export async function searchMarketTeams(query: string): Promise<MarketTeamSearch
   const limit = 20
   const { data, error } = await supabase
     .from('teams')
-    .select('id, name, logo, league_id')
+    .select('id, name, logo, league_id, league:leagues(country)')
     .ilike('name', `%${query}%`)
     .order('name')
     .limit(limit * 3)
   if (error) throw error
-  return dedupeTeamsByName(data ?? []).slice(0, limit)
+  const rows = (data ?? []).map((row: any) => ({
+    ...row,
+    country: row.league?.country ?? null,
+  }))
+  return dedupeTeamsByName(rows).slice(0, limit)
 }
 
 export async function fetchClubNeeds(): Promise<ClubNeed[]> {
