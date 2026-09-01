@@ -1,14 +1,7 @@
 import { serve } from 'https://deno.land/std@0.208.0/http/server.ts';
 import { getSupabaseAdmin } from '../_shared/supabase-client.ts';
-import { calculateSeasonScores } from '../_shared/scoring.ts';
 import { fetchAllRows } from '../_shared/fetchAll.ts';
-import type { Position } from '../_shared/types.ts';
 import { mergeSeasonScoreFragments } from '../_shared/mergeSeasonFragments.ts';
-
-// Pool mínimo de jugadores de una posición (en la liga) para que el ranking sea
-// confiable. Solo entran al pool los que tienen suficientes partidos.
-const MIN_POOL_MATCHES = 3;
-const MIN_POOL_SIZE = 5;
 
 serve(async (req) => {
   const supabase = getSupabaseAdmin();
@@ -101,8 +94,8 @@ serve(async (req) => {
         const allStats = await fetchAllRows<any>((from, to) =>
           supabase
             .from('player_match_stats')
-            .select('player_id, detected_position, team_id, match_score, rating, goals, assists, fixture_id, minutes, tackles, interceptions, blocks, duels_total, duels_won, passes_accuracy, passes_key, passes_total, dribbles_success, dribbles_attempted, shots_on, shots_total, fouls_drawn, saves, goals_conceded, penalty_saved, fixtures!inner(season)')
-            .not('match_score', 'is', null)
+            .select('player_id, detected_position, team_id, rating, goals, assists, fixture_id, minutes, tackles, interceptions, blocks, duels_total, duels_won, passes_accuracy, passes_key, passes_total, dribbles_success, dribbles_attempted, shots_on, shots_total, fouls_drawn, saves, goals_conceded, penalty_saved, fixtures!inner(season)')
+            .not('rating', 'is', null)
             .not('detected_position', 'is', null)
             .in('team_id', teamIds)
             .eq('fixtures.season', season)
@@ -125,7 +118,6 @@ serve(async (req) => {
         const upsertRows = [];
         for (const [key, rows] of groups) {
           const [playerId, position] = key.split('|');
-          const scores = rows.map(r => r.match_score).filter((s: any) => s !== null);
           const ratings = rows.map(r => r.rating).filter((r: any) => r !== null);
 
           // Métricas /90 y porcentajes del jugador en esta posición (mismas que el radar)
@@ -150,10 +142,7 @@ serve(async (req) => {
             season,
             position,
             league_id: league.id,
-            matches_played: scores.length,
-            avg_score: scores.length > 0
-              ? Math.round((scores.reduce((a: number, b: number) => a + b, 0) / scores.length) * 10) / 10
-              : null,
+            matches_played: rows.length,
             avg_rating: ratings.length > 0
               ? Math.round((ratings.reduce((a: number, b: number) => a + b, 0) / ratings.length) * 10) / 10
               : null,
@@ -181,7 +170,7 @@ serve(async (req) => {
           });
         }
 
-        // Se acumulan; el avg_score se calcula al cerrar la temporada (ranking global).
+        // Se acumulan; los fragmentos por liga se fusionan al cerrar la temporada.
         for (const r of upsertRows) allSeasonRows.push(r);
 
         // Compute position metric averages for this league
@@ -253,24 +242,6 @@ serve(async (req) => {
         }
       }
       const primaryRows = mergedSeasonRows.filter((r: any) => bestPos.get(r.player_id)?.position === r.position);
-
-      // ── Ranking GLOBAL por posición: cada jugador contra TODOS los de su puesto
-      // en la plataforma (todas las ligas), SIN ajuste por nivel de liga. ──
-      const byPos = new Map<string, any[]>();
-      for (const r of primaryRows) {
-        if (!byPos.has(r.position)) byPos.set(r.position, []);
-        byPos.get(r.position)!.push(r);
-      }
-      for (const [pos, rowsForPos] of byPos) {
-        const pool = rowsForPos.filter((r: any) => (r.matches_played ?? 0) >= MIN_POOL_MATCHES);
-        const canRank = pool.length >= MIN_POOL_SIZE;
-        const scores = canRank
-          ? calculateSeasonScores(rowsForPos, pool, pos as Position)
-          : rowsForPos.map(() => null);
-        rowsForPos.forEach((r: any, i: number) => {
-          r.avg_score = scores[i] ?? (r.avg_rating ?? null); // fallback: rating de API
-        });
-      }
 
       // Reemplazar los datos de la temporada por las filas primarias frescas:
       // borra filas viejas/fragmentadas de posiciones que ya no corresponden.
