@@ -242,7 +242,7 @@ export function parseRating(raw: string | null | undefined): number | null {
   return Number.isFinite(n) ? n : null
 }
 
-/** Escala automática del gauge: ≤10 → sobre 10 (tipo partido); si no, sobre 100 (Score GG). */
+/** Escala automática del gauge: ≤10 → sobre 10 (tipo partido); si no, sobre 100 (Rating). */
 export function ratingMax(value: number): number {
   return value <= 10 ? 10 : 100
 }

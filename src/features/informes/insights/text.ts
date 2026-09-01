@@ -28,7 +28,7 @@ export function formatNum(n: number, lang: Lang): string {
 
 /**
  * Promedios con decimales fijos. Un promedio que dice "1 puntos por partido" o
- * "7 de Score GG" se lee como un conteo, no como una media.
+ * "7 de Rating" se lee como un conteo, no como una media.
  */
 export function formatAvg(n: number, lang: Lang, decimals = 1): string {
   return decimalSep(n.toFixed(decimals), lang)

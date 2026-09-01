@@ -286,11 +286,11 @@ describe('buildInformeHtml', () => {
       levelByMatch: [{ label: '01/03', value: 6.5 }, { label: '08/03', value: 7.1 }],
     }
     const visible = buildInformeHtml({ informe: makeInforme(), stats: emptyStats, matrix: emptyMatrix, defs: emptyDefs, enrichment })
-    expect(visible).toContain('Evolución de nivel (Score GG)')
+    expect(visible).toContain('Evolución de nivel (Rating)')
 
     const informe = makeInforme({ content: { ...makeInforme().content, hideLevelEvo: true } })
     const oculto = buildInformeHtml({ informe, stats: emptyStats, matrix: emptyMatrix, defs: emptyDefs, enrichment })
-    expect(oculto).not.toContain('Evolución de nivel (Score GG)')
+    expect(oculto).not.toContain('Evolución de nivel (Rating)')
   })
 
   it('la continuidad escrita a mano pisa la de la API y "-" saca la tarjeta', () => {

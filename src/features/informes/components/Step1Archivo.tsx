@@ -240,9 +240,9 @@ export default function Step1Archivo({ parsed, informe, onParsed, onChange, onNe
     // en este campo de texto libre.
     const mvFormatted = mv == null || mv === 0 ? '' : formatMarketValueInCurrency(mv, currency, rate)
     const edad = Number.isFinite(age) ? String(age) : ''
-    // Rating: autocompletar desde el Score GG del jugador si el campo está vacío.
-    const ggScore = p.primary_score ?? p.season_scores?.[0]?.avg_score ?? null
-    const ratingFromGG = ggScore != null ? String(Math.round(ggScore * 10) / 10) : ''
+    // Rating: autocompletar desde el rating del jugador si el campo está vacío.
+    const rating = p.primary_score ?? p.season_scores?.[0]?.avg_rating ?? null
+    const ratingFromApi = rating != null ? String(Math.round(rating * 10) / 10) : ''
     onChange({
       ...informe,
       dbPlayerId: p.id,
@@ -263,7 +263,7 @@ export default function Step1Archivo({ parsed, informe, onParsed, onChange, onNe
         valorMercado: mvFormatted || informe.content.valorMercado,
         transfermarktUrl: p.transfermarkt_url ?? informe.content.transfermarktUrl,
         representante: p.agent ?? informe.content.representante,
-        rating: informe.content.rating || ratingFromGG,
+        rating: informe.content.rating || ratingFromApi,
       },
     })
     // Feedback visible: resumen de lo que se autocompletó (se ve completo en el paso 3).

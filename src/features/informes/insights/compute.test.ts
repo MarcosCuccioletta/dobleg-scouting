@@ -254,7 +254,7 @@ describe('computeInsights — rendimiento', () => {
     return input
   }
 
-  it('promedia el Score GG y marca el mejor partido', () => {
+  it('promedia el Rating y marca el mejor partido', () => {
     const res = computeInsights(rendInput())
     expect(itemById(res, 'rend.promedio')!.values).toMatchObject({ avg: 6.8, matches: 4 })
     expect(itemById(res, 'rend.mejor')!.values).toMatchObject({ best: 8 })
