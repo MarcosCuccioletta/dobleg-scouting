@@ -7,7 +7,7 @@ function player(over: Partial<EnrichedPlayer> & Pick<EnrichedPlayer, 'Jugador'>)
     Liga: '', Equipo: '', 'Posición': '', Edad: '', 'País de nacimiento': '', Pie: '', Altura: '',
     'Valor de mercado (Transfermarkt)': '', 'Vencimiento contrato': '', 'Partidos jugados': '',
     'Minutos jugados': '', Goles: '', xG: '', Asistencias: '', xA: '', 'Posición específica': '',
-    id: '', Transfermkt: '', Representante: '', Imagen: '', ggScore: null, ggScorePercentile: null,
+    id: '', Transfermkt: '', Representante: '', Imagen: '', rating: null, ratingPercentile: null,
     source: 'interno', contractStatus: 'ok', monthsRemaining: null, marketValueFormatted: '',
     marketValueRaw: 0, minutesPlayed: 0, ageNum: 0,
     ...over,

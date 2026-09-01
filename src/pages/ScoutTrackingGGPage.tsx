@@ -657,7 +657,7 @@ export default function ScoutTrackingGGPage() {
                             )}
                           </td>
 
-                          {/* Score GG (Supabase 1-10) */}
+                          {/* Rating (Supabase 1-10) */}
                           <td className="px-4 py-3">
                             {player.gg_score !== null && player.gg_score !== undefined ? (
                               <div className="flex items-center gap-2">
@@ -929,7 +929,7 @@ export default function ScoutTrackingGGPage() {
           onLinked={() => {
             // Recarga desde el server en vez de parchear el estado local: cuando
             // se linkea supabase_player_id, fetchScoutPlayersWithScores recién ahí
-            // resuelve el Score GG/foto/equipo reales — un patch local los dejaría vacíos.
+            // resuelve el Rating/foto/equipo reales — un patch local los dejaría vacíos.
             load()
           }}
         />

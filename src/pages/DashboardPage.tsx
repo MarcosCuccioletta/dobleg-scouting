@@ -64,7 +64,7 @@ interface PlayerRowProps {
 }
 
 function PlayerRow({ player, metric, metricValue, onClick, posAvg, score, scale = '10' }: PlayerRowProps) {
-  const displayScore = score !== undefined ? score : player.ggScore
+  const displayScore = score !== undefined ? score : player.rating
   const scoreColor = getRelativeScoreColorClass(displayScore ?? null, posAvg ?? null, scale)
   const scoreBg = getRelativeScoreBgClass(displayScore ?? null, posAvg ?? null, scale)
 
@@ -148,9 +148,9 @@ function MonitoringRow({ player, metric, metricValue, onClick, highlight, posAvg
             <p className="text-sm font-semibold text-apple-gray-700 dark:text-apple-gray-200">{metricValue}</p>
             <p className="text-2xs text-apple-gray-400">{metric}</p>
           </>
-        ) : player.ggScore ? (
-          <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${getRelativeScoreBgClass(player.ggScore, posAvg ?? null, '10')} ${getRelativeScoreColorClass(player.ggScore, posAvg ?? null, '10')}`}>
-            {player.ggScore.toFixed(1)}
+        ) : player.rating ? (
+          <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${getRelativeScoreBgClass(player.rating, posAvg ?? null, '10')} ${getRelativeScoreColorClass(player.rating, posAvg ?? null, '10')}`}>
+            {player.rating.toFixed(1)}
           </span>
         ) : null}
       </div>
@@ -172,8 +172,8 @@ export default function DashboardPage() {
     return { score: null, scale: '10' }
   }
 
-  // Cortes del Score GG, que siempre viene 1-10 de la API.
-  const thresholds = { elite: 8.0, good: 5.5, developing: 3.5 }
+  // Cortes del Rating, que siempre viene 1-10 de la API.
+  const thresholds = { elite: 7.3, good: 6.8, developing: 6.4 }
 
   function getPosAvg(posicion: string): number | null {
     const normPos = FILTER_POSITION_MAP[posicion] ?? ''
@@ -182,11 +182,11 @@ export default function DashboardPage() {
 
   // Filter only players with meaningful data
   const activePlayers = useMemo(() =>
-    internal.filter(p => p.minutesPlayed >= 100 || p.ggScore !== null),
+    internal.filter(p => p.minutesPlayed >= 100 || p.rating !== null),
     [internal]
   )
 
-  // Score GG por posición (solo jugadores internos con score)
+  // Rating por posición (solo jugadores internos con score)
   const positionScores = useMemo(() => {
     const groups: Record<string, string> = {
       'Arquero': 'Arquero',
@@ -348,7 +348,7 @@ export default function DashboardPage() {
   // Best opportunities - players in seguimiento that outperform Doble G average
   const recommendedSignings = useMemo(() =>
     [...monitoring]
-      .filter(p => p.hasEnoughData && p.scoreDiff != null && p.scoreDiff > 0 && p.ggScore != null)
+      .filter(p => p.hasEnoughData && p.scoreDiff != null && p.scoreDiff > 0 && p.rating != null)
       .sort((a, b) => (b.scoreDiff ?? 0) - (a.scoreDiff ?? 0))
       .slice(0, 5),
     [monitoring]
@@ -366,7 +366,7 @@ export default function DashboardPage() {
   // Contract opportunities in seguimiento
   const contractOpportunities = useMemo(() =>
     [...monitoring]
-      .filter(p => p.monthsRemaining != null && p.monthsRemaining <= 12 && p.ggScore != null && p.ggScore >= 4)
+      .filter(p => p.monthsRemaining != null && p.monthsRemaining <= 12 && p.rating != null && p.rating >= 6.0)
       .sort((a, b) => (a.monthsRemaining ?? 999) - (b.monthsRemaining ?? 999))
       .slice(0, 5),
     [monitoring]
@@ -374,7 +374,7 @@ export default function DashboardPage() {
 
   // Seguimiento stats
   const seguimientoStats = useMemo(() => {
-    const withScore = monitoring.filter(p => p.ggScore != null && p.hasEnoughData)
+    const withScore = monitoring.filter(p => p.rating != null && p.hasEnoughData)
     const aboveAvg = monitoring.filter(p => (p.scoreDiff ?? -1) > 0)
     const contractSoon = monitoring.filter(p => (p.monthsRemaining ?? 999) <= 12)
     return {
@@ -518,7 +518,7 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* Score GG por Posición */}
+      {/* Rating por Posición */}
       {positionScores.length > 0 && (
         <div className="bg-white dark:bg-apple-gray-800 rounded-xl border border-apple-gray-200 dark:border-apple-gray-700 p-5 mb-8">
           <p className="text-xs font-medium text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider mb-4">

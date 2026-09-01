@@ -631,7 +631,7 @@ export default function MonitoringPage() {
                               </span>
                             </td>
 
-                            {/* Score GG */}
+                            {/* Rating */}
                             <td className="px-3 py-3">
                               {player.gg_score !== null && player.gg_score !== undefined ? (
                                 <div className="flex flex-col gap-0.5">
@@ -730,7 +730,7 @@ export default function MonitoringPage() {
           onClose={() => setLinkingPlayer(null)}
           onLinked={() => {
             // Recarga desde el server: cuando se linkea supabase_player_id,
-            // fetchScoutPlayersWithScores recién ahí resuelve el Score GG/foto/equipo
+            // fetchScoutPlayersWithScores recién ahí resuelve el Rating/foto/equipo
             // reales — un patch local los dejaría vacíos.
             loadData()
           }}
