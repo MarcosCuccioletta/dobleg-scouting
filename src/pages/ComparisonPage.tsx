@@ -321,7 +321,7 @@ function ComparisonContent({ players }: { players: PlayerWithScore[] }) {
       {/* Quick summary cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <QuickSummaryCard
-          label="Score GG"
+          label="Rating"
           players={players}
           getValue={p => p.primary_score ?? null}
           formatValue={v => v.toFixed(1)}
@@ -380,7 +380,7 @@ function ComparisonContent({ players }: { players: PlayerWithScore[] }) {
                 </p>
                 {player.primary_score != null && (
                   <p className={`text-xs font-semibold mt-0.5 ${scoreColor(player.primary_score)}`}>
-                    Score GG: {player.primary_score.toFixed(1)}
+                    Rating: {player.primary_score.toFixed(1)}
                   </p>
                 )}
               </div>
