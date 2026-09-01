@@ -214,10 +214,10 @@ export async function fetchScoutPlayersWithScores(
     // el bug de currentSeasons() ya arreglado en playerStatsService.ts.
     const { data: scores } = await supabase
       .from('player_season_scores')
-      .select('player_id, avg_score, percentile, position, matches_played, season')
+      .select('player_id, avg_rating, percentile, position, matches_played, season')
       .in('player_id', supabaseIds)
       .in('season', currentSeasons())
-      .not('avg_score', 'is', null)
+      .not('avg_rating', 'is', null)
       // Temporada mas nueva primero, y recien ahi por partidos jugados -- mismo
       // criterio que buildScoreLookup en playerStatsService.ts. Sin el orden por
       // temporada, un jugador con mas partidos en el año viejo le ganaba a su
@@ -230,7 +230,7 @@ export async function fetchScoutPlayersWithScores(
       for (const s of scores) {
         if (!scoreMap.has(s.player_id)) {
           scoreMap.set(s.player_id, {
-            score: s.avg_score,
+            score: s.avg_rating,
             percentile: s.percentile,
             position: s.position,
             matches: s.matches_played,
