@@ -142,7 +142,10 @@ serve(async (req) => {
             season,
             position,
             league_id: league.id,
-            matches_played: rows.length,
+            // Explícito en vez de asumir que rows ya viene sin ratings nulos
+            // (la query los filtra hoy, pero ratings.length es correcto sin
+            // depender de ese filtro implícito).
+            matches_played: ratings.length,
             avg_rating: ratings.length > 0
               ? Math.round((ratings.reduce((a: number, b: number) => a + b, 0) / ratings.length) * 10) / 10
               : null,

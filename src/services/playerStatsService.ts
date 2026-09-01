@@ -762,7 +762,6 @@ export interface SquadStatRow {
   duels_total: number;
   dribbles_success: number;
   dribbles_attempted: number;
-  match_score: number | null;
   rating: number | null;
   detected_position: string | null;
   fixture_id: number;
@@ -788,7 +787,7 @@ export async function fetchSquadMatchStats(
       .select(`
         player_id, fixture_id, minutes, goals, assists, passes_key,
         duels_won, duels_total, dribbles_success, dribbles_attempted,
-        rating, match_score, detected_position,
+        rating, detected_position,
         player:players(name),
         fixture:fixtures!inner(date)
       `)

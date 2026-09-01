@@ -112,7 +112,7 @@ function PlayerSelector({
         if (p.primary_score === null) return false
         return true
       })
-      .slice(0, 15) // ya viene ordenado por avg_score desc desde el RPC
+      .slice(0, 15) // ya viene ordenado por avg_rating desc desde el RPC
   }, [suggestionPool, isExcluded, selectedLeagueIds, nationality])
 
   // Buscar: contra la base completa, sin recorte de pool ni de posición — antes
