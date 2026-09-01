@@ -340,6 +340,18 @@ export interface ScoreLookupRow {
   team_logo: string | null;
   score: number;
   position: Position;
+  /**
+   * Posición declarada del jugador (`players.primary_position`), independiente
+   * de la temporada — se usa para elegir qué fila de temporada representa al
+   * jugador cuando tiene fragmentos en más de una posición (ver
+   * `isNewerRepresentative`). Sin esto, una fila reciente con pocos partidos
+   * en una posición ocasional le ganaba a la temporada real del jugador solo
+   * por ser más nueva (caso real: José Paradela — 6.3 de 3 partidos como EXT
+   * en 2026 tapaba su 7.0 real de 34 partidos como VI en 2025, su posición
+   * de siempre — la ficha sí mostraba el 7.0 porque busca por posición
+   * primaria, no solo por temporada más nueva).
+   */
+  primary_position: Position | null;
   percentile: number | null;
   matches_played: number;
   season: number;
@@ -442,8 +454,18 @@ export function buildScoreLookup(
   // misma persona (caso real: Julián López con 9 partidos/score 5.0 en 2025 pero sólo
   // 6 partidos/score 4.8 en 2026 — la lista mostraba el 5.0 viejo, la ficha el 4.8
   // correcto).
-  const isNewerRepresentative = (row: ScoreLookupRow, existing: ScoreLookupRow): boolean =>
-    row.season !== existing.season ? row.season > existing.season : row.matches_played > existing.matches_played;
+  const isNewerRepresentative = (row: ScoreLookupRow, existing: ScoreLookupRow): boolean => {
+    // Primero, la posición: una fila que coincide con la posición declarada del
+    // jugador (`primary_position`) siempre gana, sin importar la temporada — evita
+    // que un fragmento reciente de pocos partidos en una posición ocasional tape
+    // la temporada real del jugador solo por ser más nueva (ver nota en
+    // `ScoreLookupRow.primary_position`). Sólo si ambas coinciden o ninguna
+    // coincide se cae al criterio de temporada/partidos de siempre.
+    const rowIsPrimary = row.primary_position != null && row.position === row.primary_position;
+    const existingIsPrimary = existing.primary_position != null && existing.position === existing.primary_position;
+    if (rowIsPrimary !== existingIsPrimary) return rowIsPrimary;
+    return row.season !== existing.season ? row.season > existing.season : row.matches_played > existing.matches_played;
+  };
 
   const byIdentity = new Map<string, ScoreLookupRow>();
   for (const row of rows) {
@@ -536,7 +558,7 @@ export async function fetchScoreLookup(
       .from('player_season_scores')
       .select(`
         player_id, position, avg_rating, percentile, matches_played, season,
-        player:players!inner(name, current_team_id, transfermarkt_id, birth_date, team:teams(name, logo))
+        player:players!inner(name, current_team_id, transfermarkt_id, birth_date, primary_position, team:teams(name, logo))
       `)
       .in('season', seasons)
       .not('avg_rating', 'is', null)
@@ -564,6 +586,7 @@ export async function fetchScoreLookup(
       team_logo: ((row as any).player?.team?.logo as string | null) ?? null,
       score: row.avg_rating,
       position: row.position as Position,
+      primary_position: ((row as any).player?.primary_position as Position | null) ?? null,
       percentile: row.percentile,
       matches_played: row.matches_played,
       season: row.season,

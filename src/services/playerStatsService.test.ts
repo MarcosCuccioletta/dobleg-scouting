@@ -5,7 +5,7 @@ import type { PlayerSeasonScore } from '@/types/scoring'
 const row = (over: Partial<ScoreLookupRow> & Pick<ScoreLookupRow, 'player_id' | 'name'>): ScoreLookupRow => ({
   current_team_id: null, transfermarkt_id: null, birth_date: null,
   team_name: null, team_logo: null,
-  score: 5, position: 'VC', percentile: 50, matches_played: 1, season: 2026,
+  score: 5, position: 'VC', primary_position: null, percentile: 50, matches_played: 1, season: 2026,
   ...over,
 })
 
@@ -91,6 +91,23 @@ describe('buildScoreLookup', () => {
 
     expect(map.get('jose paradela')?.score).toBe(6.5)
     expect(map.get('jose paradela')?.matches_played).toBe(31)
+  })
+
+  it('temporada nueva con pocos partidos en posición ocasional no tapa la posición real del jugador (caso real José Paradela, EXT 2026 vs VI 2025)', () => {
+    // Caso real: José Paradela jugó 34 partidos como VI en 2025 (su posición de
+    // siempre, primary_position='VI') y apenas 3 como EXT en 2026. Sin el desempate
+    // por posición, la fila de 2026 ganaba solo por ser más nueva (mismo criterio que
+    // ya usaba el caso Julián López de más abajo), mostrando 6.3 en la lista mientras
+    // la ficha individual mostraba 7.0 (busca por primary_position, no por temporada
+    // más nueva a secas).
+    const rows = [
+      row({ player_id: 6441, name: 'José Paradela', season: 2026, position: 'EXT', primary_position: 'VI', matches_played: 3, score: 6.3 }),
+      row({ player_id: 6441, name: 'José Paradela', season: 2025, position: 'VI', primary_position: 'VI', matches_played: 34, score: 7.0 }),
+    ]
+    const map = buildScoreLookup(rows, [])
+
+    expect(map.get('jose paradela')?.score).toBe(7.0)
+    expect(map.get('jose paradela')?.matches_played).toBe(34)
   })
 
   it('mismo transfermarkt_id, equipos distintos (API-Football desactualizado vs Sofascore al día): igual se fusionan como una sola identidad', () => {

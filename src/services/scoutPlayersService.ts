@@ -209,6 +209,17 @@ export async function fetchScoutPlayersWithScores(
   let playerInfoMap = new Map<number, { photo: string | null; team_name: string | null; team_logo: string | null; age: number | null }>()
 
   if (supabaseIds.length > 0) {
+    // Posición declarada de cada jugador -- se usa para preferir la fila de
+    // temporada que coincide con su posición real (ver comparación de abajo).
+    const primaryPositionMap = new Map<number, string | null>()
+    {
+      const { data: posData } = await supabase
+        .from('players')
+        .select('id, primary_position')
+        .in('id', supabaseIds)
+      for (const p of posData || []) primaryPositionMap.set(p.id, p.primary_position ?? null)
+    }
+
     // Sin filtrar por temporada, un jugador con muchos partidos en una temporada
     // vieja y completa le ganaba a su temporada vigente parcial — mismo patrón que
     // el bug de currentSeasons() ya arreglado en playerStatsService.ts.
@@ -228,7 +239,26 @@ export async function fetchScoutPlayersWithScores(
 
     if (scores) {
       for (const s of scores) {
-        if (!scoreMap.has(s.player_id)) {
+        const existing = scoreMap.get(s.player_id)
+        if (!existing) {
+          scoreMap.set(s.player_id, {
+            score: s.avg_rating,
+            percentile: s.percentile,
+            position: s.position,
+            matches: s.matches_played,
+          })
+          continue
+        }
+        // El primer encuentro por jugador ya es el mejor por temporada/partidos
+        // (orden de la query). Sólo lo reemplaza una fila posterior si coincide con
+        // su posición real y la que tenía elegida hasta ahora no -- evita que una
+        // temporada nueva con pocos partidos en una posición ocasional tape la
+        // posición de siempre del jugador (caso real: José Paradela, EXT 2026 con 3
+        // partidos tapaba su VI 2025 con 34 -- ver mismo fix en playerStatsService.ts).
+        const primaryPos = primaryPositionMap.get(s.player_id) ?? null
+        const rowIsPrimary = primaryPos != null && s.position === primaryPos
+        const existingIsPrimary = primaryPos != null && existing.position === primaryPos
+        if (rowIsPrimary && !existingIsPrimary) {
           scoreMap.set(s.player_id, {
             score: s.avg_rating,
             percentile: s.percentile,
