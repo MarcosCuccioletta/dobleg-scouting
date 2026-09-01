@@ -95,8 +95,8 @@ export function normalizeName(s: string): string {
 
 function enrichPlayer(
   player: Record<string, string>,
-  ggScore: number | null,
-  ggScorePercentile: number | null,
+  rating: number | null,
+  ratingPercentile: number | null,
   source: 'externo' | 'interno'
 ): EnrichedPlayer {
   // Try multiple column names for market value (different CSV formats)
@@ -135,8 +135,8 @@ function enrichPlayer(
     Transfermkt: player['Transfermkt'] ?? '',
     Representante: player['Representante'] ?? '',
     Imagen: player['Imagen'] ?? '',
-    ggScore,
-    ggScorePercentile,
+    rating,
+    ratingPercentile,
     source,
     contractStatus:
       monthsRemaining === null ? 'ok'
@@ -154,26 +154,27 @@ function enrichPlayer(
 
 
 
-/** Lo mínimo que `applyScoreGG` necesita de una entrada del lookup de la API. */
-export interface ScoreGGEntry {
+/** Lo mínimo que `applyRating` necesita de una entrada del lookup de la API. */
+export interface RatingEntry {
   score: number | null
   percentile: number | null
 }
 
 /**
- * Asigna a cada jugador del CSV el Score GG (1-10) que ya calculó la API,
- * buscándolo por nombre normalizado.
+ * Asigna a cada jugador del CSV el Rating (1-10) que ya calculó la API
+ * (promedio de rating de Sofascore/API-Football por temporada), buscándolo
+ * por nombre normalizado.
  *
- * Reemplaza al scoring viejo de 0-100 que se computaba acá sobre las columnas del
- * CSV: ese ponderaba por liga, sólo comparaba contra los jugadores del archivo y
- * no era comparable con el Score GG de la API. Si un jugador no está en la API
- * queda en null: preferimos que la ficha diga que no hay score antes que mostrar
- * un número de otra escala.
+ * Reemplaza al scoring ponderado propio ("Score GG") que combinaba métricas
+ * con pesos elegidos a criterio propio — ver
+ * docs/superpowers/specs/2026-09-01-rating-reemplaza-score-gg-design.md. Si
+ * un jugador no está en la API queda en null: preferimos que la ficha diga
+ * que no hay rating antes que mostrar un número de otra fuente.
  */
-export function applyScoreGG(
+export function applyRating(
   players: (RawExternalPlayer | RawInternalPlayer)[],
   source: 'externo' | 'interno',
-  lookup: Map<string, ScoreGGEntry>
+  lookup: Map<string, RatingEntry>
 ): EnrichedPlayer[] {
   return players.map(player => {
     const entry = lookup.get(normalizeName(player['Jugador'] ?? ''))

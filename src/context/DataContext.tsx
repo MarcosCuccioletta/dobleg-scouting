@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useCallback, useMemo, useState, type ReactNode } from 'react'
 import { loadAllData, type MasDatosEntry, type SeguimientoMetricsPlayer } from '@/services/csvService'
-import { applyScoreGG, normalizeName, parseMarketValue, formatMarketValue, parseContractDate, monthsBetween, getNumericValue } from '@/utils/scoring'
+import { applyRating, normalizeName, parseMarketValue, formatMarketValue, parseContractDate, monthsBetween, getNumericValue } from '@/utils/scoring'
 import { POSITION_MAP, SCORING_CONFIG, FILTER_POSITION_MAP } from '@/constants/scoring'
 import { loadAgencyPlayers } from '@/services/agencyPlayersService'
 import { getAgencyPlayersList, AGENCY_OVERRIDES, type AgencyPlayer } from '@/constants/agencyPlayers'
@@ -50,8 +50,8 @@ function agencyToEnriched(a: AgencyPlayer): EnrichedPlayer {
     Transfermkt: '',
     Representante: '',
     Imagen: a.image ?? '',
-    ggScore: null,
-    ggScorePercentile: null,
+    rating: null,
+    ratingPercentile: null,
     source: 'interno',
     contractStatus: 'ok',
     monthsRemaining: null,
@@ -409,7 +409,7 @@ function getArgentinaTeamMultiplier(team: string): number {
 // Estimate market value based on analyzed patterns
 function estimateMarketValue(player: EnrichedPlayer, leagueType: 'argentina1' | 'colombia'): number {
   const age = player.ageNum || 25
-  const score = player.ggScore ?? 0
+  const score = player.rating ?? 0
   const pos = normalizeName(player['Posición'] || '')
 
   // Different base values per league
@@ -419,7 +419,7 @@ function estimateMarketValue(player: EnrichedPlayer, leagueType: 'argentina1' | 
 
   let baseValue: number
 
-  // Cortes sobre el Score GG (1-10). Argentina vale ~4-5x más que Colombia.
+  // Cortes sobre el Rating (1-10). Argentina vale ~4-5x más que Colombia.
   if (isArgentina) {
     // Liga Argentina base values
     if (score >= 6.5) baseValue = 3_000_000      // Elite performers
@@ -808,18 +808,18 @@ function linkMonitoringToMetrics(
     }
 
     // If player exists in external/internal, use their score directly
-    if (existingPlayer && existingPlayer.ggScore !== null) {
+    if (existingPlayer && existingPlayer.rating !== null) {
       const avgInternalScore = getInternalAverageByPosition(internalOnly, m['Posición'])
-      const scoreDiff = existingPlayer.ggScore !== null && avgInternalScore !== null
-        ? Math.round((existingPlayer.ggScore - avgInternalScore) * 10) / 10
+      const scoreDiff = existingPlayer.rating !== null && avgInternalScore !== null
+        ? Math.round((existingPlayer.rating - avgInternalScore) * 10) / 10
         : null
 
       return {
         ...m,
-        ggScore: existingPlayer.ggScore,
+        rating: existingPlayer.rating,
         hasEnoughData: true,
         metricsPlayer: existingPlayer,
-        opportunityScore: calculateOpportunityScore(existingPlayer.ggScore, existingPlayer.marketValueRaw),
+        opportunityScore: calculateOpportunityScore(existingPlayer.rating, existingPlayer.marketValueRaw),
         marketValueRaw: existingPlayer.marketValueRaw,
         monthsRemaining: existingPlayer.monthsRemaining,
         contractStatus: existingPlayer.contractStatus,
@@ -887,7 +887,7 @@ function linkMonitoringToMetrics(
 
     return {
       ...m,
-      ggScore: score,
+      rating: score,
       hasEnoughData,
       metricsPlayer: enrichedPlayer,
       opportunityScore,
@@ -936,7 +936,7 @@ function linkMonitoringToExternal(
       const extPlayer = validCandidates[0]
       return {
         ...m,
-        ggScore: extPlayer.ggScore,
+        rating: extPlayer.rating,
         externalPlayer: extPlayer,
       }
     }
@@ -950,7 +950,7 @@ function linkMonitoringToExternal(
       if (teamMatch) {
         return {
           ...m,
-          ggScore: teamMatch.ggScore,
+          rating: teamMatch.rating,
           externalPlayer: teamMatch,
         }
       }
@@ -1007,11 +1007,11 @@ function hasEnoughMetrics(player: SeguimientoMetricsPlayer): boolean {
 }
 
 /**
- * Enriquece un jugador de Seguimiento y le pega el Score GG (1-10) de la API.
+ * Enriquece un jugador de Seguimiento y le pega el Rating (1-10) de la API.
  *
  * Antes calculaba un score propio de 0-100 normalizando las columnas del CSV
  * contra los jugadores de la misma posición. Ese número no era comparable con el
- * Score GG del resto de la plataforma, así que se sacó: si la API no tiene al
+ * Rating del resto de la plataforma, así que se sacó: si la API no tiene al
  * jugador, queda sin score.
  */
 function scoreSeguimientoPlayer(
@@ -1059,8 +1059,8 @@ function scoreSeguimientoPlayer(
     Transfermkt: player.Transfermkt ?? '',
     Representante: player['Representante'] ?? '',
     Imagen: player['Imagen'] ?? '',
-    ggScore: finalScore,
-    ggScorePercentile: null,
+    rating: finalScore,
+    ratingPercentile: null,
     source: 'externo',
     contractStatus: monthsRemaining === null ? 'ok' : monthsRemaining < 7 ? 'critical' : monthsRemaining < 13 ? 'warning' : 'ok',
     monthsRemaining,
@@ -1073,10 +1073,10 @@ function scoreSeguimientoPlayer(
 }
 
 // Calculate opportunity score (score / market value ratio, higher = better opportunity)
-function calculateOpportunityScore(ggScore: number | null, marketValue: number): number | null {
-  if (ggScore === null || marketValue <= 0) return null
+function calculateOpportunityScore(rating: number | null, marketValue: number): number | null {
+  if (rating === null || marketValue <= 0) return null
   // Normalize: score per €100k of market value
-  return Math.round((ggScore / (marketValue / 100000)) * 10) / 10
+  return Math.round((rating / (marketValue / 100000)) * 10) / 10
 }
 
 // Calculate average internal score by position
@@ -1089,12 +1089,12 @@ function getInternalAverageByPosition(
 
   const positionPlayers = internal.filter(p => {
     const pk = POSITION_MAP[p['Posición']?.trim() ?? ''] ?? ''
-    return pk === posKey && p.ggScore !== null
+    return pk === posKey && p.rating !== null
   })
 
   if (positionPlayers.length === 0) return null
 
-  const sum = positionPlayers.reduce((acc, p) => acc + (p.ggScore ?? 0), 0)
+  const sum = positionPlayers.reduce((acc, p) => acc + (p.rating ?? 0), 0)
   return Math.round((sum / positionPlayers.length) * 10) / 10
 }
 
@@ -1237,7 +1237,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const tmByLinkMap = buildTransfermarktByLinkMap(raw.transfermarkt)
         const masDatosMap = buildMasDatosMap(raw.masDatos)
 
-        // El Score GG (1-10) lo calcula la API por posición: acá sólo se le pega a
+        // El Rating (1-10) lo calcula la API por posición: acá sólo se le pega a
         // cada fila del CSV por nombre. El scoring viejo de 0-100 sobre columnas del
         // CSV ya no existe. Si la API no responde, los jugadores quedan sin score
         // en vez de caer a la escala vieja.
@@ -1254,7 +1254,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         agencyLiveDataRef.current = agencyLiveData
 
         // Score and enrich external players with Transfermarkt data + Más Datos + Estimated values
-        const externalScored = applyScoreGG(raw.external, 'externo', scoreLookup)
+        const externalScored = applyRating(raw.external, 'externo', scoreLookup)
         const externalBase = externalScored.map(p =>
           enrichWithEstimatedValue(enrichWithMasDatos(enrichWithTransfermarkt(p, tmMap), masDatosMap))
         )
@@ -1273,7 +1273,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           .map(r => manualExternalToEnriched(r, scoreLookup.get(normalizeName(r.full_name))?.score ?? null))
         const external = [...externalBase, ...manualPlayers]
 
-        const internalScored = applyScoreGG(raw.internal, 'interno', scoreLookup)
+        const internalScored = applyRating(raw.internal, 'interno', scoreLookup)
 
         // Enrich internal players with:
         // 1. Transfermarkt data using their TM link (valor de mercado, contrato, imagen)
@@ -1306,12 +1306,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
         // Compute position averages for relative score coloring
         const positionGroups: Record<string, number[]> = {}
         for (const p of [...external, ...internal]) {
-          if (p.ggScore === null) continue
+          if (p.rating === null) continue
           const rawPos = p['Posición'] || ''
           const normPos = FILTER_POSITION_MAP[rawPos] ?? ''
           if (!normPos) continue
           if (!positionGroups[normPos]) positionGroups[normPos] = []
-          positionGroups[normPos].push(p.ggScore)
+          positionGroups[normPos].push(p.rating)
         }
         const positionAverages: Record<string, number> = {}
         for (const [pos, scores] of Object.entries(positionGroups)) {

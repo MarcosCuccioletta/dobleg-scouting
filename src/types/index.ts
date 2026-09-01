@@ -55,18 +55,18 @@ export interface MonitoringPlayer {
   Transfermkt?: string
   WyscoutVideo?: string
   // Enriched from metrics data
-  ggScore?: number | null
+  rating?: number | null
   hasEnoughData?: boolean  // true if player has sufficient metrics for scoring
   metricsPlayer?: EnrichedPlayer | null  // Player data from seguimientoMetricas sheet
   // Enriched from external data (legacy, for fallback)
   externalPlayer?: EnrichedPlayer | null
   // Computed fields
-  opportunityScore?: number | null  // ggScore / marketValue ratio
+  opportunityScore?: number | null  // rating / marketValue ratio
   marketValueRaw?: number
   monthsRemaining?: number | null
   contractStatus?: 'ok' | 'warning' | 'critical'
   // Comparison with internal players
-  avgInternalScore?: number | null  // Average ggScore of internal players in same position
+  avgInternalScore?: number | null  // Average rating of internal players in same position
   scoreDiff?: number | null  // Difference from internal average
 }
 
@@ -189,8 +189,8 @@ export interface EnrichedPlayer {
   Representante: string
   Imagen: string
   // Enrichment
-  ggScore: number | null
-  ggScorePercentile: number | null  // percentile within position group (0-100)
+  rating: number | null
+  ratingPercentile: number | null  // percentile within position group (0-100)
   source: 'externo' | 'interno'
   contractStatus: 'ok' | 'warning' | 'critical'
   monthsRemaining: number | null
@@ -279,7 +279,7 @@ export interface ComparisonPlayer {
 
 export interface ScoreHistoryEntry {
   date: string  // ISO date string
-  ggScore: number
+  rating: number
   opportunityScore?: number
 }
 
