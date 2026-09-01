@@ -13,10 +13,10 @@ describe('mapLineupToSlots', () => {
     expect(formationType).toBe('4-3-3')
     expect(slots).toHaveLength(11)
     expect(slots[0]).toEqual({
-      slotKey: 'GK', source: 'squad', playerId: 1, playerName: 'Jugador 1', playerNumber: 1, ggScore: null,
+      slotKey: 'GK', source: 'squad', playerId: 1, playerName: 'Jugador 1', playerNumber: 1, rating: null,
     })
     expect(slots[10]).toEqual({
-      slotKey: 'RW', source: 'squad', playerId: 11, playerName: 'Jugador 11', playerNumber: 11, ggScore: null,
+      slotKey: 'RW', source: 'squad', playerId: 11, playerName: 'Jugador 11', playerNumber: 11, rating: null,
     })
     expect(slots.every(s => s.source === 'squad')).toBe(true)
   })

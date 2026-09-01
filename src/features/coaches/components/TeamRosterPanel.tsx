@@ -49,7 +49,7 @@ function EmptyState({ message }: { message: string }) {
 /**
  * Resultado de resolver a dónde debe llevar el click en una tarjeta del plantel:
  * - `internal`/`external`: ficha derivada del CSV legacy (source=interno/externo).
- * - `supabase`: el jugador ya tiene fila real en `players` (Score GG, historial,
+ * - `supabase`: el jugador ya tiene fila real en `players` (Rating, historial,
  *   transfers) — se linkea con `apiId` para que la ficha se renderice 100% desde ahí.
  * - `create`: no hay match en ningún lado, último recurso, crea un stub al vuelo.
  * - `none`: tarjeta no interactiva (jugador de agencia sin match confiable, o datos

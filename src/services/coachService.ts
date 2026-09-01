@@ -247,7 +247,7 @@ export async function fetchSquadMinutes(
 /**
  * Chequea cuáles de estos ids de jugador (id de API-Football, igual a `players.id`
  * en Supabase) ya tienen ficha real en la plataforma. Se usa para que el plantel de
- * un entrenador linkee a la ficha rica (Score GG, historial, transfers) en vez de
+ * un entrenador linkee a la ficha rica (Rating, historial, transfers) en vez de
  * crear un stub vacío para jugadores que ya están en la base.
  */
 export async function fetchExistingPlayerIds(playerIds: number[]): Promise<Set<number>> {

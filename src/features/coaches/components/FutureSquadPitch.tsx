@@ -153,9 +153,9 @@ export default function FutureSquadPitch({
                 {slot!.playerName!.split(' ').slice(-1)[0]}
               </p>
             )}
-            {occupied && isCandidate && slot!.ggScore !== null && (
+            {occupied && isCandidate && slot!.rating !== null && (
               <p className="mt-1 text-center whitespace-nowrap text-2xs font-bold text-sky-200">
-                {slot!.ggScore!.toFixed(1)}
+                {slot!.rating!.toFixed(1)}
               </p>
             )}
           </div>

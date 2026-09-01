@@ -38,17 +38,17 @@ describe('manualExternalToEnriched', () => {
     expect(player.ageNum).toBe(22)
     expect(player.Imagen).toBe('https://example.com/foto.png')
     expect(player.source).toBe('externo')
-    expect(player.ggScore).toBe(6.2)
+    expect(player.rating).toBe(6.2)
     expect(player.Liga).toBe('')
     expect(player.marketValueRaw).toBe(0)
     expect(player['Partidos jugados']).toBe('')
   })
 
-  it('no crashea con age y photo null, y ggScore null', () => {
+  it('no crashea con age y photo null, y rating null', () => {
     const player = manualExternalToEnriched(mkRow({ age: null, photo: null }), null)
     expect(player.Edad).toBe('')
     expect(player.ageNum).toBe(0)
     expect(player.Imagen).toBe('')
-    expect(player.ggScore).toBeNull()
+    expect(player.rating).toBeNull()
   })
 })

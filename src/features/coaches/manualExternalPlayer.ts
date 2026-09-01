@@ -19,7 +19,7 @@ export function mapSquadPositionToSpanish(position: string | null): string {
 }
 
 /** Ficha minima de Externo a partir de una fila creada al vuelo desde un plantel. */
-export function manualExternalToEnriched(row: ManualExternalPlayerRow, ggScore: number | null): EnrichedPlayer {
+export function manualExternalToEnriched(row: ManualExternalPlayerRow, rating: number | null): EnrichedPlayer {
   const position = POSITION_MAP[row.position] ?? row.position
   const marketValueRaw = parseMarketValue('')
   return {
@@ -44,8 +44,8 @@ export function manualExternalToEnriched(row: ManualExternalPlayerRow, ggScore: 
     Transfermkt: '',
     Representante: '',
     Imagen: row.photo ?? '',
-    ggScore,
-    ggScorePercentile: null,
+    rating,
+    ratingPercentile: null,
     source: 'externo',
     contractStatus: 'ok',
     monthsRemaining: null,
