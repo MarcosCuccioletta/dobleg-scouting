@@ -253,7 +253,7 @@ export default function SupabasePlayerDetail() {
 
               {/* Score gauge */}
               <GaugeScore
-                score={activeScore?.avg_score ?? null}
+                score={activeScore?.avg_rating ?? null}
                 scale="10"
                 size="lg"
                 comparisonScore={posAverage}
@@ -308,7 +308,7 @@ export default function SupabasePlayerDetail() {
               </h4>
               <div className="space-y-2">
                 {allSeasonScores
-                  .sort((a, b) => (b.avg_score ?? 0) - (a.avg_score ?? 0))
+                  .sort((a, b) => (b.avg_rating ?? 0) - (a.avg_rating ?? 0))
                   .map(s => (
                     <button
                       key={s.position}
@@ -323,9 +323,9 @@ export default function SupabasePlayerDetail() {
                         <span className="text-sm font-semibold text-apple-gray-800 dark:text-white">{displayPosition(s.position)}</span>
                         <span className="text-xs text-apple-gray-500">{s.matches_played} PJ</span>
                       </div>
-                      {s.avg_score !== null && (
-                        <span className={`text-sm font-bold tabular-nums ${getScoreColorClass(s.avg_score, '10')}`}>
-                          {s.avg_score.toFixed(1)}
+                      {s.avg_rating !== null && (
+                        <span className={`text-sm font-bold tabular-nums ${getScoreColorClass(s.avg_rating, '10')}`}>
+                          {s.avg_rating.toFixed(1)}
                         </span>
                       )}
                     </button>
@@ -368,7 +368,7 @@ export default function SupabasePlayerDetail() {
             <div className="card-apple p-5">
               <ScoreEvolutionChart
                 matches={matches}
-                avgScore={activeScore?.avg_score ?? null}
+                avgScore={activeScore?.avg_rating ?? null}
               />
             </div>
           )}
