@@ -38,6 +38,14 @@ export async function ensurePropioBucket(coachKey: string): Promise<VideoAnalysi
     .single()
 
   if (error || !data) {
+    // 23505 = violacion de unique_index (idx_cvab_propio_unique): otra llamada
+    // concurrente (React StrictMode en dev, dos pestanas, red lenta) ya gano la
+    // carrera y creo el bucket propio -- volver a buscarlo en vez de fallar.
+    if (error?.code === '23505') {
+      const retry = await listBuckets(coachKey)
+      const winner = retry.find(b => b.kind === 'propio')
+      if (winner) return winner
+    }
     console.error('Error creando bucket propio de videoanalisis:', error)
     return null
   }

@@ -25,6 +25,38 @@ interface AlertEntry {
 let cached: { entries: AlertEntry[]; timestamp: number } | null = null
 const CACHE_TTL_MS = 60_000
 
+/**
+ * Una alerta acá es "sigue vencido/próximo hoy", no un evento puntual — así
+ * que "leído" no significa "descartar para siempre" (mañana, si sigue sin
+ * resolverse, tiene sentido que vuelva a molestar). Se marca "vista" por
+ * fecha: la clave incluye `dueDate`, así que si la fecha no cambió ya se
+ * vio, pero si se pospuso (o es una alerta nueva) vuelve a contar como no
+ * leída. Guardado en localStorage — es por dispositivo, no hace falta que
+ * sincronice entre el celu y la compu para esto.
+ */
+const SEEN_STORAGE_KEY = 'mercado_alertas_vistas'
+
+function entryKey(e: Pick<AlertEntry, 'kind' | 'id' | 'dueDate'>): string {
+  return `${e.kind}-${e.id}-${e.dueDate}`
+}
+
+function loadSeenKeys(): Set<string> {
+  try {
+    const raw = localStorage.getItem(SEEN_STORAGE_KEY)
+    return raw ? new Set(JSON.parse(raw)) : new Set()
+  } catch {
+    return new Set()
+  }
+}
+
+function saveSeenKeys(keys: Set<string>) {
+  try {
+    localStorage.setItem(SEEN_STORAGE_KEY, JSON.stringify([...keys]))
+  } catch {
+    // localStorage puede fallar (modo privado, cuota) — no es crítico acá.
+  }
+}
+
 function buildEntries(negotiations: Negotiation[], needs: ClubNeed[], meMemberId: number | null): AlertEntry[] {
   const items: AlertableItem[] = [
     ...needs.map(n => ({ id: n.id, kind: 'need' as const, status: n.status, assigned_to_id: n.assigned_to_id, next_followup_date: n.next_followup_date })),
@@ -63,12 +95,13 @@ function buildEntries(negotiations: Negotiation[], needs: ClubNeed[], meMemberId
 }
 
 export default function MarketAlertBadge() {
-  const { user, userDisplayName } = useAuth()
+  const { user, userDisplayName, loading: authLoading } = useAuth()
   const { t } = useLanguage()
   const navigate = useNavigate()
   const [entries, setEntries] = useState<AlertEntry[]>(cached?.entries ?? [])
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [seenKeys, setSeenKeys] = useState<Set<string>>(() => loadSeenKeys())
   const ref = useRef<HTMLDivElement>(null)
 
   const load = (force = false) => {
@@ -89,7 +122,16 @@ export default function MarketAlertBadge() {
       .finally(() => setLoading(false))
   }
 
-  useEffect(() => { load() }, [user?.id, userDisplayName])
+  // Esperar a que termine de resolver la sesión: si se dispara con
+  // `user` todavía null, `me` no matchea a nadie y `buildEntries` no filtra
+  // por responsable — el numerito arranca mostrando las alertas de TODA la
+  // agencia y un instante después "salta" al número correcto (propio) en
+  // cuanto el login termina de cargar. Esperar acá evita ese salto.
+  useEffect(() => {
+    if (authLoading) return
+    load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, user?.id, userDisplayName])
 
   useEffect(() => {
     function onClickOutside(e: MouseEvent) {
@@ -98,6 +140,21 @@ export default function MarketAlertBadge() {
     if (open) document.addEventListener('mousedown', onClickOutside)
     return () => document.removeEventListener('mousedown', onClickOutside)
   }, [open])
+
+  // Abrir la campanita = "las vi". No se descartan del listado (siguen
+  // vencidas/próximas hasta que se resuelvan), solo dejan de contar como
+  // nuevas — ver la nota en `entryKey`. Se re-marca cada vez que `entries`
+  // cambia mientras está abierta (por el reload forzado al abrir), así lo
+  // recién cargado también queda visto antes de cerrar el panel.
+  useEffect(() => {
+    if (!open || entries.length === 0) return
+    setSeenKeys(prev => {
+      const next = new Set(prev)
+      for (const e of entries) next.add(entryKey(e))
+      saveSeenKeys(next)
+      return next
+    })
+  }, [open, entries])
 
   const handleToggle = () => {
     if (!open) load(true)
@@ -109,7 +166,7 @@ export default function MarketAlertBadge() {
     navigate(`/mercado?highlight=${entry.kind}-${entry.id}`)
   }
 
-  const count = entries.length
+  const count = entries.filter(e => !seenKeys.has(entryKey(e))).length
 
   return (
     <div className="relative" ref={ref}>
@@ -137,7 +194,9 @@ export default function MarketAlertBadge() {
           ) : entries.length === 0 ? (
             <p className="px-3.5 py-3 text-sm text-apple-gray-400">{t('mercado.sinAlertas')}</p>
           ) : (
-            entries.map(entry => (
+            entries.map(entry => {
+              const unread = !seenKeys.has(entryKey(entry))
+              return (
               <button
                 key={`${entry.kind}-${entry.id}`}
                 onClick={() => handleSelect(entry)}
@@ -146,7 +205,8 @@ export default function MarketAlertBadge() {
                 <span className={`mt-1.5 w-1.5 h-1.5 rounded-full flex-shrink-0 ${entry.urgency === 'vencido' ? 'bg-red-500' : 'bg-amber-500'}`} />
                 <div className="min-w-0 flex-1 space-y-0.5">
                   <div className="flex items-center gap-1.5">
-                    <p className="text-sm font-medium text-apple-gray-800 dark:text-white truncate">{entry.title}</p>
+                    <p className={`text-sm truncate ${unread ? 'font-semibold text-apple-gray-900 dark:text-white' : 'font-medium text-apple-gray-500 dark:text-apple-gray-400'}`}>{entry.title}</p>
+                    {unread && <span className="w-1.5 h-1.5 rounded-full bg-brand-green flex-shrink-0" title={t('mercado.noLeida')} />}
                     {entry.statusLabelKey && (
                       <span className={`px-1.5 py-0.5 rounded text-2xs font-semibold flex-shrink-0 ${entry.statusColor}`}>
                         {t(entry.statusLabelKey)}
@@ -164,7 +224,8 @@ export default function MarketAlertBadge() {
                 </div>
                 <span className="text-2xs text-apple-gray-400 flex-shrink-0 tabular-nums">{entry.dueDate}</span>
               </button>
-            ))
+              )
+            })
           )}
         </div>
       )}

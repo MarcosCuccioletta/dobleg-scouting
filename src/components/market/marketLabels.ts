@@ -1,5 +1,9 @@
 import type { NegotiationStatus, NeedStatus, CandidateStatus } from '@/types/market'
 
+export const NEGOTIATION_STATUS_ORDER: NegotiationStatus[] = [
+  'ofrecido', 'en_negociacion', 'avanzado', 'pausado', 'cerrado_exito', 'cerrado_caido',
+]
+
 export const NEGOTIATION_STATUS_LABEL_KEY: Record<NegotiationStatus, string> = {
   ofrecido: 'mercado.estadoOfrecido',
   pausado: 'mercado.estadoPausado',
@@ -18,6 +22,33 @@ export const NEGOTIATION_STATUS_COLOR: Record<NegotiationStatus, string> = {
   cerrado_caido: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
 }
 
+/**
+ * Acento sutil (franja + fondo tenue) para diferenciar el estado de un
+ * vistazo en lugares donde no entra la píldora entera — el `<select>` de
+ * "Estado" en la fila expandida, y los filtros de estado de la página.
+ */
+export const NEGOTIATION_STATUS_ACCENT: Record<NegotiationStatus, string> = {
+  ofrecido: 'border-l-4 border-l-sky-400 bg-sky-50/60 dark:bg-sky-900/10',
+  pausado: 'border-l-4 border-l-apple-gray-300 dark:border-l-apple-gray-600 bg-apple-gray-50 dark:bg-apple-gray-800/40',
+  en_negociacion: 'border-l-4 border-l-amber-400 bg-amber-50/60 dark:bg-amber-900/10',
+  avanzado: 'border-l-4 border-l-purple-400 bg-purple-50/60 dark:bg-purple-900/10',
+  cerrado_exito: 'border-l-4 border-l-emerald-400 bg-emerald-50/60 dark:bg-emerald-900/10',
+  cerrado_caido: 'border-l-4 border-l-red-400 bg-red-50/60 dark:bg-red-900/10',
+}
+
+/** Misma idea que `NEGOTIATION_STATUS_ACCENT` pero con la franja arriba en
+ * vez de a la izquierda — para las columnas del tablero. */
+export const NEGOTIATION_STATUS_ACCENT_TOP: Record<NegotiationStatus, string> = {
+  ofrecido: 'border-t-4 border-t-sky-400 bg-sky-50/40 dark:bg-sky-900/10',
+  pausado: 'border-t-4 border-t-apple-gray-300 dark:border-t-apple-gray-600 bg-apple-gray-50/60 dark:bg-apple-gray-800/40',
+  en_negociacion: 'border-t-4 border-t-amber-400 bg-amber-50/40 dark:bg-amber-900/10',
+  avanzado: 'border-t-4 border-t-purple-400 bg-purple-50/40 dark:bg-purple-900/10',
+  cerrado_exito: 'border-t-4 border-t-emerald-400 bg-emerald-50/40 dark:bg-emerald-900/10',
+  cerrado_caido: 'border-t-4 border-t-red-400 bg-red-50/40 dark:bg-red-900/10',
+}
+
+export const NEED_STATUS_ORDER: NeedStatus[] = ['abierto', 'cerrado']
+
 export const NEED_STATUS_LABEL_KEY: Record<NeedStatus, string> = {
   abierto: 'mercado.estadoAbierto',
   cerrado: 'mercado.estadoCerrado',
@@ -27,6 +58,13 @@ export const NEED_STATUS_COLOR: Record<NeedStatus, string> = {
   abierto: 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400',
   cerrado: 'bg-apple-gray-100 text-apple-gray-600 dark:bg-apple-gray-700 dark:text-apple-gray-300',
 }
+
+export const NEED_STATUS_ACCENT: Record<NeedStatus, string> = {
+  abierto: 'border-l-4 border-l-sky-400 bg-sky-50/60 dark:bg-sky-900/10',
+  cerrado: 'border-l-4 border-l-apple-gray-300 dark:border-l-apple-gray-600 bg-apple-gray-50 dark:bg-apple-gray-800/40',
+}
+
+export const CANDIDATE_STATUS_ORDER: CandidateStatus[] = ['propuesto', 'en_negociacion', 'fichado', 'descartado']
 
 export const CANDIDATE_STATUS_LABEL_KEY: Record<CandidateStatus, string> = {
   propuesto: 'mercado.candidatoPropuesto',

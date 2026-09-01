@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.208.0/http/server.ts';
 import { getSupabaseAdmin } from '../_shared/supabase-client.ts';
+import { fetchPlayerProfile as fetchApiFootballProfile } from '../_shared/api-football.ts';
 
 const TM_API_BASE = 'https://tmapi-alpha.transfermarkt.technology';
 const TM_HEADERS = {
@@ -83,6 +84,16 @@ async function searchTmHtml(name: string): Promise<Array<{
   return results;
 }
 
+// Piso de confianza para aceptar un match automático SIN revisión humana.
+// 10 = nombre exacto normalizado. 8 = apellido + inicial del nombre + club
+// confirmado (5+2+3 nunca sin el bonus de club). Cualquier cosa por debajo
+// —apellido solo, o apellido+inicial sin club— NO se acepta automático: mejor
+// dejar `transfermarkt_id` sin poner que adivinar mal (ver auditoría de
+// saneamiento de datos: 107 grupos con el mismo transfermarkt_id en nombres
+// incompatibles, todos por debajo de este piso). Mismo criterio que
+// scripts/enrich-transfermarkt/enrich.py — mantener ambos en sync.
+const MIN_AUTO_MATCH_SCORE = 8;
+
 function matchPlayer(
   results: Array<{ tm_id: number; name: string; club: string; market_value_text: string }>,
   playerName: string,
@@ -116,6 +127,7 @@ function matchPlayer(
 
     if (score > bestScore) { bestScore = score; best = r; }
   }
+  if (bestScore < MIN_AUTO_MATCH_SCORE) return null;
   return best;
 }
 
@@ -137,6 +149,19 @@ function extractBirthDate(profile: TmProfile): string | null {
   const dob = ld.dateOfBirth ?? profile.dateOfBirth ?? profile.birthDate;
   if (dob && typeof dob === 'string' && /^\d{4}-\d{2}-\d{2}/.test(dob)) return dob.slice(0, 10);
   return null;
+}
+
+// Edad imposible para un jugador activo -> el match probablemente cayó en un
+// homónimo (nombre común, primer resultado de búsqueda). Vio el saneamiento
+// de datos: ~390 casos históricos de exactamente este patrón (ej. 4 "Juan
+// García" distintos, los 4 matcheados al mismo Juan García de 1921). Un
+// MIN_AUTO_MATCH_SCORE alto no alcanza para evitarlo solo -- el nombre puede
+// scorear bien y aun así ser la persona equivocada.
+function impliesImplausibleAge(birthDateStr: string): boolean {
+  const dob = new Date(birthDateStr);
+  if (isNaN(dob.getTime())) return false;
+  const ageYears = (Date.now() - dob.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
+  return ageYears < 14 || ageYears > 45;
 }
 
 function extractContractEnd(profile: TmProfile): string | null {
@@ -176,14 +201,58 @@ function buildTmUrl(profile: TmProfile, tmId: number): string {
   return `https://www.transfermarkt.com/${slug}/profil/spieler/${tmId}`;
 }
 
+/**
+ * Nacionalidad y (si falta) fecha de nacimiento desde la fuente PROPIA del
+ * jugador — nunca inferida por nombre/club (ver saneamiento de datos,
+ * `nationality` vacío en el 100% de los jugadores porque ningún pipeline
+ * llamaba al endpoint de perfil completo, solo a los livianos de
+ * partidos/alineaciones que no la traen). Independiente del match de
+ * Transfermarkt de abajo — corre siempre que falte el dato, aunque el match
+ * a Transfermarkt no se encuentre.
+ *
+ * Solo API-Football acá (id<20M) — Sofascore bloquea cualquier fetch sin
+ * impersonar el fingerprint TLS de un browser real (`curl_cffi`, Python),
+ * algo que esta función edge (Deno, `fetch` nativo) no puede hacer; es el
+ * mismo motivo por el que el sync de Sofascore corre local
+ * (`scripts/sync-sofascore/sync.py`) y no acá. El backfill de nacionalidad
+ * para jugadores de Sofascore vive en
+ * `scripts/enrich-transfermarkt/backfill_nationality_sofascore.py`, local.
+ */
+async function backfillOwnSourceProfile(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  player: { id: number; nationality: string | null; birth_date: string | null },
+) {
+  if (player.id >= 20_000_000) return;
+  const patch: Record<string, any> = {};
+  try {
+    const profile = await fetchApiFootballProfile(player.id, new Date().getFullYear());
+    if (profile?.nationality && !player.nationality) patch.nationality = profile.nationality;
+    if (profile?.birthDate && !player.birth_date) patch.birth_date = profile.birthDate;
+  } catch {
+    // Sin nacionalidad de origen no rompe el resto del enrichment (Transfermarkt
+    // sigue corriendo abajo) — solo se pierde este dato puntual por ahora.
+  }
+  if (Object.keys(patch).length > 0) {
+    await supabase.from('players').update(patch).eq('id', player.id);
+  }
+}
+
 async function enrichSingle(supabase: ReturnType<typeof getSupabaseAdmin>, playerId: number) {
   const { data: player } = await supabase
     .from('players')
-    .select('id, name, current_team_id, transfermarkt_id, market_value_eur, birth_date')
+    .select('id, name, current_team_id, transfermarkt_id, market_value_eur, birth_date, nationality')
     .eq('id', playerId)
     .single();
 
   if (!player) return { error: 'Player not found' };
+
+  if (!player.nationality || !player.birth_date) {
+    await backfillOwnSourceProfile(supabase, player);
+    if (!player.birth_date) {
+      const { data: refreshed } = await supabase.from('players').select('birth_date').eq('id', playerId).single();
+      if (refreshed?.birth_date) player.birth_date = refreshed.birth_date;
+    }
+  }
 
   let teamName: string | null = null;
   if (player.current_team_id) {
@@ -196,14 +265,15 @@ async function enrichSingle(supabase: ReturnType<typeof getSupabaseAdmin>, playe
   }
 
   let tmId = player.transfermarkt_id;
+  const isFreshMatch = !tmId;
   let mvFromSearch: number | null = null;
 
   if (!tmId) {
-    let results = await searchTmHtml(player.name);
-    if (results.length === 0) {
-      const parts = player.name.split(' ');
-      if (parts.length > 1) results = await searchTmHtml(parts[parts.length - 1]);
-    }
+    // Antes reintentaba buscando solo por apellido si el nombre completo no
+    // daba resultados — ensanchaba la red justo en los casos más difíciles
+    // de confirmar (ver MIN_AUTO_MATCH_SCORE). Sin resultados por nombre
+    // completo, mejor no encontrar nada que adivinar por apellido solo.
+    const results = await searchTmHtml(player.name);
     const matched = results.length > 0 ? matchPlayer(results, player.name, teamName) : null;
     if (!matched) return { status: 'not_found', player: player.name };
     tmId = matched.tm_id;
@@ -211,6 +281,14 @@ async function enrichSingle(supabase: ReturnType<typeof getSupabaseAdmin>, playe
   }
 
   const profile = await tmProfile(tmId);
+
+  if (isFreshMatch && profile) {
+    const birthDate = extractBirthDate(profile);
+    if (birthDate && impliesImplausibleAge(birthDate)) {
+      return { status: 'rejected_implausible_age', player: player.name, tm_id: tmId, birth_date: birthDate };
+    }
+  }
+
   const patch: Record<string, any> = { transfermarkt_id: tmId };
 
   if (profile) {

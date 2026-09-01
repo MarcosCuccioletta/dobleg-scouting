@@ -2,11 +2,13 @@ import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { fetchClubNeeds, fetchNegotiations, fetchTeamMembers } from '@/services/marketService'
 import { computeAlerts, type AlertableItem } from '@/utils/marketAlerts'
-import { NEGOTIATION_STATUS_LABEL_KEY } from '@/components/market/marketLabels'
+import { NEGOTIATION_STATUS_LABEL_KEY, NEGOTIATION_STATUS_ACCENT, NEED_STATUS_ACCENT } from '@/components/market/marketLabels'
 import NegotiationRow from '@/components/market/NegotiationRow'
 import NeedRow from '@/components/market/NeedRow'
 import NewNegotiationForm from '@/components/market/NewNegotiationForm'
 import NewNeedForm from '@/components/market/NewNeedForm'
+import MarketWeekCalendar, { type CalendarEntry } from '@/components/market/MarketWeekCalendar'
+import NegotiationBoard from '@/components/market/NegotiationBoard'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import EmptyState from '@/components/ui/EmptyState'
 import { useLanguage } from '@/context/LanguageContext'
@@ -16,11 +18,20 @@ type Tab = 'negociaciones' | 'objetivos'
 
 export default function MarketPage() {
   const { t } = useLanguage()
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const highlight = searchParams.get('highlight')
   const [highlightKind, highlightIdStr] = highlight?.split('-') ?? []
   const highlightId = highlightIdStr ? Number(highlightIdStr) : null
   const [tab, setTab] = useState<Tab>(highlightKind === 'need' ? 'objetivos' : 'negociaciones')
+
+  // `highlight` llega por query param (desde la campanita) y puede cambiar
+  // sin que MarketPage se remonte — si ya estabas parado en /mercado, tocar
+  // otra notificación solo actualiza la URL. Sin este efecto la pestaña se
+  // quedaba en la que estaba montada la primera vez y el click no hacía nada.
+  useEffect(() => {
+    if (highlightKind === 'need') setTab('objetivos')
+    else if (highlightKind === 'negotiation') setTab('negociaciones')
+  }, [highlight])
   const [negotiations, setNegotiations] = useState<Negotiation[]>([])
   const [needs, setNeeds] = useState<ClubNeed[]>([])
   const [members, setMembers] = useState<TeamMember[]>([])
@@ -28,11 +39,33 @@ export default function MarketPage() {
   const [clubFilter, setClubFilter] = useState('')
   const [assigneeFilter, setAssigneeFilter] = useState<number | 'all'>('all')
   const [agentFilter, setAgentFilter] = useState<string | 'all'>('all')
+  const [ownershipFilter, setOwnershipFilter] = useState<'all' | 'propio' | 'intermediacion'>('all')
   const [negotiationStatusFilter, setNegotiationStatusFilter] = useState<NegotiationStatus | 'all'>('all')
   const [needStatusFilter, setNeedStatusFilter] = useState<NeedStatus | 'all'>('all')
 
   const [showNewNegotiation, setShowNewNegotiation] = useState(false)
   const [showNewNeed, setShowNewNeed] = useState(false)
+  const [weekOffset, setWeekOffset] = useState(0)
+  const [flashId, setFlashId] = useState<number | null>(null)
+  const [negotiationView, setNegotiationView] = useState<'lista' | 'tablero'>('lista')
+
+  // El tablero no renderiza las filas de la lista, así que un click en una
+  // tarjeta no puede scrollear a un elemento que no existe en el DOM — en vez
+  // de eso, vuelve a la Lista y dispara el mismo mecanismo de `highlight` que
+  // ya usa la campanita (reactivo, ver el efecto de `tab` más abajo).
+  const handleBoardCardSelect = (id: number) => {
+    setNegotiationView('lista')
+    setSearchParams({ highlight: `negotiation-${id}` })
+  }
+
+  // El calendario vive debajo de cada lista y solo scrollea dentro de ella
+  // (no cambia de pestaña) — el resalte es momentáneo, solo para ubicar la
+  // fila con la mirada, no reemplaza al click normal para expandirla.
+  const handleCalendarSelect = (kind: 'negotiation' | 'need', id: number) => {
+    document.getElementById(`market-${kind}-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    setFlashId(id)
+    setTimeout(() => setFlashId(f => f === id ? null : f), 1800)
+  }
 
   const loadData = () => {
     setLoading(true)
@@ -42,6 +75,14 @@ export default function MarketPage() {
   }
 
   useEffect(() => { loadData() }, [])
+
+  // Crear una negociación con club destino + posición engancha (o crea) una
+  // búsqueda del lado del club, y un cambio de estado en cualquiera de los
+  // dos lados se sincroniza al otro server-side (ver marketService). Ninguno
+  // de esos efectos toca el estado local del otro lado, así que sin este
+  // refetch puntual la lista "hermana" queda vieja hasta recargar la página.
+  const refreshNeeds = () => { fetchClubNeeds().then(setNeeds) }
+  const refreshNegotiations = () => { fetchNegotiations().then(setNegotiations) }
 
   const overdueIds = useMemo(() => {
     const items: AlertableItem[] = [
@@ -59,14 +100,27 @@ export default function MarketPage() {
     Array.from(new Set(negotiations.map(n => n.agent_name).filter((v): v is string => Boolean(v && v.trim())))).sort()
   ), [negotiations])
 
+  // Los cerrados van siempre al final (para no ensuciar la lista con negociaciones
+  // que ya no requieren acción) — éxito arriba de caído, y dentro de cada grupo
+  // (activas / éxito / caído) se mantiene el orden por fecha de creación que ya
+  // trae `fetchNegotiations`.
+  const NEGOTIATION_SORT_RANK: Record<NegotiationStatus, number> = {
+    ofrecido: 0, pausado: 0, en_negociacion: 0, avanzado: 0,
+    cerrado_exito: 1,
+    cerrado_caido: 2,
+  }
+
   const visibleNegotiations = useMemo(() => negotiations.filter(n => {
-    const clubText = clubFilter.trim().toLowerCase()
-    if (clubText && !(n.team_name?.toLowerCase().includes(clubText) || n.current_team_name?.toLowerCase().includes(clubText))) return false
+    const playerText = clubFilter.trim().toLowerCase()
+    if (playerText && !n.player_name.toLowerCase().includes(playerText)) return false
     if (assigneeFilter !== 'all' && n.assigned_to_id !== assigneeFilter) return false
     if (agentFilter !== 'all' && n.agent_name !== agentFilter) return false
     if (negotiationStatusFilter !== 'all' && n.status !== negotiationStatusFilter) return false
+    if (ownershipFilter === 'propio' && n.belongs_to_agency !== true) return false
+    if (ownershipFilter === 'intermediacion' && n.belongs_to_agency !== false) return false
     return true
-  }), [negotiations, clubFilter, assigneeFilter, agentFilter, negotiationStatusFilter])
+  }).sort((a, b) => NEGOTIATION_SORT_RANK[a.status] - NEGOTIATION_SORT_RANK[b.status]),
+  [negotiations, clubFilter, assigneeFilter, agentFilter, negotiationStatusFilter, ownershipFilter])
 
   const visibleNeeds = useMemo(() => needs.filter(n => {
     if (clubFilter.trim() && !n.team_name.toLowerCase().includes(clubFilter.trim().toLowerCase())) return false
@@ -75,8 +129,32 @@ export default function MarketPage() {
     return true
   }), [needs, clubFilter, assigneeFilter, needStatusFilter])
 
+  // El calendario respeta los mismos filtros que la lista de arriba —
+  // muestra la misma "foto" que se está mirando, solo agrupada por fecha.
+  const negotiationCalendarEntries = useMemo((): CalendarEntry[] => (
+    visibleNegotiations
+      .filter(n => n.next_followup_date)
+      .map(n => ({
+        id: n.id,
+        date: n.next_followup_date as string,
+        title: n.player_name,
+        subtitle: [n.current_team_name, n.team_name].filter(Boolean).join(' → '),
+      }))
+  ), [visibleNegotiations])
+
+  const needCalendarEntries = useMemo((): CalendarEntry[] => (
+    visibleNeeds
+      .filter(n => n.next_followup_date)
+      .map(n => ({
+        id: n.id,
+        date: n.next_followup_date as string,
+        title: n.team_name,
+        subtitle: n.position_label,
+      }))
+  ), [visibleNeeds])
+
   return (
-    <div className="max-w-screen-xl mx-auto px-4 sm:px-6 py-6">
+    <div className={`mx-auto px-4 sm:px-6 py-6 transition-[max-width] ${tab === 'negociaciones' && negotiationView === 'tablero' ? 'max-w-[1600px]' : 'max-w-screen-xl'}`}>
       <div className="flex flex-wrap items-start justify-between gap-4 mb-5">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-apple-gray-800 dark:text-white tracking-tight">{t('mercado.titulo')}</h1>
@@ -108,6 +186,23 @@ export default function MarketPage() {
             {t('mercado.tabObjetivos')} ({needs.length})
           </button>
         </div>
+
+        {tab === 'negociaciones' && (
+          <div className="flex items-center gap-1.5 bg-apple-gray-100 dark:bg-apple-gray-800 rounded-xl p-1">
+            <button
+              onClick={() => setNegotiationView('lista')}
+              className={`px-3.5 py-1.5 rounded-lg text-sm font-medium transition-all ${negotiationView === 'lista' ? 'bg-white dark:bg-apple-gray-700 text-apple-gray-800 dark:text-white shadow-sm' : 'text-apple-gray-500 dark:text-apple-gray-400'}`}
+            >
+              {t('mercado.vistaLista')}
+            </button>
+            <button
+              onClick={() => setNegotiationView('tablero')}
+              className={`px-3.5 py-1.5 rounded-lg text-sm font-medium transition-all ${negotiationView === 'tablero' ? 'bg-white dark:bg-apple-gray-700 text-apple-gray-800 dark:text-white shadow-sm' : 'text-apple-gray-500 dark:text-apple-gray-400'}`}
+            >
+              {t('mercado.vistaTablero')}
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="flex flex-wrap items-center gap-2 mb-5">
@@ -115,7 +210,7 @@ export default function MarketPage() {
           type="text"
           value={clubFilter}
           onChange={e => setClubFilter(e.target.value)}
-          placeholder={t('mercado.filtrarClub')}
+          placeholder={tab === 'negociaciones' ? t('mercado.filtrarJugador') : t('mercado.filtrarClub')}
           className="input-apple text-sm w-full sm:w-48"
         />
         <select
@@ -140,11 +235,22 @@ export default function MarketPage() {
             ))}
           </select>
         )}
+        {tab === 'negociaciones' && (
+          <select
+            value={ownershipFilter}
+            onChange={e => setOwnershipFilter(e.target.value as 'all' | 'propio' | 'intermediacion')}
+            className="input-apple text-sm w-auto min-w-0"
+          >
+            <option value="all">{t('mercado.todosOrigenes')}</option>
+            <option value="propio">{t('mercado.origenPropio')}</option>
+            <option value="intermediacion">{t('mercado.origenIntermediacion')}</option>
+          </select>
+        )}
         {tab === 'negociaciones' ? (
           <select
             value={negotiationStatusFilter}
             onChange={e => setNegotiationStatusFilter(e.target.value as NegotiationStatus | 'all')}
-            className="input-apple text-sm w-auto min-w-0"
+            className={`input-apple text-sm w-auto min-w-0 ${negotiationStatusFilter !== 'all' ? NEGOTIATION_STATUS_ACCENT[negotiationStatusFilter] : ''}`}
           >
             <option value="all">{t('mercado.todosEstados')}</option>
             {(Object.keys(NEGOTIATION_STATUS_LABEL_KEY) as NegotiationStatus[]).map(s => (
@@ -155,7 +261,7 @@ export default function MarketPage() {
           <select
             value={needStatusFilter}
             onChange={e => setNeedStatusFilter(e.target.value as NeedStatus | 'all')}
-            className="input-apple text-sm w-auto min-w-0"
+            className={`input-apple text-sm w-auto min-w-0 ${needStatusFilter !== 'all' ? NEED_STATUS_ACCENT[needStatusFilter] : ''}`}
           >
             <option value="all">{t('mercado.todosEstados')}</option>
             <option value="abierto">{t('mercado.estadoAbierto')}</option>
@@ -172,6 +278,22 @@ export default function MarketPage() {
             title={t('mercado.sinNegociacionesTitulo')}
             description={negotiations.length === 0 ? t('mercado.sinNegociacionesVacio') : t('mercado.sinNegociacionesFiltro')}
           />
+        ) : negotiationView === 'tablero' ? (
+          <div className="space-y-2">
+            <NegotiationBoard
+              negotiations={visibleNegotiations}
+              overdueIds={overdueIds.negotiations}
+              onUpdated={updated => setNegotiations(prev => prev.map(x => x.id === updated.id ? updated : x))}
+              onNeedMightHaveChanged={refreshNeeds}
+              onSelect={handleBoardCardSelect}
+            />
+            <MarketWeekCalendar
+              entries={negotiationCalendarEntries}
+              weekOffset={weekOffset}
+              onWeekOffsetChange={setWeekOffset}
+              onSelect={handleBoardCardSelect}
+            />
+          </div>
         ) : (
           <div className="space-y-2">
             <div className="hidden sm:grid grid-cols-[auto_minmax(0,2fr)_7rem_7rem_5.5rem] items-center gap-3 px-4 text-2xs font-semibold uppercase tracking-wide text-apple-gray-400">
@@ -187,9 +309,17 @@ export default function MarketPage() {
                 negotiation={n}
                 overdue={overdueIds.negotiations.has(n.id)}
                 defaultExpanded={highlightKind === 'negotiation' && n.id === highlightId}
+                flash={flashId === n.id}
                 onUpdated={updated => setNegotiations(prev => prev.map(x => x.id === updated.id ? updated : x))}
+                onNeedMightHaveChanged={refreshNeeds}
               />
             ))}
+            <MarketWeekCalendar
+              entries={negotiationCalendarEntries}
+              weekOffset={weekOffset}
+              onWeekOffsetChange={setWeekOffset}
+              onSelect={id => handleCalendarSelect('negotiation', id)}
+            />
           </div>
         )
       ) : visibleNeeds.length === 0 ? (
@@ -212,16 +342,24 @@ export default function MarketPage() {
               need={n}
               overdue={overdueIds.needs.has(n.id)}
               defaultExpanded={highlightKind === 'need' && n.id === highlightId}
+              flash={flashId === n.id}
               onUpdated={updated => setNeeds(prev => prev.map(x => x.id === updated.id ? updated : x))}
+              onNegotiationMightHaveChanged={refreshNegotiations}
             />
           ))}
+          <MarketWeekCalendar
+            entries={needCalendarEntries}
+            weekOffset={weekOffset}
+            onWeekOffsetChange={setWeekOffset}
+            onSelect={id => handleCalendarSelect('need', id)}
+          />
         </div>
       )}
 
       <NewNegotiationForm
         open={showNewNegotiation}
         onClose={() => setShowNewNegotiation(false)}
-        onCreated={n => setNegotiations(prev => [n, ...prev])}
+        onCreated={n => { setNegotiations(prev => [n, ...prev]); if (n.need_id) refreshNeeds() }}
       />
       <NewNeedForm
         open={showNewNeed}

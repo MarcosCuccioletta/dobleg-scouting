@@ -1,18 +1,20 @@
 import { useEffect, useState } from 'react'
 import { fetchNotesFor, addNoteTo } from '@/services/marketService'
-import { isValidFollowupDate } from '@/utils/marketAlerts'
 import { useAuth } from '@/context/AuthContext'
 import { useLanguage } from '@/context/LanguageContext'
 import { LANGUAGE_LOCALES } from '@/constants/translations'
 import type { MarketNote } from '@/types/market'
 
+/** Notas más viejas que la 4ta se quedan en el tono más apagado (nunca menos
+ * legible que esto) — el resto de la lista, si hay más, comparte ese mismo
+ * tono en vez de seguir apagándose sin límite. */
+const FADE_STEPS = ['opacity-100', 'opacity-90', 'opacity-75', 'opacity-60']
+
 export default function MarketNotesPanel({
   target,
-  onFollowupSynced,
   refreshSignal,
 }: {
   target: { negotiationId?: number; needId?: number }
-  onFollowupSynced?: (date: string) => void
   /** Incrementar desde el padre para forzar un refetch (ej. después de una
    * reasignación, que inserta una nota de sistema fuera de este componente). */
   refreshSignal?: number
@@ -22,8 +24,6 @@ export default function MarketNotesPanel({
   const [notes, setNotes] = useState<MarketNote[]>([])
   const [loading, setLoading] = useState(true)
   const [body, setBody] = useState('')
-  const [isMeeting, setIsMeeting] = useState(false)
-  const [followup, setFollowup] = useState('')
   const [saving, setSaving] = useState(false)
 
   const targetKey = target.negotiationId ?? target.needId
@@ -38,59 +38,45 @@ export default function MarketNotesPanel({
 
   const handleAdd = async () => {
     if (!body.trim()) return
-    const validFollowup = followup && isValidFollowupDate(followup) ? followup : null
     setSaving(true)
-    const note = await addNoteTo(target, body.trim(), isMeeting, validFollowup, user?.id ?? null, userDisplayName || 'Usuario')
+    const note = await addNoteTo(target, body.trim(), false, null, user?.id ?? null, userDisplayName || 'Usuario')
     setSaving(false)
     if (note) {
       setNotes(prev => [note, ...prev])
       setBody('')
-      setIsMeeting(false)
-      if (validFollowup) {
-        onFollowupSynced?.(validFollowup)
-        setFollowup('')
-      }
     }
   }
 
-  const meetingCount = notes.filter(n => n.is_meeting).length
+  const locale = LANGUAGE_LOCALES[language]
+  const formatWhen = (iso: string) => {
+    const d = new Date(iso)
+    const datePart = d.toLocaleDateString(locale, { day: '2-digit', month: '2-digit', year: 'numeric' })
+    const timePart = d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
+    return `${datePart} · ${timePart}`
+  }
 
   return (
     <div className="space-y-3">
       <p className="text-xs font-semibold text-apple-gray-500 uppercase tracking-wider">
-        {t('mercado.notas')}{meetingCount > 0 && ` · ${meetingCount} ${meetingCount !== 1 ? t('mercado.reunionPlural') : t('mercado.reunionSingular')}`}
+        {t('mercado.notas')}
       </p>
 
-      <div className="space-y-2">
+      <div className="flex items-center gap-2">
         <textarea
           value={body}
           onChange={e => setBody(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAdd() } }}
           placeholder={t('mercado.escribirNota')}
           rows={2}
           className="input-apple text-sm w-full resize-none"
         />
-        <div className="flex items-center gap-3 flex-wrap">
-          <label className="flex items-center gap-1.5 text-xs text-apple-gray-500 cursor-pointer">
-            <input type="checkbox" checked={isMeeting} onChange={e => setIsMeeting(e.target.checked)} className="rounded" />
-            {t('mercado.fueReunion')}
-          </label>
-          <input
-            type="date"
-            value={followup}
-            onChange={e => setFollowup(e.target.value)}
-            title={t('mercado.volverAHablar')}
-            min="2020-01-01"
-            max="2100-12-31"
-            className="input-apple text-xs py-1 w-auto"
-          />
-          <button
-            onClick={handleAdd}
-            disabled={!body.trim() || saving}
-            className="ml-auto px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-brand-green hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-          >
-            {saving ? t('mercado.guardando') : t('mercado.agregar')}
-          </button>
-        </div>
+        <button
+          onClick={handleAdd}
+          disabled={!body.trim() || saving}
+          className="self-stretch px-4 rounded-lg text-sm font-semibold text-white bg-brand-green hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex-shrink-0"
+        >
+          {saving ? t('mercado.guardando') : t('mercado.agregar')}
+        </button>
       </div>
 
       <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
@@ -99,23 +85,23 @@ export default function MarketNotesPanel({
         ) : notes.length === 0 ? (
           <p className="text-xs text-apple-gray-400">{t('mercado.sinNotas')}</p>
         ) : (
-          notes.map(n => (
+          notes.map((n, i) => (
             <div
               key={n.id}
-              className={`text-xs p-2.5 rounded-lg bg-apple-gray-50 dark:bg-apple-gray-800/50 ${n.is_system ? 'italic text-apple-gray-400' : 'text-apple-gray-700 dark:text-apple-gray-200'}`}
+              className={`p-3 rounded-lg bg-apple-gray-50 dark:bg-apple-gray-800/50 transition-opacity ${FADE_STEPS[Math.min(i, FADE_STEPS.length - 1)]}`}
             >
-              <div className="flex items-center justify-between mb-0.5 gap-2">
-                <span className="font-medium truncate">
+              <div className="flex items-center gap-2 mb-1.5">
+                <div className="w-5 h-5 rounded-full bg-apple-gray-200 dark:bg-apple-gray-700 flex items-center justify-center text-[10px] font-bold text-apple-gray-500 dark:text-apple-gray-300 flex-shrink-0">
+                  {(n.author_name || t('mercado.sistema')).slice(0, 1).toUpperCase()}
+                </div>
+                <span className="text-xs font-bold text-apple-gray-900 dark:text-white truncate">
                   {n.author_name || t('mercado.sistema')}
-                  {n.is_meeting && (
-                    <span className="ml-1.5 px-1.5 py-0.5 rounded text-2xs font-semibold bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 align-middle">
-                      {t('mercado.reunionSingular')}
-                    </span>
-                  )}
                 </span>
-                <span className="text-apple-gray-400 flex-shrink-0">{new Date(n.created_at).toLocaleDateString(LANGUAGE_LOCALES[language], { day: '2-digit', month: 'short' })}</span>
+                <span className="text-2xs text-apple-gray-400 flex-shrink-0 tabular-nums ml-auto">{formatWhen(n.created_at)}</span>
               </div>
-              <p>{n.body}</p>
+              <p className={`text-sm leading-snug pl-7 ${n.is_system ? 'italic text-apple-gray-400' : 'text-apple-gray-700 dark:text-apple-gray-200'}`}>
+                {n.body}
+              </p>
             </div>
           ))
         )}

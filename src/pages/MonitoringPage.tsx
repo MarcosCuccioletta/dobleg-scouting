@@ -31,6 +31,7 @@ const STATUS_CONFIG: Record<TrackingStatus, { labelKey: string; color: string; b
   en_seguimiento: { labelKey: 'seguimiento.estadoEnSeguimiento', color: 'text-blue-600 dark:text-blue-400', bgColor: 'bg-blue-500/10 border border-blue-500/20' },
   contactado:     { labelKey: 'seguimiento.estadoContactado',     color: 'text-amber-600 dark:text-amber-400', bgColor: 'bg-amber-500/10 border border-amber-500/20' },
   en_negociacion: { labelKey: 'seguimiento.estadoEnNegociacion', color: 'text-purple-600 dark:text-purple-400', bgColor: 'bg-purple-500/10 border border-purple-500/20' },
+  completado:     { labelKey: 'seguimiento.estadoCompletado',     color: 'text-emerald-600 dark:text-emerald-400', bgColor: 'bg-emerald-500/10 border border-emerald-500/20' },
   descartado:     { labelKey: 'seguimiento.estadoDescartado',     color: 'text-apple-gray-500', bgColor: 'bg-apple-gray-200/60 border border-apple-gray-300/30 dark:bg-apple-gray-700/50 dark:border-apple-gray-600/30' },
 }
 
@@ -146,7 +147,7 @@ function StatusBadge({
                 onClick={(e) => { e.stopPropagation(); handleChange(key) }}
                 className={`w-full px-4 py-2.5 text-left text-xs font-medium hover:bg-apple-gray-50 dark:hover:bg-apple-gray-700/60 transition-colors flex items-center gap-2 ${cfg.color} ${key === status ? 'bg-apple-gray-50 dark:bg-apple-gray-700/40 font-semibold' : ''}`}
               >
-                <span className={`w-2 h-2 rounded-full flex-shrink-0 ${{ en_seguimiento: 'bg-blue-500', contactado: 'bg-amber-500', en_negociacion: 'bg-purple-500', descartado: 'bg-gray-400' }[key]}`} />
+                <span className={`w-2 h-2 rounded-full flex-shrink-0 ${{ en_seguimiento: 'bg-blue-500', contactado: 'bg-amber-500', en_negociacion: 'bg-purple-500', completado: 'bg-emerald-500', descartado: 'bg-gray-400' }[key]}`} />
                 {t(cfg.labelKey)}
                 {key === status && (
                   <svg className="w-3.5 h-3.5 ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">

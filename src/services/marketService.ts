@@ -1,6 +1,115 @@
 import { supabase } from '@/lib/supabase'
 import { dedupeTeamsByName } from './playerStatsService'
-import type { TeamMember, ClubNeed, Negotiation, MarketNote, MarketTeamSearchResult, NeedStatus, NegotiationStatus, NeedCandidate, CandidateStatus } from '@/types/market'
+import { DISPLAY_POSITION_MAP } from '@/constants/scoring'
+import type { TeamMember, ClubNeed, ClubContact, Negotiation, MarketNote, MarketTeamSearchResult, NeedStatus, NegotiationStatus, NeedCandidate, CandidateStatus } from '@/types/market'
+
+/**
+ * "Ofrecer un jugador a un club" y "el club busca esa posición" son la misma
+ * situación real vista desde dos lados — antes eran datos totalmente
+ * independientes. Estos mapeos deciden cómo un cambio de estado en un lado se
+ * refleja en el otro cuando están vinculados (`negotiation.need_id` /
+ * `candidate.negotiation_id`). Ver [[market_negotiation_need_link]].
+ */
+const NEGOTIATION_TO_CANDIDATE_STATUS: Record<NegotiationStatus, CandidateStatus> = {
+  ofrecido: 'propuesto',
+  pausado: 'en_negociacion',
+  en_negociacion: 'en_negociacion',
+  avanzado: 'en_negociacion',
+  cerrado_exito: 'fichado',
+  cerrado_caido: 'descartado',
+}
+
+const CANDIDATE_TO_NEGOTIATION_STATUS: Record<CandidateStatus, NegotiationStatus> = {
+  propuesto: 'ofrecido',
+  en_negociacion: 'en_negociacion',
+  descartado: 'cerrado_caido',
+  fichado: 'cerrado_exito',
+}
+
+function normalizePosition(label: string): string {
+  return label
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .trim()
+}
+
+/** Etiqueta canónica en español para una posición, a partir de un código interno
+ * (ARQ, VI, CB...) o de cualquier variante ya en español — mismo catálogo que
+ * usa el resto de la plataforma, para que el enganche con `market_club_needs`
+ * sea consistente en vez de depender de texto libre escrito a mano. */
+export function canonicalPositionLabel(rawPosition: string | null | undefined): string | null {
+  if (!rawPosition) return null
+  return DISPLAY_POSITION_MAP[rawPosition] ?? rawPosition
+}
+
+/** Catálogo fijo para el selector de posición en Mercado — mismo criterio que
+ * `players.primary_position` (ARQ/LD/CB/LI/VC/VI/EXT/DEL), en español. */
+export const MARKET_POSITION_OPTIONS = [
+  'Arquero', 'Lateral derecho', 'Defensor central', 'Lateral izquierdo',
+  'Volante central', 'Volante interno', 'Extremo', 'Delantero',
+] as const
+
+/**
+ * Busca (o crea) la búsqueda de club para `team_id` + `position_label`, mete
+ * al jugador de la negociación como candidato ahí, y deja el vínculo en
+ * ambos sentidos (`negotiation.need_id` / `candidate.negotiation_id`).
+ *
+ * Se llama una sola vez, al crear la negociación — si no hay club destino o
+ * no se pudo determinar la posición del jugador, no hace nada (no tiene
+ * sentido "buscar" sin esos dos datos).
+ */
+async function linkOrCreateNeedForNegotiation(negotiation: Negotiation): Promise<number | null> {
+  if (!negotiation.team_id || !negotiation.position_label) return null
+
+  const targetNorm = normalizePosition(negotiation.position_label)
+
+  const { data: openNeeds, error: fetchErr } = await supabase
+    .from('market_club_needs')
+    .select('*')
+    .eq('team_id', negotiation.team_id)
+    .eq('status', 'abierto')
+  if (fetchErr) { console.error('linkOrCreateNeedForNegotiation fetch error:', fetchErr); return null }
+
+  let need = (openNeeds ?? []).find(n => normalizePosition(n.position_label) === targetNorm) ?? null
+
+  if (!need) {
+    const { data: created, error: createErr } = await supabase
+      .from('market_club_needs')
+      .insert({
+        team_id: negotiation.team_id,
+        team_name: negotiation.team_name,
+        team_logo: negotiation.team_logo,
+        position_label: negotiation.position_label,
+        assigned_to_id: negotiation.assigned_to_id,
+        assigned_to_name: negotiation.assigned_to_name,
+        next_followup_date: null,
+        created_by_id: negotiation.created_by_id,
+        created_by_name: negotiation.created_by_name,
+      })
+      .select()
+      .single()
+    if (createErr) { console.error('linkOrCreateNeedForNegotiation create error:', createErr); return null }
+    need = created
+  }
+  if (!need) return null
+
+  const { error: candidateErr } = await supabase.from('market_need_candidates').insert({
+    need_id: need.id,
+    player_name: negotiation.player_name,
+    player_api_id: negotiation.player_api_id,
+    player_source: negotiation.player_source,
+    status: NEGOTIATION_TO_CANDIDATE_STATUS[negotiation.status],
+    negotiation_id: negotiation.id,
+    added_by_id: negotiation.created_by_id,
+    added_by_name: negotiation.created_by_name,
+  })
+  if (candidateErr) { console.error('linkOrCreateNeedForNegotiation candidate error:', candidateErr); return null }
+
+  const { error: linkErr } = await supabase.from('market_negotiations').update({ need_id: need.id }).eq('id', negotiation.id)
+  if (linkErr) { console.error('linkOrCreateNeedForNegotiation link-back error:', linkErr); return null }
+  return need.id
+}
 
 /**
  * Vincular una negociación/candidato a un jugador real de la API sólo lo
@@ -93,13 +202,14 @@ export interface CreateNegotiationInput {
   player_name: string
   player_api_id: number | null
   player_source: 'interno' | 'externo' | null
+  position_label: string | null
+  belongs_to_agency: boolean | null
   agent_name: string | null
-  target_club_contact_name: string | null
-  target_club_contact_role: string | null
-  current_club_contact_name: string | null
+  target_club_contacts: ClubContact[]
+  current_club_contacts: ClubContact[]
+  status: NegotiationStatus
   assigned_to_id: number | null
   assigned_to_name: string | null
-  next_followup_date: string | null
 }
 
 export async function createNegotiation(input: CreateNegotiationInput, createdById: string | null, createdByName: string): Promise<Negotiation | null> {
@@ -109,7 +219,8 @@ export async function createNegotiation(input: CreateNegotiationInput, createdBy
     .select()
     .single()
   if (error) { console.error('createNegotiation error:', error); return null }
-  return data
+  const needId = await linkOrCreateNeedForNegotiation(data)
+  return { ...data, need_id: needId }
 }
 
 export async function updateNeedStatus(id: number, status: NeedStatus): Promise<boolean> {
@@ -119,8 +230,21 @@ export async function updateNeedStatus(id: number, status: NeedStatus): Promise<
 }
 
 export async function updateNegotiationStatus(id: number, status: NegotiationStatus): Promise<boolean> {
-  const { error } = await supabase.from('market_negotiations').update({ status, updated_at: new Date().toISOString() }).eq('id', id)
+  const { data, error } = await supabase
+    .from('market_negotiations')
+    .update({ status, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .select('need_id')
+    .single()
   if (error) { console.error('updateNegotiationStatus error:', error); return false }
+
+  if (data?.need_id) {
+    const { error: syncErr } = await supabase
+      .from('market_need_candidates')
+      .update({ status: NEGOTIATION_TO_CANDIDATE_STATUS[status] })
+      .eq('negotiation_id', id)
+    if (syncErr) console.error('updateNegotiationStatus candidate sync error:', syncErr)
+  }
   return true
 }
 
@@ -128,6 +252,7 @@ export interface PlayerIdentity {
   name: string
   birth_date: string | null
   photo: string | null
+  primary_position: string | null
 }
 
 /**
@@ -140,7 +265,7 @@ export interface PlayerIdentity {
 export async function fetchPlayerIdentity(playerApiId: number): Promise<PlayerIdentity | null> {
   const { data, error } = await supabase
     .from('players')
-    .select('name, birth_date, photo')
+    .select('name, birth_date, photo, primary_position')
     .eq('id', playerApiId)
     .maybeSingle()
   if (error) { console.error('fetchPlayerIdentity error:', error); return null }
@@ -281,6 +406,20 @@ export async function addNoteTo(
   return data
 }
 
+/**
+ * Actualiza "cuándo volver a hablar" directo (sin pasar por una nota) — vive
+ * aparte del compositor de notas a propósito: mezclar tildar reunión + poner
+ * fecha en la misma barra de "escribir nota" confundía a los jefes que la
+ * usan (gente grande, no son usuarios frecuentes de apps). Ver [[market_notes_simplify]].
+ */
+export async function updateFollowupDate(target: { negotiationId?: number; needId?: number }, date: string | null): Promise<boolean> {
+  const table = target.negotiationId != null ? 'market_negotiations' : 'market_club_needs'
+  const id = target.negotiationId ?? target.needId!
+  const { error } = await supabase.from(table).update({ next_followup_date: date, updated_at: new Date().toISOString() }).eq('id', id)
+  if (error) { console.error('updateFollowupDate error:', error); return false }
+  return true
+}
+
 // ─── Candidatos de un objetivo (jugadores ofrecidos para ese puesto) ────────
 
 export async function fetchCandidatesFor(needId: number): Promise<NeedCandidate[]> {
@@ -309,8 +448,21 @@ export async function addCandidate(
 }
 
 export async function updateCandidateStatus(id: number, status: CandidateStatus): Promise<boolean> {
-  const { error } = await supabase.from('market_need_candidates').update({ status }).eq('id', id)
+  const { data, error } = await supabase
+    .from('market_need_candidates')
+    .update({ status })
+    .eq('id', id)
+    .select('negotiation_id')
+    .single()
   if (error) { console.error('updateCandidateStatus error:', error); return false }
+
+  if (data?.negotiation_id) {
+    const { error: syncErr } = await supabase
+      .from('market_negotiations')
+      .update({ status: CANDIDATE_TO_NEGOTIATION_STATUS[status], updated_at: new Date().toISOString() })
+      .eq('id', data.negotiation_id)
+    if (syncErr) console.error('updateCandidateStatus negotiation sync error:', syncErr)
+  }
   return true
 }
 

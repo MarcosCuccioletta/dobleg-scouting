@@ -106,6 +106,24 @@ describe('buildScoreLookup', () => {
     expect(map.get('nahuel duplicado')?.player_id).toBe(200)
   })
 
+  it('mismo transfermarkt_id pero SIN confirmar (nombres incompatibles, del saneamiento de datos): NO se fusiona', () => {
+    // Caso real de la auditoría: 107/103 grupos donde Transfermarkt le asignó el mismo
+    // id a dos personas distintas (ej. "Danilo" / "Danilo Santos", "Anthony Bedoya" /
+    // "Moisés Caicedo"). `transfermarkt_id_confirmed: false` es justamente la señal de
+    // "este id está bajo sospecha, no se validó por nombre+fecha de nacimiento" — sin
+    // ella, este caso se fusionaba en vivo (mismo bug que motivó todo el saneamiento).
+    const rows = [
+      row({ player_id: 300, name: 'Danilo', transfermarkt_id: 999, transfermarkt_id_confirmed: false, matches_played: 4, score: 5.0 }),
+      row({ player_id: 400, name: 'Danilo Santos', transfermarkt_id: 999, transfermarkt_id_confirmed: false, matches_played: 9, score: 7.0 }),
+    ]
+    const map = buildScoreLookup(rows, [])
+    // Cada uno queda con su propia entrada — nunca se mezclan sus scores.
+    expect(map.get('danilo')?.player_id).toBe(300)
+    expect(map.get('danilo')?.score).toBe(5.0)
+    expect(map.get('danilo santos')?.player_id).toBe(400)
+    expect(map.get('danilo santos')?.score).toBe(7.0)
+  })
+
   it('dos personas reales con el mismo nombre, sin equipo de agencia conocido: transfermarkt_id/fecha de nacimiento alcanzan para separarlas', () => {
     // Antes esto dependía por completo del apiTeamId del jugador de agencia. Con
     // identidad real (transfermarkt_id/fecha de nacimiento) alcanza para no

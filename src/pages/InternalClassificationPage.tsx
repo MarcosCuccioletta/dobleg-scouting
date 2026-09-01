@@ -11,6 +11,7 @@ import {
   deleteClassification,
   type AgencyClass,
 } from '@/services/agencyClassificationService'
+import { invalidateAgencyClassificationsCache } from '@/hooks/useAgencyClassifications'
 import { CLASS_LABEL_KEY, CLASS_DOT_COLOR } from '@/constants/agencyClassification'
 import type { AgencyPlayer } from '@/constants/agencyPlayers'
 
@@ -106,6 +107,8 @@ export default function InternalClassificationPage() {
       if (!ok) {
         setClassifications(prev)
         setSavingError(t('clasificacion.errorQuitar').replace('{name}', player.fullName))
+      } else {
+        invalidateAgencyClassificationsCache()
       }
       return
     }
@@ -116,6 +119,8 @@ export default function InternalClassificationPage() {
     if (!ok) {
       setClassifications(prev)
       setSavingError(t('clasificacion.errorGuardar').replace('{name}', player.fullName))
+    } else {
+      invalidateAgencyClassificationsCache()
     }
   }
 

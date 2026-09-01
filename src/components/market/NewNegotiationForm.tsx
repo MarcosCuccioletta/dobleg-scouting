@@ -2,38 +2,44 @@ import { useEffect, useState } from 'react'
 import MobileSheet from '@/components/ui/MobileSheet'
 import TeamSearchSelect from './TeamSearchSelect'
 import AssigneeSelect from './AssigneeSelect'
-import PlayerLinkField, { type ResolvedPlayerIdentity } from './PlayerLinkField'
-import { createNegotiation, isMarketLinkAdmin } from '@/services/marketService'
-import { isValidFollowupDate } from '@/utils/marketAlerts'
+import ClubContactsField from './ClubContactsField'
+import { NEGOTIATION_STATUS_ORDER, NEGOTIATION_STATUS_LABEL_KEY } from './marketLabels'
+import { createNegotiation, addNoteTo, MARKET_POSITION_OPTIONS } from '@/services/marketService'
 import { useAuth } from '@/context/AuthContext'
 import { useLanguage } from '@/context/LanguageContext'
-import type { Negotiation, MarketTeamSearchResult } from '@/types/market'
+import type { Negotiation, NegotiationStatus, MarketTeamSearchResult, ClubContact } from '@/types/market'
+
+const EMPTY_CONTACTS: ClubContact[] = [{ name: '', role: null }]
 
 export default function NewNegotiationForm({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated: (negotiation: Negotiation) => void }) {
   const { user, userDisplayName } = useAuth()
   const { t } = useLanguage()
-  const canLink = isMarketLinkAdmin(user?.email)
 
   const [playerName, setPlayerName] = useState('')
-  const [playerApiId, setPlayerApiId] = useState<number | null>(null)
+  const [positionLabel, setPositionLabel] = useState('')
 
   const [isFreeAgent, setIsFreeAgent] = useState(false)
   const [currentTeam, setCurrentTeam] = useState<MarketTeamSearchResult | null>(null)
-  const [currentClubContact, setCurrentClubContact] = useState('')
+  const [currentContacts, setCurrentContacts] = useState<ClubContact[]>(EMPTY_CONTACTS)
 
   const [noTargetYet, setNoTargetYet] = useState(false)
   const [targetTeam, setTargetTeam] = useState<MarketTeamSearchResult | null>(null)
-  const [targetContactName, setTargetContactName] = useState('')
-  const [targetContactRole, setTargetContactRole] = useState('')
+  const [targetContacts, setTargetContacts] = useState<ClubContact[]>(EMPTY_CONTACTS)
 
+  const [belongsToAgency, setBelongsToAgency] = useState<boolean | null>(null)
   const [agentName, setAgentName] = useState('')
+
+  const [status, setStatus] = useState<NegotiationStatus>('ofrecido')
   const [assigneeId, setAssigneeId] = useState<number | null>(null)
   const [assigneeName, setAssigneeName] = useState('')
-  const [followupDate, setFollowupDate] = useState('')
+  const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
-  const canSave = playerName.trim().length > 0 && (isFreeAgent || currentTeam != null || noTargetYet || targetTeam != null)
+  const canSave = playerName.trim().length > 0
+    && positionLabel.trim().length > 0
+    && (isFreeAgent || currentTeam != null || noTargetYet || targetTeam != null)
+    && belongsToAgency != null
 
   // Reiniciar el formulario cada vez que se abre la hoja: MobileSheet no desmonta
   // sus hijos al cerrar (retorna null visualmente pero mantiene el árbol montado),
@@ -42,21 +48,27 @@ export default function NewNegotiationForm({ open, onClose, onCreated }: { open:
   useEffect(() => {
     if (!open) return
     setPlayerName('')
-    setPlayerApiId(null)
+    setPositionLabel('')
     setIsFreeAgent(false)
     setCurrentTeam(null)
-    setCurrentClubContact('')
+    setCurrentContacts(EMPTY_CONTACTS)
     setNoTargetYet(false)
     setTargetTeam(null)
-    setTargetContactName('')
-    setTargetContactRole('')
+    setTargetContacts(EMPTY_CONTACTS)
+    setBelongsToAgency(null)
     setAgentName('')
+    setStatus('ofrecido')
     setAssigneeId(null)
     setAssigneeName('')
-    setFollowupDate('')
+    setNotes('')
     setSaving(false)
     setError('')
   }, [open])
+
+  const cleanContacts = (contacts: ClubContact[]): ClubContact[] =>
+    contacts
+      .filter(c => c.name.trim().length > 0)
+      .map(c => ({ name: c.name.trim(), role: c.role?.trim() || null }))
 
   const handleSave = async () => {
     if (!canSave) return
@@ -71,21 +83,25 @@ export default function NewNegotiationForm({ open, onClose, onCreated }: { open:
         current_team_name: isFreeAgent ? null : (currentTeam?.name ?? null),
         current_team_logo: isFreeAgent ? null : (currentTeam?.logo ?? null),
         player_name: playerName.trim(),
-        player_api_id: playerApiId,
-        player_source: playerApiId != null ? 'externo' : null,
-        agent_name: agentName.trim() || null,
-        target_club_contact_name: targetContactName.trim() || null,
-        target_club_contact_role: targetContactRole.trim() || null,
-        current_club_contact_name: currentClubContact.trim() || null,
+        player_api_id: null,
+        player_source: null,
+        position_label: positionLabel || null,
+        belongs_to_agency: belongsToAgency,
+        agent_name: belongsToAgency ? null : (agentName.trim() || null),
+        target_club_contacts: noTargetYet ? [] : cleanContacts(targetContacts),
+        current_club_contacts: isFreeAgent ? [] : cleanContacts(currentContacts),
+        status,
         assigned_to_id: assigneeId,
         assigned_to_name: assigneeName || null,
-        next_followup_date: followupDate && isValidFollowupDate(followupDate) ? followupDate : null,
       },
       user?.id ?? null,
       userDisplayName || 'Usuario',
     )
+    if (!result) { setSaving(false); setError(t('mercado.errorGuardar')); return }
+    if (notes.trim()) {
+      await addNoteTo({ negotiationId: result.id }, notes.trim(), false, null, user?.id ?? null, userDisplayName || 'Usuario')
+    }
     setSaving(false)
-    if (!result) { setError(t('mercado.errorGuardar')); return }
     onCreated(result)
     onClose()
   }
@@ -94,24 +110,28 @@ export default function NewNegotiationForm({ open, onClose, onCreated }: { open:
     <MobileSheet open={open} onClose={onClose} title={t('mercado.nuevaNegociacion')}>
       <div className="space-y-4 p-4">
         <div>
-          <label className="block text-xs font-medium text-apple-gray-500 mb-1.5">{t('mercado.jugador')}</label>
+          <label className="block text-xs font-medium text-apple-gray-500 mb-1.5">{t('mercado.jugador')} *</label>
           <input
             type="text"
             value={playerName}
             onChange={e => setPlayerName(e.target.value)}
             placeholder={t('mercado.nombreJugadorPlaceholder')}
-            className="input-apple text-sm w-full mb-2"
+            className="input-apple text-sm w-full"
           />
-          {canLink ? (
-            <PlayerLinkField
-              playerName={playerName}
-              playerApiId={playerApiId}
-              onChange={setPlayerApiId}
-              onResolved={(identity: ResolvedPlayerIdentity | null) => { if (identity) setPlayerName(identity.name) }}
-            />
-          ) : (
-            <p className="text-2xs text-apple-gray-400">{t('mercado.vinculoSoloAdmin')}</p>
-          )}
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-apple-gray-500 mb-1.5">{t('mercado.posicion')} *</label>
+          <select
+            value={positionLabel}
+            onChange={e => setPositionLabel(e.target.value)}
+            className="input-apple text-sm w-full"
+          >
+            <option value="" disabled>{t('mercado.posicionSinEspecificar')}</option>
+            {MARKET_POSITION_OPTIONS.map(p => (
+              <option key={p} value={p}>{p}</option>
+            ))}
+          </select>
         </div>
 
         {/* Club actual */}
@@ -126,13 +146,7 @@ export default function NewNegotiationForm({ open, onClose, onCreated }: { open:
           {!isFreeAgent && (
             <>
               <TeamSearchSelect value={currentTeam} onChange={setCurrentTeam} />
-              <input
-                type="text"
-                value={currentClubContact}
-                onChange={e => setCurrentClubContact(e.target.value)}
-                placeholder={t('mercado.directorDeportivoPlaceholder')}
-                className="input-apple text-sm w-full"
-              />
+              <ClubContactsField value={currentContacts} onChange={setCurrentContacts} />
             </>
           )}
         </div>
@@ -149,52 +163,70 @@ export default function NewNegotiationForm({ open, onClose, onCreated }: { open:
           {!noTargetYet && (
             <>
               <TeamSearchSelect value={targetTeam} onChange={setTargetTeam} />
-              <div className="grid grid-cols-2 gap-2">
-                <input
-                  type="text"
-                  value={targetContactName}
-                  onChange={e => setTargetContactName(e.target.value)}
-                  placeholder={t('mercado.directorDeportivoPlaceholder')}
-                  className="input-apple text-sm w-full"
-                />
-                <input
-                  type="text"
-                  value={targetContactRole}
-                  onChange={e => setTargetContactRole(e.target.value)}
-                  placeholder={t('mercado.cargoPlaceholder')}
-                  className="input-apple text-sm w-full"
-                />
-              </div>
+              <ClubContactsField value={targetContacts} onChange={setTargetContacts} />
             </>
           )}
         </div>
 
+        {/* Pertenencia a la agencia */}
         <div>
-          <label className="block text-xs font-medium text-apple-gray-500 mb-1.5">{t('mercado.representante')}</label>
-          <input
-            type="text"
-            value={agentName}
-            onChange={e => setAgentName(e.target.value)}
-            placeholder={t('mercado.representantePlaceholder')}
-            className="input-apple text-sm w-full"
-          />
+          <label className="block text-xs font-medium text-apple-gray-500 mb-1.5">{t('mercado.perteneceDobleG')} *</label>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setBelongsToAgency(true)}
+              className={`flex-1 py-2 rounded-lg text-sm font-semibold border transition-colors ${belongsToAgency === true ? 'bg-brand-green text-white border-brand-green' : 'border-apple-gray-200 dark:border-apple-gray-700 text-apple-gray-500'}`}
+            >
+              {t('mercado.si')}
+            </button>
+            <button
+              type="button"
+              onClick={() => setBelongsToAgency(false)}
+              className={`flex-1 py-2 rounded-lg text-sm font-semibold border transition-colors ${belongsToAgency === false ? 'bg-brand-green text-white border-brand-green' : 'border-apple-gray-200 dark:border-apple-gray-700 text-apple-gray-500'}`}
+            >
+              {t('mercado.no')}
+            </button>
+          </div>
+          {belongsToAgency === false && (
+            <input
+              type="text"
+              value={agentName}
+              onChange={e => setAgentName(e.target.value)}
+              placeholder={t('mercado.representantePlaceholder')}
+              className="input-apple text-sm w-full mt-2"
+            />
+          )}
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-apple-gray-500 mb-1.5">{t('mercado.responsable')}</label>
+          <label className="block text-xs font-medium text-apple-gray-500 mb-1.5">{t('mercado.estado')}</label>
+          <select
+            value={status}
+            onChange={e => setStatus(e.target.value as NegotiationStatus)}
+            className="input-apple text-sm w-full"
+          >
+            {NEGOTIATION_STATUS_ORDER.map(s => (
+              <option key={s} value={s}>{t(NEGOTIATION_STATUS_LABEL_KEY[s])}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-apple-gray-500 mb-1.5">{t('mercado.responsableNegociacion')}</label>
           <AssigneeSelect value={assigneeId} onChange={(id, name) => { setAssigneeId(id); setAssigneeName(name) }} />
         </div>
+
         <div>
-          <label className="block text-xs font-medium text-apple-gray-500 mb-1.5">{t('mercado.volverAHablar')}</label>
-          <input
-            type="date"
-            value={followupDate}
-            onChange={e => setFollowupDate(e.target.value)}
-            min="2020-01-01"
-            max="2100-12-31"
-            className="input-apple text-sm w-full"
+          <label className="block text-xs font-medium text-apple-gray-500 mb-1.5">{t('mercado.notas')}</label>
+          <textarea
+            value={notes}
+            onChange={e => setNotes(e.target.value)}
+            placeholder={t('mercado.escribirNota')}
+            rows={2}
+            className="input-apple text-sm w-full resize-none"
           />
         </div>
+
         {error && <p className="text-xs text-red-500 bg-red-500/10 px-3 py-2 rounded-lg">{error}</p>}
         <button
           onClick={handleSave}
