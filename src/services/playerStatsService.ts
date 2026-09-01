@@ -141,7 +141,7 @@ export async function fetchPlayerDetail(playerId: number, season?: number): Prom
     player: {
       ...playerRes.data,
       season_scores: seasonScores,
-      primary_score: primaryScore?.avg_score ?? null,
+      primary_score: primaryScore?.avg_rating ?? null,
       primary_percentile: primaryScore?.percentile ?? null,
     },
     matches: matchesRes.data ?? [],
@@ -156,9 +156,9 @@ export async function fetchPositionAverages(
 
   const { data, error } = await supabase
     .from('player_season_scores')
-    .select('position, league_id, avg_score')
+    .select('position, league_id, avg_rating')
     .in('season', seasons)
-    .not('avg_score', 'is', null);
+    .not('avg_rating', 'is', null);
 
   if (error) throw error;
 
@@ -166,7 +166,7 @@ export async function fetchPositionAverages(
   for (const row of data ?? []) {
     const key = `${row.position}|${row.league_id}`;
     if (!groups.has(key)) groups.set(key, { scores: [], league_id: row.league_id, position: row.position });
-    groups.get(key)!.scores.push(row.avg_score);
+    groups.get(key)!.scores.push(row.avg_rating);
   }
 
   return Array.from(groups.values()).map(g => ({
@@ -535,11 +535,11 @@ export async function fetchScoreLookup(
     const { data, error } = await supabase
       .from('player_season_scores')
       .select(`
-        player_id, position, avg_score, percentile, matches_played, season,
+        player_id, position, avg_rating, percentile, matches_played, season,
         player:players!inner(name, current_team_id, transfermarkt_id, birth_date, team:teams(name, logo))
       `)
       .in('season', seasons)
-      .not('avg_score', 'is', null)
+      .not('avg_rating', 'is', null)
       .range(from, from + PAGE_SIZE - 1);
 
     if (error) throw error;
@@ -562,7 +562,7 @@ export async function fetchScoreLookup(
       birth_date: ((row as any).player?.birth_date as string | null) ?? null,
       team_name: ((row as any).player?.team?.name as string | null) ?? null,
       team_logo: ((row as any).player?.team?.logo as string | null) ?? null,
-      score: row.avg_score,
+      score: row.avg_rating,
       position: row.position as Position,
       percentile: row.percentile,
       matches_played: row.matches_played,
@@ -589,7 +589,7 @@ export async function fetchPlayerMatchHistory(
       )
     `)
     .eq('player_id', playerId)
-    .not('match_score', 'is', null);
+    .not('rating', 'is', null);
 
   if (position) query = query.eq('detected_position', position);
 
