@@ -77,9 +77,11 @@ export function getRelativeScoreColorClass(score: number | null, posAvg: number 
   if (score >= threshold(80, scale)) return 'text-emerald-400'
   if (posAvg !== null) {
     const avg = scale === '10' && posAvg > 10 ? posAvg / 10 : posAvg
+    const nearThreshold = scale === '10' ? avg - 0.3 : avg * 0.85
+    const lowThreshold = scale === '10' ? avg - 0.8 : avg * 0.70
     if (score >= avg) return 'text-emerald-500'
-    if (score >= avg * 0.85) return 'text-amber-500'
-    if (score >= avg * 0.70) return 'text-orange-500'
+    if (score >= nearThreshold) return 'text-amber-500'
+    if (score >= lowThreshold) return 'text-orange-500'
     return 'text-red-500'
   }
   return getScoreColorClass(score, scale)
@@ -90,9 +92,11 @@ export function getRelativeScoreBgClass(score: number | null, posAvg: number | n
   if (score >= threshold(80, scale)) return 'bg-emerald-400/20'
   if (posAvg !== null) {
     const avg = scale === '10' && posAvg > 10 ? posAvg / 10 : posAvg
+    const nearThreshold = scale === '10' ? avg - 0.3 : avg * 0.85
+    const lowThreshold = scale === '10' ? avg - 0.8 : avg * 0.70
     if (score >= avg) return 'bg-emerald-500/15'
-    if (score >= avg * 0.85) return 'bg-amber-500/15'
-    if (score >= avg * 0.70) return 'bg-orange-500/15'
+    if (score >= nearThreshold) return 'bg-amber-500/15'
+    if (score >= lowThreshold) return 'bg-orange-500/15'
     return 'bg-red-500/15'
   }
   return getScoreBgClass(score, scale)
