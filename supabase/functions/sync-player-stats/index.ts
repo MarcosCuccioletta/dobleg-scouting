@@ -2,7 +2,6 @@ import { serve } from 'https://deno.land/std@0.208.0/http/server.ts';
 import { getSupabaseAdmin } from '../_shared/supabase-client.ts';
 import { fetchLineups, fetchFixturePlayers } from '../_shared/api-football.ts';
 import { mapGridToPosition, fallbackPosition } from '../_shared/position-mapper.ts';
-import { calculateMatchScore } from '../_shared/scoring.ts';
 import { pctPasses } from '../_shared/stats-normalize.ts';
 import type { PlayerMatchRow } from '../_shared/types.ts';
 
@@ -124,11 +123,6 @@ serve(async () => {
 
             allRows.push(row);
           }
-        }
-
-        for (const row of allRows) {
-          const peers = allRows.filter(r => r.player_id !== row.player_id);
-          row.match_score = calculateMatchScore(row, peers);
         }
 
         if (allRows.length > 0) {
