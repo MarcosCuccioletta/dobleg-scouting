@@ -619,7 +619,7 @@ export const METRIC_CATEGORIES: Record<string, string[]> = {
     'Duelos aéreos en los 90',
   ],
   'General': [
-    'ggScore', 'Partidos jugados', 'Minutos jugados', 'minutesPlayed', 'ageNum',
+    'rating', 'Partidos jugados', 'Minutos jugados', 'minutesPlayed', 'ageNum',
     'marketValueRaw', 'monthsRemaining',
   ],
 }

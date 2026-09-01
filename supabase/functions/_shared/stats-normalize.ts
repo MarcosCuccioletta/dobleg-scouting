@@ -7,8 +7,8 @@
  * API-Football devuelve en `passes.accuracy` la **cantidad** de pases acertados,
  * no el porcentaje: hay partidos con 107 sobre 123 pases, que como porcentaje
  * sería imposible. Sofascore, en cambio, ya entrega porcentaje. Sin esta
- * normalización un lateral con 20 de 28 pases entra al scoring como si tuviera
- * 20% de acierto, y `passes_accuracy` pesa entre 10% y 14% del Score GG.
+ * normalización un lateral con 20 de 28 pases queda guardado con 20% de
+ * acierto en vez de ~71%, un dato crudo incorrecto que se muestra en la ficha.
  *
  * Devuelve 0 cuando el jugador no dio pases.
  */

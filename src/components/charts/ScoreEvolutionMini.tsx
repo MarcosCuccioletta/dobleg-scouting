@@ -63,7 +63,7 @@ export default function ScoreEvolutionMini({ history, width = 80, height = 32 }:
                 fontSize: '10px',
                 padding: '4px 8px',
               }}
-              formatter={(value: number) => [`${value.toFixed(1)}`, 'Score']}
+              formatter={(value: number) => [`${value.toFixed(1)}`, 'Rating']}
               labelFormatter={(label) => label}
             />
             <Line

@@ -351,7 +351,7 @@ export async function fetchScoutScores(
 
 // Link (or unlink) a scout player to a DB player.
 // supabasePlayerId links to the live Supabase `players.id` (API-Football/Sofascore) —
-// when set, fetchScoutPlayersWithScores resolves the real Score GG/photo/team from it
+// when set, fetchScoutPlayersWithScores resolves the real Rating/photo/team from it
 // instead of leaving those columns empty.
 export async function linkScoutPlayerToDb(
   id: string,

@@ -1586,7 +1586,7 @@ export default function PlayerDetailPage() {
                   )}
                   {scores.length > 0 && (
                     <div className="space-y-1.5">
-                      <p className="text-2xs font-medium text-apple-gray-400 uppercase tracking-wider">Score por posición</p>
+                      <p className="text-2xs font-medium text-apple-gray-400 uppercase tracking-wider">Rating por posición</p>
                       {scores.map(s => (
                         <div key={s.position} className={`flex items-center justify-between text-xs px-2.5 py-1.5 rounded-lg ${s.position === scoredPosition ? 'bg-brand-green/10 dark:bg-brand-green/15' : 'bg-apple-gray-50 dark:bg-apple-gray-800/50'}`}>
                           <span className="font-semibold text-apple-gray-700 dark:text-apple-gray-300">{s.position}</span>
@@ -1891,11 +1891,11 @@ export default function PlayerDetailPage() {
                   <p className="text-center text-xs text-apple-gray-500 dark:text-apple-gray-400 mt-1">{displayPosition}</p>
                 </div>
 
-                {/* Score Evolution Chart - prominent when Supabase data available */}
+                {/* Rating Evolution Chart - prominent when Supabase data available */}
                 {supabaseMatches.length > 0 && (
                   <div className="mt-6">
                     <h3 className="text-xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider mb-3">
-                      Evolución del Score
+                      Evolución del Rating
                     </h3>
 
                     {/* Season stats bar */}
@@ -2281,10 +2281,10 @@ export default function PlayerDetailPage() {
                   <div className="space-y-6">
                     <div>
                       <h3 className="text-sm font-semibold text-apple-gray-700 dark:text-apple-gray-300 mb-1">
-                        Evolución del Score
+                        Evolución del Rating
                       </h3>
                       <p className="text-xs text-apple-gray-400 mb-4">
-                        Score por partido · La línea punteada indica el promedio
+                        Rating por partido · La línea punteada indica el promedio
                       </p>
                       <ScoreEvolutionChart
                         matches={allPlayerMatches}
@@ -2346,7 +2346,6 @@ export default function PlayerDetailPage() {
                               <th className="text-center px-3 py-2 text-2xs font-semibold text-apple-gray-500 uppercase">Goles</th>
                               <th className="text-center px-3 py-2 text-2xs font-semibold text-apple-gray-500 uppercase">Asist</th>
                               <th className="text-center px-3 py-2 text-2xs font-semibold text-apple-gray-500 uppercase">Rating</th>
-                              <th className="text-center px-3 py-2 text-2xs font-semibold text-apple-gray-500 uppercase">Score</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -2364,9 +2363,6 @@ export default function PlayerDetailPage() {
                               const outcome = pg != null && og != null ? (pg > og ? 'win' : pg < og ? 'loss' : 'draw') : null
                               const outcomeCls = outcome === 'win' ? 'text-brand-green' : outcome === 'loss' ? 'text-red-500' : outcome === 'draw' ? 'text-apple-gray-400' : 'text-apple-gray-700 dark:text-apple-gray-300'
                               const outcomeDot = outcome === 'win' ? 'bg-brand-green' : outcome === 'loss' ? 'bg-red-500' : 'bg-apple-gray-400'
-                              const scoreColor = match.match_score != null
-                                ? match.match_score >= 8 ? 'text-brand-green' : match.match_score >= 6 ? 'text-emerald-500' : match.match_score >= 4.5 ? 'text-amber-500' : 'text-red-500'
-                                : ''
                               return (
                                 <tr key={match.fixture_id} className="border-t border-apple-gray-50 dark:border-apple-gray-800/50 hover:bg-apple-gray-50/50 dark:hover:bg-apple-gray-800/30">
                                   <td className="px-3 py-2 text-apple-gray-500 tabular-nums">
@@ -2385,9 +2381,6 @@ export default function PlayerDetailPage() {
                                   <td className="px-3 py-2 text-center tabular-nums">{match.goals || '—'}</td>
                                   <td className="px-3 py-2 text-center tabular-nums">{match.assists || '—'}</td>
                                   <td className="px-3 py-2 text-center text-apple-gray-600 dark:text-apple-gray-400 tabular-nums">{match.rating?.toFixed(1) ?? '—'}</td>
-                                  <td className={`px-3 py-2 text-center font-bold tabular-nums ${scoreColor}`}>
-                                    {match.match_score?.toFixed(1) ?? '—'}
-                                  </td>
                                 </tr>
                               )
                             })}
@@ -2467,7 +2460,7 @@ export default function PlayerDetailPage() {
                 {/* ─── Supabase-powered advanced metrics (shown first when available) ─── */}
                 {supabaseDetail && supabaseMatches.length > 0 && (
                   <div className="space-y-6 mb-8">
-                    {/* Score evolution */}
+                    {/* Rating evolution */}
                     <div className="bg-apple-gray-50/30 dark:bg-apple-gray-800/20 rounded-2xl p-5">
                       <ScoreEvolutionChart
                         matches={supabaseMatches}

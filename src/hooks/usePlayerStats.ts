@@ -227,7 +227,7 @@ export function usePreferredPlayerId(playerId: number | null): number | null {
  * Todos los partidos del jugador, sin filtrar por posición ni por score cargado.
  * `usePlayerMatchHistory` sirve para el scoring (compara dentro de una posición),
  * pero para listar "sus últimos partidos" ese filtro se come partidos reales:
- * los que jugó en otro puesto o los que todavía no tienen Score GG calculado.
+ * los que jugó en otro puesto o los que todavía no tienen Rating calculado.
  */
 export function usePlayerAllMatches(playerId: number | null) {
   const [matches, setMatches] = useState<PlayerMatchStat[]>([]);
