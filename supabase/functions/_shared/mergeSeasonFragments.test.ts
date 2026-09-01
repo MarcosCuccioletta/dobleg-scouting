@@ -5,7 +5,7 @@ import { mergeSeasonScoreFragments, type SeasonScoreRow } from './mergeSeasonFra
 function makeRow(overrides: Partial<SeasonScoreRow>): SeasonScoreRow {
   return {
     player_id: 1, season: 2026, position: 'EXT', league_id: 100,
-    matches_played: 0, avg_score: null, avg_rating: null,
+    matches_played: 0, avg_rating: null,
     total_goals: 0, total_assists: 0,
     tackles_p90: null, interceptions_p90: null, blocks_p90: null,
     duels_won_pct: null, passes_accuracy: null, passes_key_p90: null,
@@ -19,17 +19,17 @@ function makeRow(overrides: Partial<SeasonScoreRow>): SeasonScoreRow {
 }
 
 Deno.test('mergeSeasonScoreFragments: una sola fila por jugador+posicion no cambia', () => {
-  const rows = [makeRow({ matches_played: 10, avg_score: 6.5 })];
+  const rows = [makeRow({ matches_played: 10, avg_rating: 6.5 })];
   const result = mergeSeasonScoreFragments(rows);
   assertEquals(result.length, 1);
   assertEquals(result[0].matches_played, 10);
-  assertEquals(result[0].avg_score, 6.5);
+  assertEquals(result[0].avg_rating, 6.5);
 });
 
 Deno.test('mergeSeasonScoreFragments: dos fragmentos de la misma posicion se funden en uno', () => {
   const rows = [
-    makeRow({ league_id: 100, matches_played: 6, avg_score: 6.1, total_goals: 2, total_assists: 1 }),
-    makeRow({ league_id: 200, matches_played: 7, avg_score: 5.4, total_goals: 3, total_assists: 0 }),
+    makeRow({ league_id: 100, matches_played: 6, avg_rating: 6.1, total_goals: 2, total_assists: 1 }),
+    makeRow({ league_id: 200, matches_played: 7, avg_rating: 5.4, total_goals: 3, total_assists: 0 }),
   ];
   const result = mergeSeasonScoreFragments(rows);
   assertEquals(result.length, 1);
@@ -37,13 +37,13 @@ Deno.test('mergeSeasonScoreFragments: dos fragmentos de la misma posicion se fun
   assertEquals(result[0].total_goals, 5);
   assertEquals(result[0].total_assists, 1);
   // (6*6.1 + 7*5.4) / 13 = (36.6 + 37.8) / 13 = 74.4 / 13 = 5.7230... -> 5.72
-  assertEquals(result[0].avg_score, 5.72);
+  assertEquals(result[0].avg_rating, 5.72);
 });
 
 Deno.test('mergeSeasonScoreFragments: distintas posiciones del mismo jugador no se mezclan', () => {
   const rows = [
-    makeRow({ position: 'EXT', matches_played: 5, avg_score: 7 }),
-    makeRow({ position: 'VI', matches_played: 3, avg_score: 6 }),
+    makeRow({ position: 'EXT', matches_played: 5, avg_rating: 7 }),
+    makeRow({ position: 'VI', matches_played: 3, avg_rating: 6 }),
   ];
   const result = mergeSeasonScoreFragments(rows);
   assertEquals(result.length, 2);
@@ -51,8 +51,8 @@ Deno.test('mergeSeasonScoreFragments: distintas posiciones del mismo jugador no 
 
 Deno.test('mergeSeasonScoreFragments: jugadores distintos no se mezclan', () => {
   const rows = [
-    makeRow({ player_id: 1, matches_played: 5, avg_score: 7 }),
-    makeRow({ player_id: 2, matches_played: 5, avg_score: 4 }),
+    makeRow({ player_id: 1, matches_played: 5, avg_rating: 7 }),
+    makeRow({ player_id: 2, matches_played: 5, avg_rating: 4 }),
   ];
   const result = mergeSeasonScoreFragments(rows);
   assertEquals(result.length, 2);
@@ -60,8 +60,8 @@ Deno.test('mergeSeasonScoreFragments: jugadores distintos no se mezclan', () => 
 
 Deno.test('mergeSeasonScoreFragments: campos null en un fragmento no rompen el promedio ponderado', () => {
   const rows = [
-    makeRow({ league_id: 100, matches_played: 4, avg_score: 6, passes_accuracy: 80 }),
-    makeRow({ league_id: 200, matches_played: 2, avg_score: 5, passes_accuracy: null }),
+    makeRow({ league_id: 100, matches_played: 4, avg_rating: 6, passes_accuracy: 80 }),
+    makeRow({ league_id: 200, matches_played: 2, avg_rating: 5, passes_accuracy: null }),
   ];
   const result = mergeSeasonScoreFragments(rows);
   assertEquals(result.length, 1);
@@ -73,8 +73,8 @@ Deno.test('mergeSeasonScoreFragments: campos null en un fragmento no rompen el p
 
 Deno.test('mergeSeasonScoreFragments: campo null en TODOS los fragmentos queda null, no se convierte en 0', () => {
   const rows = [
-    makeRow({ league_id: 100, matches_played: 4, avg_score: 6, penalty_saved_avg: null }),
-    makeRow({ league_id: 200, matches_played: 3, avg_score: 5, penalty_saved_avg: null }),
+    makeRow({ league_id: 100, matches_played: 4, avg_rating: 6, penalty_saved_avg: null }),
+    makeRow({ league_id: 200, matches_played: 3, avg_rating: 5, penalty_saved_avg: null }),
   ];
   const result = mergeSeasonScoreFragments(rows);
   assertEquals(result.length, 1);
