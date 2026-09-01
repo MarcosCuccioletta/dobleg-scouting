@@ -219,23 +219,23 @@ export function computeInsights(input: InsightsInput): InsightsResult {
   // ── Bloque: rendimiento ──
   if (has('rendimiento')) {
     const items: InsightItem[] = []
-    const scored = played.filter(m => m.match_score != null)
+    const scored = played.filter(m => m.rating != null)
 
     // Un "promedio" de un partido no es un promedio: con muestra corta sólo queda
     // el percentil, que no depende del período.
     if (scored.length > 0 && !shortSample) {
-      const values = scored.map(m => m.match_score as number)
+      const values = scored.map(m => m.rating as number)
       const avgScore = round1(values.reduce((a, b) => a + b, 0) / values.length)
       const best = Math.max(...values)
 
       items.push({
         id: 'rend.promedio',
         values: { avg: avgScore, matches: scored.length },
-        tone: avgScore >= 7 ? 'strong' : avgScore >= 6.3 ? 'neutral' : 'weak',
+        tone: avgScore >= 6.8 ? 'strong' : avgScore >= 6.4 ? 'neutral' : 'weak',
       })
       tiles.push({ id: 'tile.score', render: 'plain', values: { avg: avgScore, matches: scored.length } })
 
-      const bestMatch = scored.find(m => m.match_score === best)
+      const bestMatch = scored.find(m => m.rating === best)
       items.push({
         id: 'rend.mejor',
         values: { best, date: bestMatch ? bestMatch.date.slice(0, 10) : '' },

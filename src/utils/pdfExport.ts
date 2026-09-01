@@ -80,18 +80,20 @@ const LIGHT_COLORS: ColorPalette = {
 // Legacy alias for backwards compatibility
 const C = DARK_COLORS
 
-// Cortes sobre el Score GG (1-10).
+// Cortes sobre el Rating (1-10), calibrados sobre la distribución real
+// (Sofascore/API-Football, comprimida entre ~5.7 y ~8.6) — mismo criterio que
+// ScoreBar.tsx/GaugeScore.tsx (7.3/6.8/6.4/6.0).
 function scoreColor(s: number, colors: ColorPalette): RGB {
-  if (s >= 7) return colors.brand
-  if (s >= 5) return colors.yellow
-  if (s >= 3) return colors.orange
+  if (s >= 7.3) return colors.brand
+  if (s >= 6.8) return colors.yellow
+  if (s >= 6.4) return colors.orange
   return colors.red
 }
 
 function scoreLabel(s: number): string {
-  if (s >= 7) return 'EXCELENTE'
-  if (s >= 5) return 'BUENO'
-  if (s >= 3) return 'REGULAR'
+  if (s >= 7.3) return 'EXCELENTE'
+  if (s >= 6.8) return 'BUENO'
+  if (s >= 6.4) return 'REGULAR'
   return 'BAJO'
 }
 
@@ -401,7 +403,7 @@ class PDF {
     // Title
     this.doc.setFontSize(8)
     this.doc.setTextColor(...C.grayDark)
-    this.doc.text('SCORE GG', cx, this.y + 9, { align: 'center' })
+    this.doc.text('RATING', cx, this.y + 9, { align: 'center' })
 
     if (score === null) {
       this.doc.setFontSize(10)
@@ -411,13 +413,16 @@ class PDF {
       return
     }
 
-    // Arc segments
+    // Arc segments — boundaries match scoreColor()'s cutoffs (7.3/6.8/6.4) on the
+    // 5.5-8.5 display range, so the arc color under the needle always agrees with
+    // the printed score's text color.
     const start = Math.PI
+    const norm = (v: number) => (v - 5.5) / (8.5 - 5.5)
     const segs = [
-      { s: 0, e: 0.3, c: C.red },
-      { s: 0.3, e: 0.5, c: C.orange },
-      { s: 0.5, e: 0.7, c: C.yellow },
-      { s: 0.7, e: 1, c: C.brand },
+      { s: 0, e: norm(6.4), c: C.red },
+      { s: norm(6.4), e: norm(6.8), c: C.orange },
+      { s: norm(6.8), e: norm(7.3), c: C.yellow },
+      { s: norm(7.3), e: 1, c: C.brand },
     ]
     this.doc.setLineWidth(4)
     segs.forEach(seg => {
@@ -435,7 +440,8 @@ class PDF {
     })
 
     // Needle
-    const angle = start + ((score - 1) / 9) * Math.PI
+    const needlePos = Math.max(0, Math.min(1, norm(score)))
+    const angle = start + needlePos * Math.PI
     const needleColor = this.theme === 'light' ? C.text : [255, 255, 255] as RGB
     this.doc.setDrawColor(...needleColor)
     this.doc.setLineWidth(1.2)
@@ -648,7 +654,7 @@ export async function exportPlayerToPdfFull(data: FullExportData): Promise<void>
 
   if (sections.includes('header') || sections.includes('general')) {
     pdf.playerInfo(player)
-    pdf.scoreGauge(player.ggScore, positionAverageScore)
+    pdf.scoreGauge(player.rating, positionAverageScore)
 
     if (subjectiveGroups && subjectiveGroups.length > 0 && sections.includes('scout')) {
       pdf.scoutEval(subjectiveGroups)

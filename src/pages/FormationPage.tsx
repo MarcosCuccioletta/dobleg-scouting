@@ -87,7 +87,7 @@ function PlayerSelector({
     return false
   }, [currentPosIds, allSelectedPlayerIds])
 
-  // Sugeridos: se piden ya filtrados por posición al backend (top por Score GG DE
+  // Sugeridos: se piden ya filtrados por posición al backend (top por Rating DE
   // ESA POSICIÓN), no recortados de un pool global de 300 ordenado por score total.
   // Antes, posiciones minoritarias como lateral casi no tenían candidatos porque
   // competían por un lugar en el top-300 general contra centrales/delanteros.
@@ -112,7 +112,7 @@ function PlayerSelector({
         if (p.primary_score === null) return false
         return true
       })
-      .slice(0, 15) // ya viene ordenado por avg_score desc desde el RPC
+      .slice(0, 15) // ya viene ordenado por avg_rating desc desde el RPC
   }, [suggestionPool, isExcluded, selectedLeagueIds, nationality])
 
   // Buscar: contra la base completa, sin recorte de pool ni de posición — antes
@@ -242,9 +242,9 @@ function PlayerSelector({
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    {p.ggScore !== null && (
-                      <span className={`text-sm font-bold ${getScoreColorClass(p.ggScore, '10')}`}>
-                        {p.ggScore.toFixed(1)}
+                    {p.rating !== null && (
+                      <span className={`text-sm font-bold ${getScoreColorClass(p.rating, '10')}`}>
+                        {p.rating.toFixed(1)}
                       </span>
                     )}
                     <button
@@ -429,7 +429,7 @@ export default function FormationPage() {
       playerName: player.name,
       playerId: String(player.id),
       team: player.team?.name ?? '',
-      ggScore: player.primary_score,
+      rating: player.primary_score,
       addedBy: user.id,
       addedByName: userDisplayName,
       addedAt: new Date().toISOString(),
@@ -707,9 +707,9 @@ export default function FormationPage() {
                             <span className="font-semibold text-apple-gray-800 dark:text-white">
                               {p.playerName.split(' ').slice(-1)[0]}
                             </span>
-                            {p.ggScore !== null && (
-                              <span className={`ml-1.5 font-bold ${getScoreColorClass(p.ggScore, '10')}`}>
-                                {p.ggScore.toFixed(1)}
+                            {p.rating !== null && (
+                              <span className={`ml-1.5 font-bold ${getScoreColorClass(p.rating, '10')}`}>
+                                {p.rating.toFixed(1)}
                               </span>
                             )}
                           </div>

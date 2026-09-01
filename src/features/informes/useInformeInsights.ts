@@ -62,7 +62,7 @@ function toPlayerRows(matches: PlayerMatchStat[], teamId: number): PlayerMatchRo
       duels_total: m.duels_total ?? 0,
       dribbles_success: m.dribbles_success ?? 0,
       dribbles_attempted: m.dribbles_attempted ?? 0,
-      match_score: m.match_score,
+      rating: m.rating,
       detected_position: m.detected_position,
       is_substitute: m.is_substitute,
       team_id: m.team_id,
@@ -89,7 +89,7 @@ function toSquadRows(rows: SquadStatRow[]): SquadMatchRow[] {
       duels_total: r.duels_total ?? 0,
       dribbles_success: r.dribbles_success ?? 0,
       dribbles_attempted: r.dribbles_attempted ?? 0,
-      match_score: r.match_score,
+      rating: r.rating,
       detected_position: r.detected_position,
     }))
 }

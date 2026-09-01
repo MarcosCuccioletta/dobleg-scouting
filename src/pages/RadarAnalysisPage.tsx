@@ -15,7 +15,7 @@ import { useCurrency } from '@/context/CurrencyContext'
 // Metrics organized by category for dropdown
 const METRIC_CATEGORIES = {
   'Goles y Creacion': [
-    { key: 'ggScore', label: 'GG Score' },
+    { key: 'rating', label: 'Rating' },
     { key: 'Goles', label: 'Goles' },
     { key: 'Asistencias', label: 'Asistencias' },
     { key: 'xG', label: 'xG (Goles esperados)' },
@@ -84,7 +84,7 @@ export default function RadarAnalysisPage() {
   const { currency, rate } = useCurrency()
   const allPlayers = useMemo(() => [...external, ...internal], [external, internal])
 
-  // Score GG de la API, siempre 1-10. Sin entrada el jugador queda sin score.
+  // Rating de la API, siempre 1-10. Sin entrada el jugador queda sin score.
   const { lookup: scoreLookup, ready: scoreReady } = useScoreLookup()
 
   function getPlayerScore(player: EnrichedPlayer): { score: number | null; scale: '100' | '10' } {
@@ -104,7 +104,7 @@ export default function RadarAnalysisPage() {
   // State
   const [selectedPlayers, setSelectedPlayers] = useState<EnrichedPlayer[]>([])
   const [selectedMetrics, setSelectedMetrics] = useState<string[]>([
-    'ggScore', 'Goles', 'xG', 'Gambetas completadas/90', 'Duelos ganados, %', 'Jugadas claves/90'
+    'rating', 'Goles', 'xG', 'Gambetas completadas/90', 'Duelos ganados, %', 'Jugadas claves/90'
   ])
   const [playerSearch, setPlayerSearch] = useState('')
   const [positionFilters, setPositionFilters] = useState<string[]>([])
@@ -970,7 +970,7 @@ export default function RadarAnalysisPage() {
                 <div>
                   <h4 className="font-semibold text-apple-gray-800 dark:text-white mb-1">El número verde en cada jugador</h4>
                   <p>
-                    Es el <span className="text-brand-green font-semibold">GG Score</span>, una puntuación propia que resume el rendimiento general
+                    Es el <span className="text-brand-green font-semibold">Rating</span>, una puntuación que resume el rendimiento general
                     del jugador considerando múltiples estadísticas clave según su posición. Va de 0 a 10.
                   </p>
                 </div>

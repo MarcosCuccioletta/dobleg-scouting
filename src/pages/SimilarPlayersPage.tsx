@@ -178,7 +178,7 @@ export default function SimilarPlayersPage() {
               </p>
             </div>
             <div className="text-right">
-              <div className="text-xs text-apple-gray-500 dark:text-apple-gray-400 mb-1">Score GG</div>
+              <div className="text-xs text-apple-gray-500 dark:text-apple-gray-400 mb-1">Rating</div>
               <ScoreBar score={selectedPlayer.primary_score} size="sm" scale="10" />
             </div>
             <button
@@ -246,7 +246,7 @@ export default function SimilarPlayersPage() {
                       </div>
                     </div>
 
-                    {/* Score GG */}
+                    {/* Rating */}
                     <div className="w-16 sm:w-24">
                       <ScoreBar score={player.primary_score} size="md" scale="10" />
                     </div>

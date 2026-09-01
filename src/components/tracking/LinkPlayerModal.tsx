@@ -18,7 +18,7 @@ interface ResultItem {
   liga: string | null
   posicion: string | null
   edad: number | null
-  ggScore: number | null
+  rating: number | null
   supabasePlayerId: number | null
 }
 
@@ -62,7 +62,7 @@ export default function LinkPlayerModal({ player, onClose, onLinked }: Props) {
           liga: p.league?.name ?? null,
           posicion: p.primary_position,
           edad: getAge(p.birth_date),
-          ggScore: p.primary_score,
+          rating: p.primary_score,
           supabasePlayerId: p.id,
         })))
       })
@@ -83,7 +83,7 @@ export default function LinkPlayerModal({ player, onClose, onLinked }: Props) {
         liga: p.Liga || null,
         posicion: p['Posición'] || null,
         edad: p.Edad ? Number(p.Edad) || null : null,
-        ggScore: p.ggScore ?? null,
+        rating: p.rating ?? null,
         supabasePlayerId: null,
       }))
   }, [debouncedQuery, sourceFilter, internal])
@@ -216,13 +216,13 @@ export default function LinkPlayerModal({ player, onClose, onLinked }: Props) {
                     </p>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0 ml-3">
-                    {p.ggScore !== null && p.ggScore !== undefined && (
+                    {p.rating !== null && p.rating !== undefined && (
                       <span className={`text-xs font-bold tabular-nums ${
-                        p.ggScore >= 7 ? 'text-brand-green' :
-                        p.ggScore >= 5 ? 'text-emerald-500' :
-                        p.ggScore >= 3 ? 'text-amber-500' : 'text-apple-gray-400'
+                        p.rating >= 6.8 ? 'text-brand-green' :
+                        p.rating >= 6.4 ? 'text-emerald-500' :
+                        p.rating >= 6.0 ? 'text-amber-500' : 'text-apple-gray-400'
                       }`}>
-                        {p.ggScore.toFixed(1)}
+                        {p.rating.toFixed(1)}
                       </span>
                     )}
                     <span className={`px-1.5 py-0.5 rounded-md text-2xs font-medium ${

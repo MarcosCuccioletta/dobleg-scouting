@@ -17,7 +17,7 @@ export function mapLineupToSlots(
   const slots: FutureSquadSlot[] = positionKeys.map((slotKey, i) => {
     const player = startXI[i]
     if (!player) {
-      return { slotKey, source: null, playerId: null, playerName: null, playerNumber: null, ggScore: null }
+      return { slotKey, source: null, playerId: null, playerName: null, playerNumber: null, rating: null }
     }
     return {
       slotKey,
@@ -25,7 +25,7 @@ export function mapLineupToSlots(
       playerId: player.id,
       playerName: player.name,
       playerNumber: player.number,
-      ggScore: null,
+      rating: null,
     }
   })
 

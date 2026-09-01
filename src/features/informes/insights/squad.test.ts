@@ -15,7 +15,7 @@ function row(p: Partial<SquadMatchRow> & { player_id: number; player_name: strin
     duels_total: 0,
     dribbles_success: 0,
     dribbles_attempted: 0,
-    match_score: null,
+    rating: null,
     detected_position: 'EXT',
     ...p,
   }
@@ -24,9 +24,9 @@ function row(p: Partial<SquadMatchRow> & { player_id: number; player_name: strin
 describe('aggregateSquad', () => {
   it('suma por jugador y cuenta sólo los partidos con minutos', () => {
     const agg = aggregateSquad([
-      row({ player_id: 1, player_name: 'Orellano', goals: 1, assists: 1, passes_key: 3, match_score: 7.0 }),
-      row({ player_id: 1, player_name: 'Orellano', minutes: 0, goals: 0, match_score: null }),
-      row({ player_id: 1, player_name: 'Orellano', minutes: 45, goals: 2, match_score: 8.0 }),
+      row({ player_id: 1, player_name: 'Orellano', goals: 1, assists: 1, passes_key: 3, rating: 7.0 }),
+      row({ player_id: 1, player_name: 'Orellano', minutes: 0, goals: 0, rating: null }),
+      row({ player_id: 1, player_name: 'Orellano', minutes: 45, goals: 2, rating: 8.0 }),
     ])
     expect(agg).toHaveLength(1)
     expect(agg[0]).toMatchObject({
@@ -71,11 +71,11 @@ describe('defaultMinMinutes', () => {
 
 describe('rankInSquad', () => {
   const squad = aggregateSquad([
-    row({ player_id: 1, player_name: 'Orellano', minutes: 1136, goals: 3, assists: 4, passes_key: 25, duels_won: 63, duels_total: 122, match_score: 6.7 }),
-    row({ player_id: 2, player_name: 'Canales', minutes: 1200, goals: 1, assists: 2, passes_key: 30, duels_won: 40, duels_total: 100, match_score: 6.4 }),
-    row({ player_id: 3, player_name: 'Corona', minutes: 900, goals: 4, assists: 1, passes_key: 10, duels_won: 30, duels_total: 60, match_score: 6.9 }),
-    row({ player_id: 4, player_name: 'Juvenil', minutes: 60, goals: 0, assists: 0, passes_key: 1, duels_won: 4, duels_total: 4, match_score: 9.5 }),
-    row({ player_id: 5, player_name: 'Arquero', minutes: 1200, goals: 0, assists: 0, passes_key: 0, duels_won: 2, duels_total: 2, match_score: 7.5, detected_position: 'ARQ' }),
+    row({ player_id: 1, player_name: 'Orellano', minutes: 1136, goals: 3, assists: 4, passes_key: 25, duels_won: 63, duels_total: 122, rating: 6.7 }),
+    row({ player_id: 2, player_name: 'Canales', minutes: 1200, goals: 1, assists: 2, passes_key: 30, duels_won: 40, duels_total: 100, rating: 6.4 }),
+    row({ player_id: 3, player_name: 'Corona', minutes: 900, goals: 4, assists: 1, passes_key: 10, duels_won: 30, duels_total: 60, rating: 6.9 }),
+    row({ player_id: 4, player_name: 'Juvenil', minutes: 60, goals: 0, assists: 0, passes_key: 1, duels_won: 4, duels_total: 4, rating: 9.5 }),
+    row({ player_id: 5, player_name: 'Arquero', minutes: 1200, goals: 0, assists: 0, passes_key: 0, duels_won: 2, duels_total: 2, rating: 7.5, detected_position: 'ARQ' }),
   ])
 
   it('rankea acumuladas contra todo el plantel y calcula el share', () => {

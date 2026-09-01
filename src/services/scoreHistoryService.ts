@@ -32,7 +32,7 @@ export async function saveScoreBatch(
   scores: Array<{
     playerId: string
     playerName: string
-    ggScore: number
+    rating: number
     opportunityScore?: number
   }>
 ): Promise<boolean> {
@@ -58,7 +58,7 @@ export async function saveScoreBatch(
   const records = scores.map(s => ({
     player_id: s.playerId,
     player_name: s.playerName,
-    gg_score: s.ggScore,
+    gg_score: s.rating,
     opportunity_score: s.opportunityScore || null,
     source: 'auto',
   }))

@@ -200,7 +200,7 @@ function CompareLeagueSection({ stats, compareLeague, compareMetrics, posicion, 
     <div className="rounded-2xl border border-apple-gray-200 dark:border-apple-gray-800 bg-white dark:bg-apple-gray-900 p-5">
       <h3 className="text-sm font-semibold text-apple-gray-900 dark:text-white">Comparación vs otra liga</h3>
       <p className="text-xs text-apple-gray-400 dark:text-apple-gray-500 mt-1 mb-3">
-        Agrega una segunda línea <span className="font-medium text-apple-gray-500 dark:text-apple-gray-400">“Mejor que el X%…”</span> bajo el Score GG, comparando contra la liga que elijas.
+        Agrega una segunda línea <span className="font-medium text-apple-gray-500 dark:text-apple-gray-400">“Mejor que el X%…”</span> bajo el Rating, comparando contra la liga que elijas.
       </p>
       <label className="block text-xs font-semibold text-apple-gray-700 dark:text-apple-gray-300 mb-1.5">Liga de comparación</label>
       <input

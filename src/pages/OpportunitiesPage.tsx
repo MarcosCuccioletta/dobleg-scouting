@@ -111,7 +111,7 @@ export default function OpportunitiesPage() {
       })
     }
 
-    // Ranking: Score GG reciente + boost por cercanía a fin de contrato.
+    // Ranking: Rating reciente + boost por cercanía a fin de contrato.
     return [...result].sort((a, b) => opportunityScoreFor(b) - opportunityScoreFor(a))
   }, [players, tagsById, typeFilter, positionFilter, minAge, maxAge, minValue, maxValue, maxContract])
 
@@ -421,7 +421,7 @@ export default function OpportunitiesPage() {
                       </p>
                     )}
                   </div>
-                  {/* Score GG reciente */}
+                  {/* Rating reciente */}
                   <div className="text-right flex-shrink-0">
                     <span
                       className={`inline-block px-2 py-0.5 rounded-full font-semibold text-sm ${scoreBg} ${scoreColor}`}

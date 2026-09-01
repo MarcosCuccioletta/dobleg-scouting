@@ -41,7 +41,7 @@ export default function ExportPDFModal({
     {
       id: 'header',
       label: 'Ficha del Jugador',
-      description: 'Foto, nombre, equipo, edad, posición y Score GG',
+      description: 'Foto, nombre, equipo, edad, posición y Rating',
       available: true,
       default: true,
     },

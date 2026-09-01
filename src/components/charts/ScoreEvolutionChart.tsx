@@ -56,7 +56,7 @@ export default function ScoreEvolutionChart({ matches, avgScore }: ScoreEvolutio
 
     if (mode === 'weekly') {
       return matches
-        .filter(m => m.match_score !== null)
+        .filter(m => m.rating !== null)
         .map(m => {
           const fixture = m.fixture;
           const isHome = m.team_id === fixture?.home_team_id;
@@ -65,7 +65,7 @@ export default function ScoreEvolutionChart({ matches, avgScore }: ScoreEvolutio
 
           return {
             label: getWeekLabel(fixture?.date ?? ''),
-            score: m.match_score!,
+            score: m.rating!,
             tooltipData: {
               date: fixture?.date ? new Date(fixture.date).toLocaleDateString('es-AR') : '',
               rival: rival ?? 'Desconocido',
@@ -78,10 +78,10 @@ export default function ScoreEvolutionChart({ matches, avgScore }: ScoreEvolutio
 
     const byMonth = new Map<string, number[]>();
     for (const m of matches) {
-      if (m.match_score === null || !m.fixture?.date) continue;
+      if (m.rating === null || !m.fixture?.date) continue;
       const key = getMonthKey(m.fixture.date);
       if (!byMonth.has(key)) byMonth.set(key, []);
-      byMonth.get(key)!.push(m.match_score);
+      byMonth.get(key)!.push(m.rating);
     }
 
     const showYear = new Set(Array.from(byMonth.keys(), k => k.slice(0, 4))).size > 1;
@@ -143,11 +143,11 @@ export default function ScoreEvolutionChart({ matches, avgScore }: ScoreEvolutio
             tickLine={false}
           />
           <YAxis
-            domain={[1, 10]}
+            domain={[5.5, 8.5]}
             tick={{ fill: '#6b7280', fontSize: 10 }}
             axisLine={false}
             tickLine={false}
-            ticks={[2, 4, 6, 8, 10]}
+            ticks={[5.5, 6.5, 7.5, 8.5]}
           />
           <Tooltip
             content={({ active, payload }) => {

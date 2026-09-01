@@ -64,7 +64,7 @@ interface PlayerRowProps {
 }
 
 function PlayerRow({ player, metric, metricValue, onClick, posAvg, score, scale = '10' }: PlayerRowProps) {
-  const displayScore = score !== undefined ? score : player.ggScore
+  const displayScore = score !== undefined ? score : player.rating
   const scoreColor = getRelativeScoreColorClass(displayScore ?? null, posAvg ?? null, scale)
   const scoreBg = getRelativeScoreBgClass(displayScore ?? null, posAvg ?? null, scale)
 
@@ -148,9 +148,9 @@ function MonitoringRow({ player, metric, metricValue, onClick, highlight, posAvg
             <p className="text-sm font-semibold text-apple-gray-700 dark:text-apple-gray-200">{metricValue}</p>
             <p className="text-2xs text-apple-gray-400">{metric}</p>
           </>
-        ) : player.ggScore ? (
-          <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${getRelativeScoreBgClass(player.ggScore, posAvg ?? null, '10')} ${getRelativeScoreColorClass(player.ggScore, posAvg ?? null, '10')}`}>
-            {player.ggScore.toFixed(1)}
+        ) : player.rating ? (
+          <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${getRelativeScoreBgClass(player.rating, posAvg ?? null, '10')} ${getRelativeScoreColorClass(player.rating, posAvg ?? null, '10')}`}>
+            {player.rating.toFixed(1)}
           </span>
         ) : null}
       </div>
@@ -172,8 +172,8 @@ export default function DashboardPage() {
     return { score: null, scale: '10' }
   }
 
-  // Cortes del Score GG, que siempre viene 1-10 de la API.
-  const thresholds = { elite: 8.0, good: 5.5, developing: 3.5 }
+  // Cortes del Rating, que siempre viene 1-10 de la API.
+  const thresholds = { elite: 7.3, good: 6.8, developing: 6.4 }
 
   function getPosAvg(posicion: string): number | null {
     const normPos = FILTER_POSITION_MAP[posicion] ?? ''
@@ -182,11 +182,11 @@ export default function DashboardPage() {
 
   // Filter only players with meaningful data
   const activePlayers = useMemo(() =>
-    internal.filter(p => p.minutesPlayed >= 100 || p.ggScore !== null),
+    internal.filter(p => p.minutesPlayed >= 100 || p.rating !== null),
     [internal]
   )
 
-  // Score GG por posición (solo jugadores internos con score)
+  // Rating por posición (solo jugadores internos con score)
   const positionScores = useMemo(() => {
     const groups: Record<string, string> = {
       'Arquero': 'Arquero',
@@ -348,7 +348,7 @@ export default function DashboardPage() {
   // Best opportunities - players in seguimiento that outperform Doble G average
   const recommendedSignings = useMemo(() =>
     [...monitoring]
-      .filter(p => p.hasEnoughData && p.scoreDiff != null && p.scoreDiff > 0 && p.ggScore != null)
+      .filter(p => p.hasEnoughData && p.scoreDiff != null && p.scoreDiff > 0 && p.rating != null)
       .sort((a, b) => (b.scoreDiff ?? 0) - (a.scoreDiff ?? 0))
       .slice(0, 5),
     [monitoring]
@@ -366,7 +366,7 @@ export default function DashboardPage() {
   // Contract opportunities in seguimiento
   const contractOpportunities = useMemo(() =>
     [...monitoring]
-      .filter(p => p.monthsRemaining != null && p.monthsRemaining <= 12 && p.ggScore != null && p.ggScore >= 4)
+      .filter(p => p.monthsRemaining != null && p.monthsRemaining <= 12 && p.rating != null && p.rating >= 6.0)
       .sort((a, b) => (a.monthsRemaining ?? 999) - (b.monthsRemaining ?? 999))
       .slice(0, 5),
     [monitoring]
@@ -374,7 +374,7 @@ export default function DashboardPage() {
 
   // Seguimiento stats
   const seguimientoStats = useMemo(() => {
-    const withScore = monitoring.filter(p => p.ggScore != null && p.hasEnoughData)
+    const withScore = monitoring.filter(p => p.rating != null && p.hasEnoughData)
     const aboveAvg = monitoring.filter(p => (p.scoreDiff ?? -1) > 0)
     const contractSoon = monitoring.filter(p => (p.monthsRemaining ?? 999) <= 12)
     return {
@@ -518,7 +518,7 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* Score GG por Posición */}
+      {/* Rating por Posición */}
       {positionScores.length > 0 && (
         <div className="bg-white dark:bg-apple-gray-800 rounded-xl border border-apple-gray-200 dark:border-apple-gray-700 p-5 mb-8">
           <p className="text-xs font-medium text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider mb-4">
@@ -528,27 +528,31 @@ export default function DashboardPage() {
             {positionScores.map(({ label, avg, count, globalAvg }) => {
               // Normalize globalAvg to match the active scale (positionAverages is 0-100 from CSV, Supabase scores are 1-10)
               const normGlobalAvg = globalAvg !== null && globalAvg > 10 ? globalAvg / 10 : globalAvg
-              const eliteThreshold = 8.0
-              const goodThreshold = 5.5
-              const devThreshold = 3.5
+              const eliteThreshold = 7.3
+              const goodThreshold = 6.8
+              const devThreshold = 6.4
+              // Comparación relativa al promedio de posición: sobre un spread real
+              // comprimido (~0.8 de ancho p5-p95), un offset aditivo separa mejor
+              // los tramos que un ratio multiplicativo (avg*0.85/0.70 caía por debajo
+              // del mínimo real del dataset, colapsando estos tramos a inalcanzables).
               const colorClass =
                 avg >= eliteThreshold ? 'text-emerald-400' :
                 normGlobalAvg !== null
                   ? avg >= normGlobalAvg ? 'text-emerald-500' :
-                    avg >= normGlobalAvg * 0.85 ? 'text-amber-500' :
-                    avg >= normGlobalAvg * 0.70 ? 'text-orange-500' : 'text-red-500'
+                    avg >= normGlobalAvg - 0.3 ? 'text-amber-500' :
+                    avg >= normGlobalAvg - 0.8 ? 'text-orange-500' : 'text-red-500'
                   : avg >= goodThreshold ? 'text-emerald-500' :
                     avg >= devThreshold ? 'text-amber-500' : 'text-orange-500'
               const barColor =
                 avg >= eliteThreshold ? 'bg-emerald-400' :
                 normGlobalAvg !== null
                   ? avg >= normGlobalAvg ? 'bg-emerald-500' :
-                    avg >= normGlobalAvg * 0.85 ? 'bg-amber-500' :
-                    avg >= normGlobalAvg * 0.70 ? 'bg-orange-500' : 'bg-red-500'
+                    avg >= normGlobalAvg - 0.3 ? 'bg-amber-500' :
+                    avg >= normGlobalAvg - 0.8 ? 'bg-orange-500' : 'bg-red-500'
                   : avg >= goodThreshold ? 'bg-emerald-500' :
                     avg >= devThreshold ? 'bg-amber-500' : 'bg-orange-500'
-              // Bar width: normalize avg to 0-100% regardless of scale
-              const barWidth = Math.min(100, ((avg - 1) / 9) * 100)
+              // Bar width: normalize avg to 0-100% sobre el rango real de display (5.5-8.5)
+              const barWidth = Math.min(100, Math.max(0, ((avg - 5.5) / (8.5 - 5.5)) * 100))
               return (
                 <div key={label} className="flex flex-col gap-1.5">
                   <div className="flex items-end justify-between">

@@ -9,7 +9,15 @@ interface ScoreBarProps {
 }
 
 function threshold(val100: number, scale: ScoreScale): number {
-  return scale === '10' ? val100 / 10 : val100
+  if (scale !== '10') return val100
+  // Cortes calibrados sobre el rating crudo (Sofascore/API-Football), que se
+  // distribuye comprimido entre ~5.7 y ~8.6 (medido en Supabase 2026-09-01) —
+  // ver docs/superpowers/specs/2026-09-01-rating-reemplaza-score-gg-design.md.
+  if (val100 >= 80) return 7.3
+  if (val100 >= 55) return 6.8
+  if (val100 >= 35) return 6.4
+  if (val100 >= 20) return 6.0
+  return 0
 }
 
 function getScoreColor(score: number, scale: ScoreScale = '100'): { text: string; bg: string; bar: string; glow: string; isElite?: boolean } {
@@ -69,9 +77,11 @@ export function getRelativeScoreColorClass(score: number | null, posAvg: number 
   if (score >= threshold(80, scale)) return 'text-emerald-400'
   if (posAvg !== null) {
     const avg = scale === '10' && posAvg > 10 ? posAvg / 10 : posAvg
+    const nearThreshold = scale === '10' ? avg - 0.3 : avg * 0.85
+    const lowThreshold = scale === '10' ? avg - 0.8 : avg * 0.70
     if (score >= avg) return 'text-emerald-500'
-    if (score >= avg * 0.85) return 'text-amber-500'
-    if (score >= avg * 0.70) return 'text-orange-500'
+    if (score >= nearThreshold) return 'text-amber-500'
+    if (score >= lowThreshold) return 'text-orange-500'
     return 'text-red-500'
   }
   return getScoreColorClass(score, scale)
@@ -82,9 +92,11 @@ export function getRelativeScoreBgClass(score: number | null, posAvg: number | n
   if (score >= threshold(80, scale)) return 'bg-emerald-400/20'
   if (posAvg !== null) {
     const avg = scale === '10' && posAvg > 10 ? posAvg / 10 : posAvg
+    const nearThreshold = scale === '10' ? avg - 0.3 : avg * 0.85
+    const lowThreshold = scale === '10' ? avg - 0.8 : avg * 0.70
     if (score >= avg) return 'bg-emerald-500/15'
-    if (score >= avg * 0.85) return 'bg-amber-500/15'
-    if (score >= avg * 0.70) return 'bg-orange-500/15'
+    if (score >= nearThreshold) return 'bg-amber-500/15'
+    if (score >= lowThreshold) return 'bg-orange-500/15'
     return 'bg-red-500/15'
   }
   return getScoreBgClass(score, scale)
@@ -96,7 +108,7 @@ export default function ScoreBar({ score, size = 'md', showLabel = true, posAvg,
   }
 
   const colors = getScoreColor(score, scale)
-  const pct = scale === '10' ? ((score - 1) / 9) * 100 : score
+  const pct = scale === '10' ? ((score - 5.5) / (8.5 - 5.5)) * 100 : score
   const clampedScore = Math.max(0, Math.min(100, pct))
   const isElite = score >= threshold(80, scale)
 
@@ -114,7 +126,7 @@ export default function ScoreBar({ score, size = 'md', showLabel = true, posAvg,
     return (
       <div className="space-y-3">
         <div className="flex items-end justify-between">
-          <span className="text-sm text-apple-gray-500 dark:text-apple-gray-400">Score GG</span>
+          <span className="text-sm text-apple-gray-500 dark:text-apple-gray-400">Rating</span>
           <span className={`text-4xl font-bold tabular-nums ${colors.text}`}>
             {score.toFixed(1)}
           </span>
@@ -134,9 +146,9 @@ export default function ScoreBar({ score, size = 'md', showLabel = true, posAvg,
           </div>
         </div>
         <div className="flex justify-between text-xs text-apple-gray-400">
-          <span>{scale === '10' ? '1' : '0'}</span>
-          <span>{scale === '10' ? '5' : '50'}</span>
-          <span>{scale === '10' ? '10' : '100'}</span>
+          <span>{scale === '10' ? '5.5' : '0'}</span>
+          <span>{scale === '10' ? '7' : '50'}</span>
+          <span>{scale === '10' ? '8.5' : '100'}</span>
         </div>
       </div>
     )

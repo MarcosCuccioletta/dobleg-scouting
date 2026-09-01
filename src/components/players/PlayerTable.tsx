@@ -64,7 +64,7 @@ const BASE_COLUMNS_INTERNAL: Column[] = [
   { key: 'marketValueRaw', label: 'Valor', sortable: true, align: 'right', className: 'hidden sm:table-cell' },
 ]
 
-const SCORE_COLUMN: Column = { key: 'ggScore', label: 'Score', sortable: true, align: 'center' }
+const SCORE_COLUMN: Column = { key: 'rating', label: 'Rating', sortable: true, align: 'center' }
 
 const PAGE_SIZE = 50
 
@@ -101,7 +101,7 @@ export default function PlayerTable({ players, source, isLoading }: PlayerTableP
   const { lookup: scoreLookup } = useScoreLookup()
   const { classifications } = useAgencyClassifications()
   const { currency, rate } = useCurrency()
-  const [sort, setSort] = useState<SortState>({ column: 'ggScore', direction: 'desc' })
+  const [sort, setSort] = useState<SortState>({ column: 'rating', direction: 'desc' })
   const [page, setPage] = useState(1)
 
   function getPlayerScore(player: EnrichedPlayer): { score: number | null; scale: ScoreScale; noScoreReason?: string } {
@@ -135,8 +135,8 @@ export default function PlayerTable({ players, source, isLoading }: PlayerTableP
   const sorted = useMemo(() => {
     const { column, direction } = sort
     return [...players].sort((a, b) => {
-      let aVal: unknown = column === 'ggScore' ? getPlayerScore(a).score : a[column]
-      let bVal: unknown = column === 'ggScore' ? getPlayerScore(b).score : b[column]
+      let aVal: unknown = column === 'rating' ? getPlayerScore(a).score : a[column]
+      let bVal: unknown = column === 'rating' ? getPlayerScore(b).score : b[column]
 
       if (typeof aVal === 'string') aVal = parseFloat((aVal as string).replace(',', '.')) || 0
       if (typeof bVal === 'string') bVal = parseFloat((bVal as string).replace(',', '.')) || 0
@@ -345,7 +345,7 @@ export default function PlayerTable({ players, source, isLoading }: PlayerTableP
                       {formatMarketValueInCurrency(player.marketValueRaw, currency, rate)}
                     </span>
                   </td>
-                  {/* Score GG */}
+                  {/* Rating */}
                   <td className="px-3 py-3">
                     <div className="flex justify-center">
                       {(() => {

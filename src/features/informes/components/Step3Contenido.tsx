@@ -163,7 +163,7 @@ export default function Step3Contenido({ informe, content, onChange, onChangeInf
             </div>
             <div className="mt-3 space-y-2">
               <CheckboxField
-                label="No mostrar el rating (Score GG) en este informe"
+                label="No mostrar el Rating en este informe"
                 checked={content.hideRating ?? false}
                 onChange={v => set('hideRating', v)}
               />
@@ -198,7 +198,7 @@ export default function Step3Contenido({ informe, content, onChange, onChangeInf
             <h2 className="text-sm font-semibold text-apple-gray-900 dark:text-white mb-3">Pestaña General</h2>
             <div className="space-y-2">
               <CheckboxField
-                label="Ocultar Evolución de nivel (Score GG) y su “Cómo leerlo”"
+                label="Ocultar Evolución de nivel (Rating) y su “Cómo leerlo”"
                 checked={content.hideLevelEvo ?? false}
                 onChange={v => set('hideLevelEvo', v)}
               />

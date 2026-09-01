@@ -34,7 +34,7 @@ function emptySlots(formationType: string): FutureSquadSlot[] {
     playerId: null,
     playerName: null,
     playerNumber: null,
-    ggScore: null,
+    rating: null,
   }))
 }
 
@@ -194,12 +194,12 @@ export default function CoachFutureSquadTab({ coach }: { coach: AgencyCoach }) {
     }
     setSlots(prev => prev.map(s => {
       if (s.slotKey === targetSlotKey) {
-        return { slotKey: s.slotKey, source: 'squad', playerId: player.id, playerName: player.name, playerNumber: player.number, ggScore: null }
+        return { slotKey: s.slotKey, source: 'squad', playerId: player.id, playerName: player.name, playerNumber: player.number, rating: null }
       }
       // Repositioning: if this player already occupies another slot, vacate it instead of
       // leaving a stale duplicate placement (no baja is created — this is a move, not a release).
       if (s.source === 'squad' && s.playerId === player.id) {
-        return { slotKey: s.slotKey, source: null, playerId: null, playerName: null, playerNumber: null, ggScore: null }
+        return { slotKey: s.slotKey, source: null, playerId: null, playerName: null, playerNumber: null, rating: null }
       }
       return s
     }))
@@ -226,7 +226,7 @@ export default function CoachFutureSquadTab({ coach }: { coach: AgencyCoach }) {
     if (occupiedSlot) {
       setSlots(prev => prev.map(s => (
         s.slotKey === occupiedSlot.slotKey
-          ? { slotKey: s.slotKey, source: null, playerId: null, playerName: null, playerNumber: null, ggScore: null }
+          ? { slotKey: s.slotKey, source: null, playerId: null, playerName: null, playerNumber: null, rating: null }
           : s
       )))
     }
@@ -244,7 +244,7 @@ export default function CoachFutureSquadTab({ coach }: { coach: AgencyCoach }) {
     }
     setSlots(prev => prev.map(s => (
       s.slotKey === pickerSlotKey
-        ? { slotKey: s.slotKey, source: 'candidate', playerId: String(player.id), playerName: player.name, playerNumber: null, ggScore: player.primary_score }
+        ? { slotKey: s.slotKey, source: 'candidate', playerId: String(player.id), playerName: player.name, playerNumber: null, rating: player.primary_score }
         : s
     )))
     setCandidateVisuals(prev => ({ ...prev, [player.id]: { photo: player.photo, teamLogo: player.team?.logo ?? null } }))
@@ -259,7 +259,7 @@ export default function CoachFutureSquadTab({ coach }: { coach: AgencyCoach }) {
       pushBaja(slot.playerId as number, slot.playerName as string)
     }
     setSlots(prev => prev.map(s => (
-      s.slotKey === slotKey ? { slotKey: s.slotKey, source: null, playerId: null, playerName: null, playerNumber: null, ggScore: null } : s
+      s.slotKey === slotKey ? { slotKey: s.slotKey, source: null, playerId: null, playerName: null, playerNumber: null, rating: null } : s
     )))
   }
 

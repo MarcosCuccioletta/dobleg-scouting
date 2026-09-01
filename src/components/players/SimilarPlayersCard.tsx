@@ -71,7 +71,7 @@ export default function SimilarPlayersCard({
       ) : (
         <div className="space-y-2">
           {similar.map(({ player, similarity: pct }) => {
-            const pScore = player.season_scores[0]?.avg_score ?? null
+            const pScore = player.season_scores[0]?.avg_rating ?? null
             return (
               <button
                 key={player.id}

@@ -64,10 +64,10 @@ export interface InformeContent {
   rating: string; pj: string; minutos: string; goles: string; asistencias: string
   ratingPromedio?: string        // referencia opcional para el gauge de rating (marca de promedio)
   hideRatingGauge?: boolean       // ocultar el velocímetro de rating (ej. si el rating es bajo)
-  hideRating?: boolean            // no mostrar el rating (Score GG) en ningún lado del informe
+  hideRating?: boolean            // no mostrar el Rating en ningún lado del informe
   hideFisicoTab?: boolean         // sacar la pestaña Físico del informe
   hideFisicoCharts?: boolean      // en Físico, mostrar sólo los datos (sin gráficos)
-  hideLevelEvo?: boolean          // General: sacar "Evolución de nivel (Score GG)" (con su "cómo leerlo")
+  hideLevelEvo?: boolean          // General: sacar "Evolución de nivel (Rating)" (con su "cómo leerlo")
   hideContinuity?: boolean        // General: sacar el bloque Continuidad entero
   continuidad?: ContinuityOverrides  // General: valores manuales de Continuidad (vacío = el de la API)
   hideCarreraTab?: boolean        // sacar la pestaña Carrera del informe
@@ -97,7 +97,7 @@ export interface Informe {
   dbPlayerId?: number                 // id del jugador en la DB (Supabase) si se linkeó en el paso 1
   dbPlayerName?: string               // nombre del jugador en la DB (para match por nombre: GPS/valor histórico)
   dbPosition?: string                 // posición primaria en la DB (param de historial de partidos)
-  dbPercentile?: number               // percentil del Score GG dentro de su posición (comparación de rating)
+  dbPercentile?: number               // percentil del Rating dentro de su posición (comparación de rating)
   dbLeagueName?: string               // liga en la DB (texto de comparación de rating)
   idioma?: import('./i18n').Lang      // idioma del informe (default 'es')
   content: InformeContent

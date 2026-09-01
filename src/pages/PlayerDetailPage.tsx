@@ -753,7 +753,7 @@ export default function PlayerDetailPage() {
   const { data: supabaseDetail } = usePlayerDetail(apiPlayerId)
 
   /**
-   * Posición sobre la que existe Score GG. Se prefiere la elegida (o la primaria),
+   * Posición sobre la que existe Rating. Se prefiere la elegida (o la primaria),
    * pero si esa posición no tiene temporada puntuada se cae a la que más partidos
    * acumule. Un central que sólo sumó minutos como lateral tiene score y partidos:
    * mirar la posición equivocada dejaba la ficha sin score y sin historial.
@@ -761,7 +761,7 @@ export default function PlayerDetailPage() {
   const scoredPosition = useMemo(() => {
     if (!supabaseDetail) return null
     const pos = selectedPosition ?? supabaseDetail.player.primary_position
-    const scored = supabaseDetail.allSeasonScores.filter(s => s.avg_score != null)
+    const scored = supabaseDetail.allSeasonScores.filter(s => s.avg_rating != null)
     if (scored.some(s => s.position === pos)) return pos
     const best = [...scored].sort((a, b) => b.matches_played - a.matches_played)[0]
     return best?.position ?? pos
@@ -776,7 +776,7 @@ export default function PlayerDetailPage() {
   const scoredSeasonRow = useMemo(() => {
     if (!supabaseDetail || !scoredPosition) return null
     return supabaseDetail.allSeasonScores.find(
-      s => s.position === scoredPosition && s.avg_score != null
+      s => s.position === scoredPosition && s.avg_rating != null
     ) ?? null
   }, [supabaseDetail, scoredPosition])
 
@@ -853,7 +853,7 @@ export default function PlayerDetailPage() {
 
   const supabaseAvgScore = useMemo(() => {
     if (!supabaseDetail || !scoredPosition) return null
-    return supabaseDetail.allSeasonScores.find(s => s.position === scoredPosition)?.avg_score ?? null
+    return supabaseDetail.allSeasonScores.find(s => s.position === scoredPosition)?.avg_rating ?? null
   }, [supabaseDetail, scoredPosition])
 
   const supabasePosAverage = useMemo(() => {
@@ -913,10 +913,10 @@ export default function PlayerDetailPage() {
     const allPlayers = [...external, ...internal]
     const samePosPlayers = allPlayers.filter(p => {
       const pPosKey = POSITION_MAP[p['Posición']?.trim() ?? ''] ?? ''
-      return pPosKey === posKey && p.ggScore !== null && p.minutesPlayed >= 300
+      return pPosKey === posKey && p.rating !== null && p.minutesPlayed >= 300
     })
     if (samePosPlayers.length < 5) return null
-    const sum = samePosPlayers.reduce((s, p) => s + (p.ggScore ?? 0), 0)
+    const sum = samePosPlayers.reduce((s, p) => s + (p.rating ?? 0), 0)
     return sum / samePosPlayers.length
   }, [player, posKey, external, internal])
 
@@ -1301,7 +1301,7 @@ export default function PlayerDetailPage() {
 
         {/* COLUMNA DERECHA */}
         <div className="flex-1 min-w-0 space-y-4 lg:space-y-6 order-first md:order-last">
-          {/* HERO: perfil + Score GG */}
+          {/* HERO: perfil + Rating */}
           <div className="grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-4 lg:gap-6 items-start">
           <div className="space-y-4 lg:space-y-6">
           <div className="card-apple" id="player-header-card">
@@ -1536,7 +1536,7 @@ export default function PlayerDetailPage() {
           <div className="card-apple p-6" id="player-score-card">
             <div className="text-center mb-4">
               <h2 className="text-xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider">
-                Score GG
+                Rating
               </h2>
               {scoredPosition && supabaseAvgScore != null && (
                 <p className="text-2xs text-apple-gray-400 mt-1">
@@ -1544,7 +1544,7 @@ export default function PlayerDetailPage() {
                 </p>
               )}
             </div>
-            {/* Sólo Score GG (1-10) de la API. Sin dato se dice; no se cae al scoring viejo de 0-100. */}
+            {/* Sólo Rating (1-10) de la API. Sin dato se dice; no se cae al scoring viejo de 0-100. */}
             <GaugeScore
               score={supabaseAvgScore}
               size="lg"
@@ -1556,11 +1556,11 @@ export default function PlayerDetailPage() {
               const activeSeasonScore = supabaseDetail?.allSeasonScores?.find(s => s.position === scoredPosition)
               if (!supabaseDetail || !activeSeasonScore) return null
               const scores = (supabaseDetail.allSeasonScores ?? [])
-                .filter(s => s.avg_score != null)
+                .filter(s => s.avg_rating != null)
                 .sort((a, b) => b.matches_played - a.matches_played)
               return (
                 <div className="mt-4 pt-4 border-t border-apple-gray-100 dark:border-apple-gray-700 space-y-3">
-                  <h3 className="text-2xs font-semibold text-apple-gray-400 dark:text-apple-gray-500 uppercase tracking-wider">Sobre el Score GG</h3>
+                  <h3 className="text-2xs font-semibold text-apple-gray-400 dark:text-apple-gray-500 uppercase tracking-wider">Sobre el Rating</h3>
                   <div className="grid grid-cols-4 gap-2 text-center">
                     <div>
                       <p className="text-sm font-bold text-apple-gray-800 dark:text-white">{activeSeasonScore.avg_rating != null ? activeSeasonScore.avg_rating.toFixed(2) : '—'}</p>
@@ -1586,11 +1586,11 @@ export default function PlayerDetailPage() {
                   )}
                   {scores.length > 0 && (
                     <div className="space-y-1.5">
-                      <p className="text-2xs font-medium text-apple-gray-400 uppercase tracking-wider">Score por posición</p>
+                      <p className="text-2xs font-medium text-apple-gray-400 uppercase tracking-wider">Rating por posición</p>
                       {scores.map(s => (
                         <div key={s.position} className={`flex items-center justify-between text-xs px-2.5 py-1.5 rounded-lg ${s.position === scoredPosition ? 'bg-brand-green/10 dark:bg-brand-green/15' : 'bg-apple-gray-50 dark:bg-apple-gray-800/50'}`}>
                           <span className="font-semibold text-apple-gray-700 dark:text-apple-gray-300">{s.position}</span>
-                          <span className="text-apple-gray-500 dark:text-apple-gray-400">{s.avg_score != null ? s.avg_score.toFixed(1) : '—'} · {s.matches_played} PJ</span>
+                          <span className="text-apple-gray-500 dark:text-apple-gray-400">{s.avg_rating != null ? s.avg_rating.toFixed(1) : '—'} · {s.matches_played} PJ</span>
                         </div>
                       ))}
                     </div>
@@ -1778,7 +1778,7 @@ export default function PlayerDetailPage() {
                           {' '}de <span className="font-medium">{player.Edad} años</span>
                           {currentLeagueName && <> que juega en <span className="font-medium">{currentLeagueName}</span></>}.
                           {supabaseAvgScore != null ? (
-                            <> Su Score GG de <span className="font-bold text-brand-green">{supabaseAvgScore.toFixed(1)}</span>/10
+                            <> Su Rating de <span className="font-bold text-brand-green">{supabaseAvgScore.toFixed(1)}</span>/10
                             {supabasePosAverage && supabaseAvgScore > supabasePosAverage ? (
                               <> está <span className="text-emerald-600 font-medium">por encima</span> del promedio de su posición ({supabasePosAverage.toFixed(1)})</>
                             ) : supabasePosAverage && supabaseAvgScore < supabasePosAverage ? (
@@ -1788,7 +1788,7 @@ export default function PlayerDetailPage() {
                               <> Basado en <span className="font-medium">{supabaseMatches.length} partidos</span> analizados.</>
                             )}
                             </>
-                          ) : <> Todavía no tiene Score GG calculado.</>}
+                          ) : <> Todavía no tiene Rating calculado.</>}
                           {player.contractStatus === 'critical' && (
                             <> <span className="text-orange-500 font-medium">Contrato por vencer pronto.</span></>
                           )}
@@ -1891,11 +1891,11 @@ export default function PlayerDetailPage() {
                   <p className="text-center text-xs text-apple-gray-500 dark:text-apple-gray-400 mt-1">{displayPosition}</p>
                 </div>
 
-                {/* Score Evolution Chart - prominent when Supabase data available */}
+                {/* Rating Evolution Chart - prominent when Supabase data available */}
                 {supabaseMatches.length > 0 && (
                   <div className="mt-6">
                     <h3 className="text-xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider mb-3">
-                      Evolución del Score
+                      Evolución del Rating
                     </h3>
 
                     {/* Season stats bar */}
@@ -1905,15 +1905,9 @@ export default function PlayerDetailPage() {
                       return (
                         <div className="flex flex-wrap gap-4 mb-4 p-3 bg-apple-gray-50/50 dark:bg-apple-gray-800/30 rounded-xl">
                           <div className="text-center">
-                            <p className="text-lg font-bold text-brand-green">{activeSeasonScore.avg_score?.toFixed(1)}</p>
-                            <p className="text-2xs text-apple-gray-400">Score</p>
+                            <p className="text-lg font-bold text-brand-green">{activeSeasonScore.avg_rating?.toFixed(1)}</p>
+                            <p className="text-2xs text-apple-gray-400">Rating</p>
                           </div>
-                          {activeSeasonScore.avg_rating && (
-                            <div className="text-center">
-                              <p className="text-lg font-bold text-apple-gray-800 dark:text-white">{activeSeasonScore.avg_rating.toFixed(1)}</p>
-                              <p className="text-2xs text-apple-gray-400">Rating</p>
-                            </div>
-                          )}
                           <div className="text-center">
                             <p className="text-lg font-bold text-apple-gray-800 dark:text-white">{activeSeasonScore.matches_played}</p>
                             <p className="text-2xs text-apple-gray-400">Partidos</p>
@@ -2287,10 +2281,10 @@ export default function PlayerDetailPage() {
                   <div className="space-y-6">
                     <div>
                       <h3 className="text-sm font-semibold text-apple-gray-700 dark:text-apple-gray-300 mb-1">
-                        Evolución del Score
+                        Evolución del Rating
                       </h3>
                       <p className="text-xs text-apple-gray-400 mb-4">
-                        Score por partido · La línea punteada indica el promedio
+                        Rating por partido · La línea punteada indica el promedio
                       </p>
                       <ScoreEvolutionChart
                         matches={allPlayerMatches}
@@ -2352,7 +2346,6 @@ export default function PlayerDetailPage() {
                               <th className="text-center px-3 py-2 text-2xs font-semibold text-apple-gray-500 uppercase">Goles</th>
                               <th className="text-center px-3 py-2 text-2xs font-semibold text-apple-gray-500 uppercase">Asist</th>
                               <th className="text-center px-3 py-2 text-2xs font-semibold text-apple-gray-500 uppercase">Rating</th>
-                              <th className="text-center px-3 py-2 text-2xs font-semibold text-apple-gray-500 uppercase">Score</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -2370,9 +2363,6 @@ export default function PlayerDetailPage() {
                               const outcome = pg != null && og != null ? (pg > og ? 'win' : pg < og ? 'loss' : 'draw') : null
                               const outcomeCls = outcome === 'win' ? 'text-brand-green' : outcome === 'loss' ? 'text-red-500' : outcome === 'draw' ? 'text-apple-gray-400' : 'text-apple-gray-700 dark:text-apple-gray-300'
                               const outcomeDot = outcome === 'win' ? 'bg-brand-green' : outcome === 'loss' ? 'bg-red-500' : 'bg-apple-gray-400'
-                              const scoreColor = match.match_score != null
-                                ? match.match_score >= 8 ? 'text-brand-green' : match.match_score >= 6 ? 'text-emerald-500' : match.match_score >= 4.5 ? 'text-amber-500' : 'text-red-500'
-                                : ''
                               return (
                                 <tr key={match.fixture_id} className="border-t border-apple-gray-50 dark:border-apple-gray-800/50 hover:bg-apple-gray-50/50 dark:hover:bg-apple-gray-800/30">
                                   <td className="px-3 py-2 text-apple-gray-500 tabular-nums">
@@ -2391,9 +2381,6 @@ export default function PlayerDetailPage() {
                                   <td className="px-3 py-2 text-center tabular-nums">{match.goals || '—'}</td>
                                   <td className="px-3 py-2 text-center tabular-nums">{match.assists || '—'}</td>
                                   <td className="px-3 py-2 text-center text-apple-gray-600 dark:text-apple-gray-400 tabular-nums">{match.rating?.toFixed(1) ?? '—'}</td>
-                                  <td className={`px-3 py-2 text-center font-bold tabular-nums ${scoreColor}`}>
-                                    {match.match_score?.toFixed(1) ?? '—'}
-                                  </td>
                                 </tr>
                               )
                             })}
@@ -2473,7 +2460,7 @@ export default function PlayerDetailPage() {
                 {/* ─── Supabase-powered advanced metrics (shown first when available) ─── */}
                 {supabaseDetail && supabaseMatches.length > 0 && (
                   <div className="space-y-6 mb-8">
-                    {/* Score evolution */}
+                    {/* Rating evolution */}
                     <div className="bg-apple-gray-50/30 dark:bg-apple-gray-800/20 rounded-2xl p-5">
                       <ScoreEvolutionChart
                         matches={supabaseMatches}

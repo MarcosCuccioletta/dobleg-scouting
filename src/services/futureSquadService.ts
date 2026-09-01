@@ -9,7 +9,7 @@ export interface FutureSquadSlot {
   playerId: number | string | null   // number = id de API-Football (squad), string = id de scoring (candidate)
   playerName: string | null
   playerNumber: number | null        // solo aplica a source === 'squad'
-  ggScore: number | null             // solo aplica a source === 'candidate'
+  rating: number | null              // solo aplica a source === 'candidate'
 }
 
 export interface FutureSquadBaja {
@@ -27,6 +27,23 @@ export interface FutureSquadPlan {
   updated_at: string
 }
 
+// Normaliza los slots que vienen de la DB: los planes guardados antes del rename
+// Score GG -> Rating todavia tienen el campo como `ggScore` dentro de la columna
+// jsonb `slots`. Los planes nuevos usan `rating`. Compat de lectura para que los
+// planes ya guardados sigan mostrando su numero en vez de romper con
+// `undefined.toFixed` en FutureSquadPitch.
+function normalizeSlots(raw: unknown): FutureSquadSlot[] {
+  if (!Array.isArray(raw)) return []
+  return raw.map((s: Record<string, unknown>) => ({
+    slotKey: s.slotKey as string,
+    source: (s.source ?? null) as SlotPlayerSource | null,
+    playerId: (s.playerId ?? null) as number | string | null,
+    playerName: (s.playerName ?? null) as string | null,
+    playerNumber: (s.playerNumber ?? null) as number | null,
+    rating: (s.rating ?? s.ggScore ?? null) as number | null,
+  }))
+}
+
 export async function getFutureSquad(coachKey: string): Promise<FutureSquadPlan | null> {
   const { data, error } = await supabase
     .from('coach_future_squads')
@@ -38,7 +55,9 @@ export async function getFutureSquad(coachKey: string): Promise<FutureSquadPlan 
     console.error('Error cargando plantel a futuro:', error)
     throw new Error(`Error cargando plantel a futuro: ${error.message}`)
   }
-  return (data as unknown as FutureSquadPlan) ?? null
+  if (!data) return null
+  const row = data as unknown as FutureSquadPlan
+  return { ...row, slots: normalizeSlots(row.slots) }
 }
 
 export async function saveFutureSquad(

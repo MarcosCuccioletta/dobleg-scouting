@@ -93,8 +93,8 @@ export function aggregateSquad(rows: SquadMatchRow[]): SquadAgg[] {
     cur.duelsTotal += r.duels_total || 0
     cur.dribblesSuccess += r.dribbles_success || 0
     cur.dribblesAttempted += r.dribbles_attempted || 0
-    if (r.match_score != null) {
-      cur.scoreSum += r.match_score
+    if (r.rating != null) {
+      cur.scoreSum += r.rating
       cur.scoreCount++
     }
     if (r.detected_position) cur.positions[r.detected_position] = (cur.positions[r.detected_position] ?? 0) + 1

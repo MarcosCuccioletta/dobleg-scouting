@@ -404,10 +404,10 @@ function ScoutingFilters({
           className={selectCls}
         >
           <option value={0}>{t('externo.sinMinScore')}</option>
-          <option value={5}>5.0+</option>
-          <option value={6}>6.0+</option>
-          <option value={7}>7.0+</option>
-          <option value={8}>8.0+</option>
+          <option value={6.0}>6.0+</option>
+          <option value={6.4}>6.4+</option>
+          <option value={6.8}>6.8+</option>
+          <option value={7.3}>7.3+</option>
         </select>
 
         {activeCount > 0 && (
@@ -685,10 +685,10 @@ export default function ExternalScoutingPage() {
           className="input-apple text-xs py-1.5 px-3 min-w-0 w-auto"
         >
           <option value={0}>{t('externo.sinMinScore')}</option>
-          <option value={5}>5.0+</option>
-          <option value={6}>6.0+</option>
-          <option value={7}>7.0+</option>
-          <option value={8}>8.0+</option>
+          <option value={6.0}>6.0+</option>
+          <option value={6.4}>6.4+</option>
+          <option value={6.8}>6.8+</option>
+          <option value={7.3}>7.3+</option>
         </select>
 
         {activeCount > 0 && (
@@ -851,7 +851,7 @@ export default function ExternalScoutingPage() {
                   {players.map(player => {
                     const age = getAge(player.birth_date)
                     const ss = player.season_scores[0]
-                    const score = ss?.avg_score ?? null
+                    const score = ss?.avg_rating ?? null
                     return (
                       <tr
                         key={`${player.id}-${ss?.position}`}

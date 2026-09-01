@@ -11,20 +11,20 @@ interface ScoreEvolutionMiniProps {
 export default function ScoreEvolutionMini({ history, width = 80, height = 32 }: ScoreEvolutionMiniProps) {
   // Filter out entries with 0 or invalid scores
   const validHistory = useMemo(() => {
-    return history.filter(entry => entry.ggScore > 0)
+    return history.filter(entry => entry.rating > 0)
   }, [history])
 
   const chartData = useMemo(() => {
     return validHistory.map(entry => ({
       date: entry.date.split('T')[0],
-      score: entry.ggScore,
+      score: entry.rating,
     }))
   }, [validHistory])
 
   const trend = useMemo(() => {
     if (validHistory.length < 2) return null
-    const first = validHistory[0].ggScore
-    const last = validHistory[validHistory.length - 1].ggScore
+    const first = validHistory[0].rating
+    const last = validHistory[validHistory.length - 1].rating
     const diff = last - first
     // Only show trend if there's a meaningful change (at least 0.5 difference)
     if (Math.abs(diff) < 0.5) {
@@ -63,7 +63,7 @@ export default function ScoreEvolutionMini({ history, width = 80, height = 32 }:
                 fontSize: '10px',
                 padding: '4px 8px',
               }}
-              formatter={(value: number) => [`${value.toFixed(1)}`, 'Score']}
+              formatter={(value: number) => [`${value.toFixed(1)}`, 'Rating']}
               labelFormatter={(label) => label}
             />
             <Line

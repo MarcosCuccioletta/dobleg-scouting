@@ -13,10 +13,10 @@ interface GaugeScoreProps {
 // Absolute color thresholds (fallback when no position average)
 function getScoreColorAbsolute(score: number, scale: '100' | '10' = '100'): string {
   if (scale === '10') {
-    if (score >= 8.0) return '#34D399'
-    if (score >= 7.0) return '#10B981'
-    if (score >= 5.5) return '#F59E0B'
-    if (score >= 4.0) return '#F97316'
+    if (score >= 7.3) return '#34D399'
+    if (score >= 6.8) return '#10B981'
+    if (score >= 6.4) return '#F59E0B'
+    if (score >= 6.0) return '#F97316'
     return '#EF4444'
   }
   if (score >= 80) return '#34D399'
@@ -26,33 +26,37 @@ function getScoreColorAbsolute(score: number, scale: '100' | '10' = '100'): stri
   return '#EF4444'
 }
 
+// Relative-to-average tiers: on a scale-10 rating, the real spread around a
+// typical position average (~6.8-7.0) only extends about ±1.0-1.3 in absolute
+// terms — a multiplicative ratio (avg*0.85/0.70) falls below the real dataset
+// minimum (~5.7) and never triggers, so we use an additive offset instead.
 function getScoreColor(score: number, posAvg?: number | null, scale: '100' | '10' = '100'): string {
-  const elite = scale === '10' ? 8.0 : 80
+  const elite = scale === '10' ? 7.3 : 80
   if (score >= elite) return '#34D399'
   if (posAvg != null) {
     const avg = scale === '10' && posAvg > 10 ? posAvg / 10 : posAvg
     if (score >= avg) return '#10B981'
-    if (score >= avg * 0.85) return '#F59E0B'
-    if (score >= avg * 0.70) return '#F97316'
+    if (score >= (scale === '10' ? avg - 0.3 : avg * 0.85)) return '#F59E0B'
+    if (score >= (scale === '10' ? avg - 0.8 : avg * 0.70)) return '#F97316'
     return '#EF4444'
   }
   return getScoreColorAbsolute(score, scale)
 }
 
 function getScoreLabel(score: number, posAvg?: number | null, scale: '100' | '10' = '100'): string {
-  const elite = scale === '10' ? 8.0 : 80
+  const elite = scale === '10' ? 7.3 : 80
   if (score >= elite) return 'Elite'
   if (posAvg != null) {
     const avg = scale === '10' && posAvg > 10 ? posAvg / 10 : posAvg
     if (score >= avg) return 'Sobre el promedio'
-    if (score >= avg * 0.85) return 'Cerca del promedio'
-    if (score >= avg * 0.70) return 'Bajo el promedio'
+    if (score >= (scale === '10' ? avg - 0.3 : avg * 0.85)) return 'Cerca del promedio'
+    if (score >= (scale === '10' ? avg - 0.8 : avg * 0.70)) return 'Bajo el promedio'
     return 'Muy bajo'
   }
   if (scale === '10') {
-    if (score >= 7.0) return 'Bueno'
-    if (score >= 5.5) return 'Promedio'
-    if (score >= 4.0) return 'Bajo'
+    if (score >= 6.8) return 'Bueno'
+    if (score >= 6.4) return 'Promedio'
+    if (score >= 6.0) return 'Bajo'
     return 'Critico'
   }
   if (score >= 55) return 'Bueno'
@@ -62,19 +66,19 @@ function getScoreLabel(score: number, posAvg?: number | null, scale: '100' | '10
 }
 
 function getScoreDescription(score: number, posAvg?: number | null, scale: '100' | '10' = '100'): string {
-  const elite = scale === '10' ? 8.0 : 80
+  const elite = scale === '10' ? 7.3 : 80
   if (score >= elite) return 'Rendimiento excepcional'
   if (posAvg != null) {
     const avg = scale === '10' && posAvg > 10 ? posAvg / 10 : posAvg
     if (score >= avg) return 'Por encima del promedio de su posicion'
-    if (score >= avg * 0.85) return 'Cerca del promedio de su posicion'
-    if (score >= avg * 0.70) return 'Por debajo del promedio de su posicion'
+    if (score >= (scale === '10' ? avg - 0.3 : avg * 0.85)) return 'Cerca del promedio de su posicion'
+    if (score >= (scale === '10' ? avg - 0.8 : avg * 0.70)) return 'Por debajo del promedio de su posicion'
     return 'Rendimiento bajo en su posicion'
   }
   if (scale === '10') {
-    if (score >= 7.0) return 'Rendimiento solido'
-    if (score >= 5.5) return 'Rendimiento regular'
-    if (score >= 4.0) return 'Necesita mejorar'
+    if (score >= 6.8) return 'Rendimiento solido'
+    if (score >= 6.4) return 'Rendimiento regular'
+    if (score >= 6.0) return 'Necesita mejorar'
     return 'Rendimiento bajo'
   }
   if (score >= 55) return 'Rendimiento solido'
@@ -145,7 +149,7 @@ export default function GaugeScore({
   }
 
   const normalizedValue = scale === '10'
-    ? Math.max(0, Math.min(100, ((displayValue - 1) / 9) * 100))
+    ? Math.max(0, Math.min(100, ((displayValue - 5.5) / (8.5 - 5.5)) * 100))
     : Math.max(0, Math.min(100, displayValue))
   const color = getScoreColor(score, comparisonScore, scale)
   const label = getScoreLabel(score, comparisonScore, scale)
@@ -165,18 +169,19 @@ export default function GaugeScore({
 
   const comparisonDeg = comparisonScore !== null && comparisonScore !== undefined
     ? startDeg + ((scale === '10'
-        ? Math.max(0, Math.min(100, ((comparisonScore - 1) / 9) * 100))
+        ? Math.max(0, Math.min(100, ((comparisonScore - 5.5) / (8.5 - 5.5)) * 100))
         : Math.max(0, Math.min(100, comparisonScore))
       ) / 100) * 270
     : null
 
+  const norm = (v: number) => ((v - 5.5) / (8.5 - 5.5)) * 100
   const zones = scale === '10'
     ? [
-        { start: 0, end: ((4.0 - 1) / 9) * 100, color: '#EF4444' },
-        { start: ((4.0 - 1) / 9) * 100, end: ((5.5 - 1) / 9) * 100, color: '#F97316' },
-        { start: ((5.5 - 1) / 9) * 100, end: ((7.0 - 1) / 9) * 100, color: '#F59E0B' },
-        { start: ((7.0 - 1) / 9) * 100, end: ((8.0 - 1) / 9) * 100, color: '#10B981' },
-        { start: ((8.0 - 1) / 9) * 100, end: 100, color: '#34D399' },
+        { start: 0, end: norm(6.0), color: '#EF4444' },
+        { start: norm(6.0), end: norm(6.4), color: '#F97316' },
+        { start: norm(6.4), end: norm(6.8), color: '#F59E0B' },
+        { start: norm(6.8), end: norm(7.3), color: '#10B981' },
+        { start: norm(7.3), end: 100, color: '#34D399' },
       ]
     : [
         { start: 0, end: 20, color: '#EF4444' },
@@ -272,8 +277,8 @@ export default function GaugeScore({
         )}
 
         {/* Tick marks with labels */}
-        {(scale === '10' ? [1, 3, 5, 7, 10] : [0, 25, 50, 75, 100]).map(v => {
-          const normalized = scale === '10' ? ((v - 1) / 9) * 100 : v
+        {(scale === '10' ? [5.5, 6.25, 7, 7.75, 8.5] : [0, 25, 50, 75, 100]).map(v => {
+          const normalized = scale === '10' ? ((v - 5.5) / (8.5 - 5.5)) * 100 : v
           const deg = startDeg + (normalized / 100) * 270
           const inner = polarToCartesian(cx, cy, r + strokeW / 2 + 4, deg)
           const outer = polarToCartesian(cx, cy, r + strokeW / 2 + 12, deg)
@@ -298,7 +303,7 @@ export default function GaugeScore({
                 fontSize={size === 'lg' ? 12 : 9}
                 fontWeight="500"
               >
-                {v}
+                {scale === '10' ? v.toFixed(2).replace(/\.?0+$/, '') : v}
               </text>
             </g>
           )
@@ -469,7 +474,7 @@ export function GaugeScoreMini({ score, scale = '100' }: { score: number | null;
 
   const color = getScoreColor(score, undefined, scale)
   const label = getScoreLabel(score, undefined, scale)
-  const progress = scale === '10' ? ((score - 1) / 9) : (score / 100)
+  const progress = scale === '10' ? Math.max(0, Math.min(1, (score - 5.5) / (8.5 - 5.5))) : (score / 100)
 
   return (
     <div className="flex items-center gap-2">

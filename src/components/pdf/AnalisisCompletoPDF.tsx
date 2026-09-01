@@ -475,7 +475,7 @@ function ConclusionsSection({ c, playerName }: {
             <Text style={{ fontSize: 16, fontFamily: 'Helvetica-Bold', color: scoreColor(c.playerScore) }}>{c.playerScore.toFixed(1)}</Text>
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 9, color: C.text, fontFamily: 'Helvetica-Bold', marginBottom: 3 }}>Score GG</Text>
+            <Text style={{ fontSize: 9, color: C.text, fontFamily: 'Helvetica-Bold', marginBottom: 3 }}>Rating</Text>
             <Text style={{ fontSize: 8, color: C.gray, lineHeight: 1.4 }}>
               {c.scorePct != null ? `Percentil ${c.scorePct} del grupo (${c.scoreRank}° de ${c.poolSize}).` : `Promedio del grupo: ${c.avgScore.toFixed(1)}.`}
               {' '}{Math.abs(c.playerScore - c.avgScore) > 0.3
@@ -589,17 +589,17 @@ export default function AnalisisCompletoPDF({
           </View>
 
           {/* Score badge */}
-          {player.ggScore != null && (
+          {player.rating != null && (
             <View style={[s.scoreBadge, { backgroundColor: `rgba(34,197,94,0.12)` }]}>
-              <Text style={[s.scoreVal, { color: scoreColor(player.ggScore) }]}>{player.ggScore.toFixed(1)}</Text>
-              <Text style={s.scoreLabel}>SCORE GG</Text>
-              <Text style={{ fontSize: 8, color: scoreColor(player.ggScore), marginTop: 2 }}>{scoreLabel(player.ggScore)}</Text>
+              <Text style={[s.scoreVal, { color: scoreColor(player.rating) }]}>{player.rating.toFixed(1)}</Text>
+              <Text style={s.scoreLabel}>RATING</Text>
+              <Text style={{ fontSize: 8, color: scoreColor(player.rating), marginTop: 2 }}>{scoreLabel(player.rating)}</Text>
             </View>
           )}
         </View>
 
         {/* League context */}
-        {leagueContext && player.ggScore != null && (
+        {leagueContext && player.rating != null && (
           <View style={[s.card, { flexDirection: 'row', flexWrap: 'wrap', gap: 10, alignItems: 'center' }]}>
             <Text style={{ fontSize: 8, color: C.grayDark }}>Ranking en {leagueContext.liga}</Text>
             {leagueContext.rank && (
@@ -611,7 +611,7 @@ export default function AnalisisCompletoPDF({
             )}
             <Text style={{ fontSize: 8, color: C.grayDark }}>
               Promedio de liga: {leagueContext.avg.toFixed(1)}
-              {player.ggScore != null ? `  ·  Diferencia: ${player.ggScore > leagueContext.avg ? '+' : ''}${(player.ggScore - leagueContext.avg).toFixed(1)}` : ''}
+              {player.rating != null ? `  ·  Diferencia: ${player.rating > leagueContext.avg ? '+' : ''}${(player.rating - leagueContext.avg).toFixed(1)}` : ''}
             </Text>
           </View>
         )}

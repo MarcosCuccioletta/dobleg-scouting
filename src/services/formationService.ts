@@ -5,7 +5,7 @@ export interface PositionPlayer {
   playerName: string
   playerId: string
   team: string
-  ggScore: number | null
+  rating: number | null
   addedBy: string      // user id
   addedByName: string  // user display name
   addedAt: string      // ISO date
@@ -21,6 +21,28 @@ export interface FormationData {
   created_at: string
   updated_at: string
   is_public: boolean
+}
+
+// Normalize positions coming from the DB: old rows were saved before the
+// Score GG -> Rating rename and still store the field as `ggScore` inside the
+// jsonb `players` column. New rows use `rating`. Read-side compat so existing
+// saved formations keep rendering their number instead of crashing on
+// `undefined.toFixed`.
+function normalizePositions(raw: Record<string, unknown> | null | undefined): Record<string, PositionPlayer[]> {
+  const positions: Record<string, PositionPlayer[]> = {}
+  for (const [posKey, players] of Object.entries(raw || {})) {
+    if (!Array.isArray(players)) continue
+    positions[posKey] = players.map((p: Record<string, unknown>) => ({
+      playerName: p.playerName as string,
+      playerId: p.playerId as string,
+      team: p.team as string,
+      rating: (p.rating ?? p.ggScore ?? null) as number | null,
+      addedBy: p.addedBy as string,
+      addedByName: p.addedByName as string,
+      addedAt: p.addedAt as string,
+    }))
+  }
+  return positions
 }
 
 // Fetch all formations (public + own)
@@ -45,7 +67,7 @@ export async function fetchFormations(userId?: string): Promise<FormationData[]>
 
   return (data || []).map(f => ({
     ...f,
-    positions: f.players || {},  // 'players' column stores positions data
+    positions: normalizePositions(f.players),  // 'players' column stores positions data
   }))
 }
 
@@ -78,7 +100,7 @@ export async function saveFormation(
 
   return {
     ...data,
-    positions: data.players || {},
+    positions: normalizePositions(data.players),
   }
 }
 

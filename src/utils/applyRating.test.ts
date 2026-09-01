@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { applyScoreGG, type ScoreGGEntry } from './scoring'
+import { applyRating, type RatingEntry } from './scoring'
 import type { RawExternalPlayer } from '@/types'
 
 function raw(nombre: string): RawExternalPlayer {
@@ -12,44 +12,44 @@ function raw(nombre: string): RawExternalPlayer {
   } as unknown as RawExternalPlayer
 }
 
-const lookup = new Map<string, ScoreGGEntry>([
+const lookup = new Map<string, RatingEntry>([
   ['gonzalo gonzalez', { score: 2.9, percentile: 2.03 }],
   ['matias espindola', { score: 7.9, percentile: 88.1 }],
 ])
 
-describe('applyScoreGG', () => {
-  it('pega el Score GG de la API en la escala 1-10', () => {
-    const [p] = applyScoreGG([raw('Matías Espíndola')], 'interno', lookup)
-    expect(p.ggScore).toBe(7.9)
-    expect(p.ggScorePercentile).toBe(88.1)
+describe('applyRating', () => {
+  it('pega el Rating de la API en la escala 1-10', () => {
+    const [p] = applyRating([raw('Matías Espíndola')], 'interno', lookup)
+    expect(p.rating).toBe(7.9)
+    expect(p.ratingPercentile).toBe(88.1)
   })
 
   it('matchea ignorando acentos y mayúsculas', () => {
-    const [p] = applyScoreGG([raw('GONZALO GONZÁLEZ')], 'externo', lookup)
-    expect(p.ggScore).toBe(2.9)
+    const [p] = applyRating([raw('GONZALO GONZÁLEZ')], 'externo', lookup)
+    expect(p.rating).toBe(2.9)
   })
 
   it('deja sin score al jugador que la API no tiene, en vez de inventar uno', () => {
-    const [p] = applyScoreGG([raw('Jugador Inexistente')], 'externo', lookup)
-    expect(p.ggScore).toBeNull()
-    expect(p.ggScorePercentile).toBeNull()
+    const [p] = applyRating([raw('Jugador Inexistente')], 'externo', lookup)
+    expect(p.rating).toBeNull()
+    expect(p.ratingPercentile).toBeNull()
   })
 
   it('nunca devuelve un score fuera de 1-10', () => {
-    const players = applyScoreGG(
+    const players = applyRating(
       [raw('Matías Espíndola'), raw('Gonzalo González')],
       'interno',
       lookup,
     )
     for (const p of players) {
-      expect(p.ggScore).not.toBeNull()
-      expect(p.ggScore!).toBeGreaterThanOrEqual(1)
-      expect(p.ggScore!).toBeLessThanOrEqual(10)
+      expect(p.rating).not.toBeNull()
+      expect(p.rating!).toBeGreaterThanOrEqual(1)
+      expect(p.rating!).toBeLessThanOrEqual(10)
     }
   })
 
   it('conserva la fuente que se le pasa', () => {
-    const [p] = applyScoreGG([raw('Matías Espíndola')], 'interno', lookup)
+    const [p] = applyRating([raw('Matías Espíndola')], 'interno', lookup)
     expect(p.source).toBe('interno')
   })
 })

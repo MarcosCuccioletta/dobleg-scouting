@@ -6,7 +6,7 @@ import EmptyState from '@/components/ui/EmptyState'
 import GaugeScore from '@/components/charts/GaugeScore'
 import PositionBar from '@/components/ui/PositionBar'
 import ScoreEvolutionChart from '@/components/charts/ScoreEvolutionChart'
-import { getScoreColorClass, getScoreBgClass } from '@/components/ui/ScoreBar'
+import { getScoreColorClass } from '@/components/ui/ScoreBar'
 import { currentClubFromMatches, resolveDisplayClub } from '@/utils/currentClub'
 import { getAgencyPlayersList } from '@/constants/agencyPlayers'
 import { normalizeName } from '@/utils/scoring'
@@ -253,7 +253,7 @@ export default function SupabasePlayerDetail() {
 
               {/* Score gauge */}
               <GaugeScore
-                score={activeScore?.avg_score ?? null}
+                score={activeScore?.avg_rating ?? null}
                 scale="10"
                 size="lg"
                 comparisonScore={posAverage}
@@ -304,11 +304,11 @@ export default function SupabasePlayerDetail() {
           {allSeasonScores.length > 1 && (
             <div className="card-apple p-5">
               <h4 className="text-xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider mb-3">
-                Score por posición
+                Rating por posición
               </h4>
               <div className="space-y-2">
                 {allSeasonScores
-                  .sort((a, b) => (b.avg_score ?? 0) - (a.avg_score ?? 0))
+                  .sort((a, b) => (b.avg_rating ?? 0) - (a.avg_rating ?? 0))
                   .map(s => (
                     <button
                       key={s.position}
@@ -323,9 +323,9 @@ export default function SupabasePlayerDetail() {
                         <span className="text-sm font-semibold text-apple-gray-800 dark:text-white">{displayPosition(s.position)}</span>
                         <span className="text-xs text-apple-gray-500">{s.matches_played} PJ</span>
                       </div>
-                      {s.avg_score !== null && (
-                        <span className={`text-sm font-bold tabular-nums ${getScoreColorClass(s.avg_score, '10')}`}>
-                          {s.avg_score.toFixed(1)}
+                      {s.avg_rating !== null && (
+                        <span className={`text-sm font-bold tabular-nums ${getScoreColorClass(s.avg_rating, '10')}`}>
+                          {s.avg_rating.toFixed(1)}
                         </span>
                       )}
                     </button>
@@ -363,12 +363,12 @@ export default function SupabasePlayerDetail() {
 
         {/* Right content */}
         <div className="lg:col-span-8 space-y-5">
-          {/* Score evolution chart */}
+          {/* Rating evolution chart */}
           {matches.length > 0 && (
             <div className="card-apple p-5">
               <ScoreEvolutionChart
                 matches={matches}
-                avgScore={activeScore?.avg_score ?? null}
+                avgScore={activeScore?.avg_rating ?? null}
               />
             </div>
           )}
@@ -455,7 +455,6 @@ export default function SupabasePlayerDetail() {
                       <th className="text-center py-2.5 px-3 text-xs font-semibold text-apple-gray-500 uppercase tracking-wider">Goles</th>
                       <th className="text-center py-2.5 px-3 text-xs font-semibold text-apple-gray-500 uppercase tracking-wider">Asist</th>
                       <th className="text-center py-2.5 px-3 text-xs font-semibold text-apple-gray-500 uppercase tracking-wider">Rating</th>
-                      <th className="text-center py-2.5 px-3 text-xs font-semibold text-apple-gray-500 uppercase tracking-wider">Score</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-apple-gray-100 dark:divide-apple-gray-800">
@@ -618,7 +617,6 @@ function MatchRow({ match }: { match: PlayerMatchStat }) {
   const rival = isHome ? fixture.away_team?.name : fixture.home_team?.name
   const result = `${fixture.score_home ?? '?'}-${fixture.score_away ?? '?'}`
   const date = new Date(fixture.date).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })
-  const score = match.match_score
 
   return (
     <tr className="hover:bg-apple-gray-50 dark:hover:bg-apple-gray-800/30 transition-colors">
@@ -631,15 +629,6 @@ function MatchRow({ match }: { match: PlayerMatchStat }) {
       <td className="py-2 px-3 text-center text-xs text-apple-gray-600 dark:text-apple-gray-300 tabular-nums">{match.goals || '—'}</td>
       <td className="py-2 px-3 text-center text-xs text-apple-gray-600 dark:text-apple-gray-300 tabular-nums">{match.assists || '—'}</td>
       <td className="py-2 px-3 text-center text-xs text-apple-gray-600 dark:text-apple-gray-300 tabular-nums">{match.rating?.toFixed(1) ?? '—'}</td>
-      <td className="py-2 px-3 text-center">
-        {score !== null ? (
-          <span className={`inline-block px-2 py-0.5 rounded-md text-xs font-bold tabular-nums ${getScoreColorClass(score, '10')} ${getScoreBgClass(score, '10')}`}>
-            {score.toFixed(1)}
-          </span>
-        ) : (
-          <span className="text-apple-gray-400 text-xs">—</span>
-        )}
-      </td>
     </tr>
   )
 }

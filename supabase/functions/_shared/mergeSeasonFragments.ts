@@ -5,7 +5,6 @@ export interface SeasonScoreRow {
   position: string;
   league_id: number;
   matches_played: number;
-  avg_score: number | null;
   avg_rating: number | null;
   total_goals: number;
   total_assists: number;
@@ -31,7 +30,7 @@ export interface SeasonScoreRow {
 }
 
 const WEIGHTED_AVG_FIELDS: (keyof SeasonScoreRow)[] = [
-  'avg_score', 'avg_rating', 'tackles_p90', 'interceptions_p90', 'blocks_p90',
+  'avg_rating', 'tackles_p90', 'interceptions_p90', 'blocks_p90',
   'duels_won_pct', 'passes_accuracy', 'passes_key_p90', 'passes_total_p90',
   'dribbles_success_p90', 'dribbles_pct', 'shots_on_p90', 'shots_pct',
   'goals_p90', 'assists_p90', 'fouls_drawn_p90', 'saves_p90',
@@ -41,7 +40,7 @@ const WEIGHTED_AVG_FIELDS: (keyof SeasonScoreRow)[] = [
 // Fusiona filas fragmentadas por competencia (mismo player_id+position, distinto
 // league_id) en una sola fila por jugador+posicion. Sin esto, un jugador que jugo
 // la misma posicion en dos competencias la misma temporada queda con dos filas
-// "iguales" en player_season_scores, con distinto matches_played/avg_score --
+// "iguales" en player_season_scores, con distinto matches_played/avg_rating --
 // el bug real detras de ver "EXT 6 PJ 6.1" y "EXT 7 PJ 5.4" en la ficha.
 //
 // PRECONDICIÓN: Asume que todas las filas de `rows` pertenecen a la misma

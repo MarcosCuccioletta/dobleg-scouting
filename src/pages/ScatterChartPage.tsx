@@ -16,7 +16,7 @@ import { useLanguage } from '@/context/LanguageContext'
 import { LANGUAGE_LOCALES } from '@/constants/translations'
 
 // ─── Color interpolation: red (bad) → yellow (medium) → green (good) ────────
-// Input range recalibrated to 1-10 (Score GG scale)
+// Input range recalibrated to 1-10 (Rating scale)
 function getColorForScore(score: number, min: number, max: number): string {
   if (max === min) return '#F59E0B'
   const normalized = Math.max(0, Math.min(1, (score - min) / (max - min)))
@@ -342,7 +342,7 @@ export default function ScatterChartPage() {
           </div>
           <div className="p-2 rounded-lg" style={{ backgroundColor: `${color}15` }}>
             <p className="text-lg font-bold" style={{ color }}>{score !== null ? score.toFixed(1) : '—'}</p>
-            <p className="text-2xs text-apple-gray-400">Score GG</p>
+            <p className="text-2xs text-apple-gray-400">Rating</p>
           </div>
         </div>
         <p className="mt-2 text-center text-2xs text-apple-gray-400">
@@ -788,7 +788,7 @@ export default function ScatterChartPage() {
                         <ScoutsGGBadge playerName={d.player.name} />
                       </div>
                       <p className="text-xs text-apple-gray-500 truncate">
-                        {d.player.team?.name ?? ''} · {score !== null ? `Score GG: ${score.toFixed(1)}` : ''}
+                        {d.player.team?.name ?? ''} · {score !== null ? `Rating: ${score.toFixed(1)}` : ''}
                       </p>
                     </button>
                     <div className="flex items-center gap-1">

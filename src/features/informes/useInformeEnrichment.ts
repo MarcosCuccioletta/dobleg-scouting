@@ -196,8 +196,8 @@ export function useInformeEnrichment(informe: Informe | null): InformeEnrichment
 
     // Score por partido (con fecha) para las tres vistas del gráfico de evolución.
     const scored = dated
-      .filter(m => m.match_score != null)
-      .map(m => ({ date: new Date(m.fixture!.date), score: Math.round((m.match_score ?? 0) * 10) / 10 }))
+      .filter(m => m.rating != null)
+      .map(m => ({ date: new Date(m.fixture!.date), score: Math.round((m.rating ?? 0) * 10) / 10 }))
     const levelByMatch: LinePoint[] = scored.slice(-18).map(s => ({ label: dayMonth(s.date), value: s.score }))
     const levelByWeek: LinePoint[] = aggregateLevels(scored, weekKey, dayMonth).slice(-16)
     const levelByMonth: LinePoint[] = aggregateLevels(scored, monthGroupKey, monthYear).slice(-12)

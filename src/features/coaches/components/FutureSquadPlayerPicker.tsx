@@ -66,7 +66,7 @@ export default function FutureSquadPlayerPicker({
     return [...unplaced, ...placed]
   }, [squad, usedSquadIds, bajaPlayerIds])
 
-  // Score GG del plantel actual -- consulta acotada por equipo, no bloquea el render de la
+  // Rating del plantel actual -- consulta acotada por equipo, no bloquea el render de la
   // pestaña "Plantel" (arranca vacia, se completa cuando llega la respuesta).
   const { players: squadScored } = usePlayersList(
     activeTab === 'plantel' && apiTeamId ? { team_id: apiTeamId, pageSize: 60 } : { pageSize: 0 },
