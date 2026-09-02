@@ -9,8 +9,9 @@ Decisiones ya tomadas con el usuario:
 - Mismo proyecto Supabase para las dos plataformas (mismas `SUPABASE_URL`/keys).
 - Aislamiento de datos internos por club dentro de las mismas tablas (no tablas duplicadas por club).
 - Usuarios y accesos separados — gente de Independiente nunca ve datos de Doble G.
-- El plantel de Independiente (primera, reserva) sale de API-Football (mismo patrón que ya usa la app hoy para scouting externo), no de Google Sheets.
+- El plantel de primera de Independiente sale de API-Football (mismo patrón que ya usa la app hoy para scouting externo). Reserva, inferiores, juveniles y femenino **no** están en la API — los carga a mano la gente del club, no Google Sheets.
 - Se mantiene el login con Google (y Apple) tal cual existe hoy.
+- Alta de usuarios de Independiente: manual (vos/alguien del club los da de alta en `user_profiles`), no auto-registro — ver sección 3.
 
 ## 1. Repos y deploy
 
@@ -47,12 +48,16 @@ Mismo proyecto Supabase Auth → el login con Google/Apple sigue funcionando en 
 
 Se agrega:
 - Tabla `user_profiles (user_id uuid primary key references auth.users, club_id text not null)`.
-- Alta de perfil: trigger `on auth.users insert` o paso explícito post-login la primera vez, según cómo se dé de alta gente de Independiente (a definir con el usuario si van a auto-registrarse o si vos los das de alta a mano — probablemente lo segundo, dado que son pocas personas).
+- Alta de perfil: **manual**, no auto-registro. Vos (o alguien designado del club) insertás la fila en `user_profiles` con el email/`user_id` y `club_id` correspondiente antes de que esa persona pueda entrar. Evita que cualquier cuenta de Gmail entre a ver datos del club con solo loguearse. Login sin perfil → pantalla de "acceso no autorizado, contactar al administrador" en vez de entrar a la app.
 - Cada plataforma, al loguear, filtra/escribe usando el `club_id` del perfil — no hace falta que el usuario elija club a mano.
 
-## 4. Plantel de Independiente vía API-Football
+## 4. Plantel de Independiente: API-Football (primera) + carga manual (el resto)
 
-Se reutiliza el patrón ya existente (`club_team_id` en `agency_players`/scouting, edge functions `sync-player-stats` y `enrich-player`, que ya hablan con API-Football): se busca el `team_id` de Independiente en API-Football (primera y reserva si la API los separa como equipos distintos) y se sincroniza el plantel a `agency_players` con `club_id = 'independiente'`, con el mismo mecanismo de sync periódico que hoy alimenta el scouting.
+Solo la Primera de Independiente existe como equipo en API-Football. Reserva, inferiores (sub-20, sub-17, etc.), juveniles y femenino no están en la API — los va a cargar a mano la gente del club. Esto da dos fuentes conviviendo en la misma tabla:
+
+- **Primera:** se reutiliza el patrón ya existente (`club_team_id`, edge functions `sync-player-stats` y `enrich-player` que ya hablan con API-Football) — se busca el `team_id` de Independiente y se sincroniza el plantel a `agency_players` con `club_id = 'independiente'`, `category = 'primera'`, `source = 'api_football'`, con el mismo mecanismo de sync periódico que hoy alimenta el scouting externo.
+- **Reserva / inferiores / juveniles / femenino:** filas en la misma tabla `agency_players` con `club_id = 'independiente'`, `category = 'reserva' | 'sub-20' | ... | 'femenino'`, `source = 'manual'`. Se agrega una columna `category text` (no existe hoy) y una pantalla simple de carga/edición para que la gente del club dé de alta jugadores a mano (nombre, posición, fecha de nacimiento — los mismos campos que ya administra `agency_players` para Doble G, reutilizando el CRUD/formulario existente en vez de construir uno nuevo).
+- Todas las pantallas que hoy listan/filtran el plantel (ficha de entrenador, plantel futuro, etc.) filtran también por `category` cuando corresponda, para poder ver "solo primera" o "todo el club".
 
 ## 5. Branding
 
@@ -63,13 +68,13 @@ En la carpeta nueva: paleta roja/blanca/negra de Independiente (usando el escudo
 1. Migración SQL: crear `user_profiles` + `current_club_id()`.
 2. Migración SQL: `ALTER TABLE ... ADD COLUMN club_id text NOT NULL DEFAULT 'dobleg'` en cada tabla "por club" listada arriba (no rompe Scout Platform — sigue sin mandar `club_id`).
 3. Migración SQL: reemplazar policies permisivas por las que filtran por `current_club_id()`.
-4. Alta manual de los usuarios de Doble G en `user_profiles` con `club_id = 'dobleg'` (o trigger con default `'dobleg'` para altas nuevas de esa cuenta, a definir).
+4. Alta manual de los usuarios de Doble G en `user_profiles` con `club_id = 'dobleg'`.
 5. Recién ahí clonar la carpeta — para que la copia nazca ya con el modelo multi-club funcionando, en vez de clonar primero y migrar después.
 
 Los pasos 1-3 se aplican una sola vez, sobre el Supabase compartido, y quedan viviendo en `supabase/migrations/` de Scout Platform (este repo) porque son schema del proyecto compartido. La carpeta de Independiente los hereda porque clona el repo en el paso 5.
 
 ## Riesgos abiertos
 
-- **Alta de usuarios de Independiente:** falta definir si se auto-registran (login con Google y quedan pendientes de aprobación) o si vos los das de alta a mano en `user_profiles`. Recomiendo alta manual dado que van a ser pocas cuentas (cuerpo técnico + dirigencia) — más simple y evita que cualquiera con Gmail entre a ver datos del club.
-- **`team_id` de Independiente en API-Football:** hay que confirmarlo (y si primera/reserva son `team_id` distintos o el mismo con filtro de categoría) antes de armar el sync — es el primer paso técnico del lado de Independiente.
+- **`team_id` de Independiente (Primera) en API-Football:** hay que confirmarlo antes de armar el sync — es el primer paso técnico del lado de Independiente. Reserva/inferiores/juveniles/femenino no dependen de esto (carga manual).
+- **Pantalla de carga manual de plantel:** hay que definir permisos (quién del club puede cargar/editar jugadores de cada categoría) — probablemente todos los usuarios con `club_id = 'independiente'` pueden, sin roles más finos por ahora, dado que van a ser pocas cuentas.
 - **Clasificación tabla por tabla:** la lista de la sección 2 es la mejor lectura de las migraciones actuales; antes de escribir las migraciones se hace una pasada final confirmando que ninguna tabla quedó mal clasificada (por ejemplo si alguna tabla "compartida" en realidad guarda algo agency-specific que no se ve por el nombre).
