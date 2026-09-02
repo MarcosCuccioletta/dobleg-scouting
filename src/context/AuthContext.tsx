@@ -1,12 +1,15 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FUNCTIONS_BASE } from '@/lib/apiBase'
+import { getMyClubId } from '@/services/userProfileService'
 import type { User, Session } from '@supabase/supabase-js'
 
 interface AuthState {
   user: User | null
   session: Session | null
   loading: boolean
+  /** undefined = todavía resolviendo tras el login; null = sin fila en user_profiles (sin acceso); string = club_id real. */
+  clubId: string | null | undefined
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>
   signInWithGoogle: () => Promise<{ error: Error | null }>
@@ -23,6 +26,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
+  const [clubId, setClubId] = useState<string | null | undefined>(undefined)
 
   useEffect(() => {
     // Get initial session
@@ -30,6 +34,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(session)
       setUser(session?.user ?? null)
       setLoading(false)
+      if (session?.user) {
+        getMyClubId(session.user.id).then(setClubId)
+      } else {
+        setClubId(undefined)
+      }
     })
 
     // Listen for auth changes
@@ -37,6 +46,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(session)
       setUser(session?.user ?? null)
       setLoading(false)
+      if (session?.user) {
+        getMyClubId(session.user.id).then(setClubId)
+      } else {
+        setClubId(undefined)
+      }
     })
 
     return () => subscription.unsubscribe()
@@ -119,7 +133,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const userDisplayName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || ''
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, signIn, signUp, signInWithGoogle, signInWithApple, signOut, deleteAccount, userDisplayName }}>
+    <AuthContext.Provider value={{ user, session, loading, clubId, signIn, signUp, signInWithGoogle, signInWithApple, signOut, deleteAccount, userDisplayName }}>
       {children}
     </AuthContext.Provider>
   )
