@@ -51,23 +51,48 @@ Se agrega:
 - Alta de perfil: **manual**, no auto-registro. Vos (o alguien designado del club) insertás la fila en `user_profiles` con el email/`user_id` y `club_id` correspondiente antes de que esa persona pueda entrar. Evita que cualquier cuenta de Gmail entre a ver datos del club con solo loguearse. Login sin perfil → pantalla de "acceso no autorizado, contactar al administrador" en vez de entrar a la app.
 - Cada plataforma, al loguear, filtra/escribe usando el `club_id` del perfil — no hace falta que el usuario elija club a mano.
 
-## 4. Plantel de Independiente: API-Football (primera) + carga manual (el resto)
+## 4. Plantel de Independiente: tabla nueva `club_squads` (no reutiliza `agency_players`)
 
-Solo la Primera de Independiente existe como equipo en API-Football. Reserva, inferiores (sub-20, sub-17, etc.), juveniles y femenino no están en la API — los va a cargar a mano la gente del club. Esto da dos fuentes conviviendo en la misma tabla:
+**Corrección importante sobre el modelo de datos:** `agency_players` (+ el array hardcodeado `BASE_AGENCY_PLAYERS` en `src/constants/agencyPlayers.ts`) es la **cartera de jugadores representados por Doble G** — cada uno juega en un club distinto (Prestianni en Benfica, Paradela en Cruz Azul, etc.). Es un concepto de agencia ("nuestros clientes, dispersos en muchos clubes"), no de club. El plantel de Independiente es lo opuesto: todos los jugadores de un mismo club, agrupados por categoría. Mezclar ambos conceptos en la misma tabla sería un error de modelado. Se crea una tabla nueva:
 
-- **Primera:** se reutiliza el patrón ya existente (`club_team_id`, edge functions `sync-player-stats` y `enrich-player` que ya hablan con API-Football) — se busca el `team_id` de Independiente y se sincroniza el plantel a `agency_players` con `club_id = 'independiente'`, `category = 'primera'`, `source = 'api_football'`, con el mismo mecanismo de sync periódico que hoy alimenta el scouting externo.
-- **Reserva / inferiores / juveniles / femenino:** filas en la misma tabla `agency_players` con `club_id = 'independiente'`, `category = 'reserva' | 'sub-20' | ... | 'femenino'`, `source = 'manual'`. Se agrega una columna `category text` (no existe hoy) y una pantalla simple de carga/edición para que la gente del club dé de alta jugadores a mano (nombre, posición, fecha de nacimiento — los mismos campos que ya administra `agency_players` para Doble G, reutilizando el CRUD/formulario existente en vez de construir uno nuevo).
-- Todas las pantallas que hoy listan/filtran el plantel (ficha de entrenador, plantel futuro, etc.) filtran también por `category` cuando corresponda, para poder ver "solo primera" o "todo el club".
+```sql
+CREATE TABLE IF NOT EXISTS public.club_squads (
+  id            BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  club_id       TEXT NOT NULL,
+  category      TEXT NOT NULL,   -- 'primera' | 'reserva' | 'sub-20' | 'sub-17' | 'femenino' | ...
+  source        TEXT NOT NULL CHECK (source IN ('api_football', 'manual')),
+  full_name     TEXT NOT NULL,
+  short_name    TEXT,
+  position      TEXT,            -- valor canónico de POSITION_MAP
+  birth_date    DATE,
+  api_player_id INTEGER,         -- solo para source='api_football'
+  supabase_player_id INTEGER REFERENCES players(id),
+  image         TEXT,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_club_squads_club_category ON public.club_squads(club_id, category);
+```
 
-## 5. Branding
+Solo la Primera de Independiente existe como equipo en API-Football. Reserva, inferiores (sub-20, sub-17, etc.), juveniles y femenino no están en la API — los va a cargar a mano la gente del club:
+
+- **Primera:** se reutiliza el patrón ya existente (edge functions `sync-player-stats` y `enrich-player` que ya hablan con API-Football) — se busca el `team_id` de Independiente y se sincroniza el plantel a `club_squads` con `club_id = 'independiente'`, `category = 'primera'`, `source = 'api_football'`.
+- **Reserva / inferiores / juveniles / femenino:** filas en `club_squads` con `source = 'manual'`, cargadas por una pantalla nueva y simple de alta/edición (nombre, posición, fecha de nacimiento) para la gente del club — es una pantalla CRUD chica, no hay una existente para reutilizar tal cual (el CRUD de `agency_players` está atado al concepto de cartera de representados y no aplica acá).
+- `club_squads` es una tabla nueva, sin datos previos que migrar — no hace falta backfill ni `default`, directamente lleva `club_id` como columna obligatoria desde que se crea.
+
+## 5. Qué vaciar al clonar (privacidad)
+
+`src/constants/agencyPlayers.ts` (`BASE_AGENCY_PLAYERS`) son datos confidenciales de la cartera de Doble G *hardcodeados en el código fuente* — no viven en Supabase, así que el `club_id`/RLS no los protege. Si se clona el repo tal cual, esos datos (nombres, valores de mercado, contratos, fotos de los representados de Doble G) quedan compilados en el bundle JS público de la plataforma de Independiente, visibles para cualquiera que abra las devtools, sin importar los permisos de Supabase. **Al clonar, `BASE_AGENCY_PLAYERS` se vacía a `[]`** en la copia de Independiente (esa plataforma no tiene el concepto de "cartera de representados" — usa `club_squads`), y la pantalla de Seguimiento/Cartera de representados (`ScoutTrackingGGPage` y afines) se oculta del menú en esa copia en vez de quedar mostrando una lista vacía sin sentido.
+
+## 6. Branding
 
 En la carpeta nueva: paleta roja/blanca/negra de Independiente (usando el escudo que mandó el usuario como referencia), y reemplazo de menciones a "Doble G Sports Group" por el naming que corresponda a Independiente donde el texto es específico de agencia (no donde es genérico de la plataforma).
 
-## 6. Orden de migración (Supabase, aplica a ambas apps)
+## 7. Orden de migración (Supabase, aplica a ambas apps)
 
 1. Migración SQL: crear `user_profiles` + `current_club_id()`.
-2. Migración SQL: `ALTER TABLE ... ADD COLUMN club_id text NOT NULL DEFAULT 'dobleg'` en cada tabla "por club" listada arriba (no rompe Scout Platform — sigue sin mandar `club_id`).
-3. Migración SQL: reemplazar policies permisivas por las que filtran por `current_club_id()`.
+2. Migración SQL: `ALTER TABLE ... ADD COLUMN club_id text NOT NULL DEFAULT 'dobleg'` en cada tabla "por club" listada en la sección 2 (no rompe Scout Platform — sigue sin mandar `club_id`); crear `club_squads` (tabla nueva, sin default porque no tiene filas previas).
+3. Migración SQL: reemplazar policies permisivas por las que filtran por `current_club_id()` en las tablas "por club" y en `club_squads`.
 4. Alta manual de los usuarios de Doble G en `user_profiles` con `club_id = 'dobleg'`.
 5. Recién ahí clonar la carpeta — para que la copia nazca ya con el modelo multi-club funcionando, en vez de clonar primero y migrar después.
 
