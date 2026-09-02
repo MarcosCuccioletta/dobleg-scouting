@@ -115,6 +115,8 @@ git commit -m "chore(privacidad): vacia BASE_AGENCY_PLAYERS (cartera de Doble G 
 
 ### Task 3: Ocultar el subsistema "Seguimiento GG" (agency-specific)
 
+> **Nota post-ejecución:** durante la implementación se encontró que el subsistema es más amplio de lo listado abajo — también incluye `/evaluar` (ScoutEvaluationPage, link "Reporte") y `/evaluaciones` (EvaluationsAdminPage, link "Gestionar evaluaciones" en el menú de usuario), ambos parte del mismo pipeline de scouts sobre `scout_players`/`scout_players_status`. Se ocultaron las 4 rutas y sus 4 entradas de navegación (desktop, mobile, menú de usuario y bottom nav), no solo las 3 originalmente listadas.
+
 **Files (dentro de `independiente-platform`):**
 - Modify: `src/App.tsx`
 - Modify: `src/components/layout/Navbar.tsx`
