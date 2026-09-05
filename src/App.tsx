@@ -1,7 +1,8 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import Layout from '@/components/layout/Layout'
 import { PDFBuilderProvider } from '@/context/PDFBuilderContext'
+import { supabase } from '@/lib/supabase'
 
 const PDFBuilderModal = lazy(() => import('@/components/pdf/PDFBuilderModal'))
 const PDFAddedToast = lazy(() => import('@/components/pdf/AddToReportButton').then(m => ({ default: m.PDFAddedToast })))
@@ -33,6 +34,19 @@ const BusquedaPage = lazy(() => import('@/pages/BusquedaPage'))
 const InformesPage = lazy(() => import('@/pages/InformesPage'))
 const ProfilePage = lazy(() => import('@/pages/ProfilePage'))
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'))
+const AdminAccesosPage = lazy(() => import('@/pages/AdminAccesosPage'))
+
+// Sólo super-admins ven /admin/accesos -- cualquier otra cuenta recibe la
+// misma pantalla de "no encontrado" que cualquier ruta inexistente.
+function AdminRoute({ children }: { children: ReactNode }) {
+  const [allowed, setAllowed] = useState<boolean | undefined>(undefined)
+  useEffect(() => {
+    supabase.rpc('is_super_admin').then(({ data }) => setAllowed(!!data))
+  }, [])
+  if (allowed === undefined) return null
+  if (!allowed) return <NotFoundPage />
+  return <>{children}</>
+}
 
 export default function App() {
   return (
@@ -66,6 +80,7 @@ export default function App() {
             <Route path="/analisis-completo" element={<BusquedaPage />} />
             <Route path="/informes" element={<InformesPage />} />
             <Route path="/perfil" element={<ProfilePage />} />
+            <Route path="/admin/accesos" element={<AdminRoute><AdminAccesosPage /></AdminRoute>} />
             <Route path="*" element={<NotFoundPage />} />
           </Route>
         </Routes>
