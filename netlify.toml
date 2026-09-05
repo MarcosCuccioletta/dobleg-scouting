@@ -3,6 +3,14 @@
   publish = "dist"
   functions = "netlify/functions"
 
+[build.environment]
+  # SUPABASE_URL no es un secreto real (es la URL publica del proyecto, la
+  # misma que ya viaja en el bundle del navegador via VITE_SUPABASE_URL) --
+  # el escaneo de secretos de Netlify la marcaba como filtrada porque aparece
+  # mencionada en docs/migraciones viejas del repo. SUPABASE_SERVICE_ROLE_KEY
+  # y FOOTBALL_API_KEY siguen escaneadas normalmente (esas si son secretas).
+  SECRETS_SCAN_OMIT_KEYS = "SUPABASE_URL"
+
 # API redirects
 [[redirects]]
   from = "/api/*"
